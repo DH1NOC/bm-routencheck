@@ -12,11 +12,18 @@ zeitgeschaltet (mit Zeitfenster, Lokalzeit) und Cluster.
 # Installation (einmalig, in der venv)
 pip install -e .
 
-# Nutzung
-bm-rail --from "Koblenz Hbf" --to "Nürnberg Hbf" --corridor 15
+# Am einfachsten: ohne Argumente starten -> interaktiver Assistent,
+# der Start/Ziel/Korridor abfragt und den Bericht im Browser öffnet
+bm-rail
+
+# Oder direkt mit Flags (für Skripte/Wiederholläufe):
+bm-rail --from "Koblenz Hbf" --to "Nürnberg Hbf" --corridor 15 --open
 bm-rail --from Koblenz --via "Frankfurt Hbf" --to Nürnberg
 bm-rail --stations "Koblenz Hbf, Mainz Hbf, Würzburg Hbf" --straight-line
 ```
+
+Im PyCharm-Terminal ist die venv aktiv, dort genügt `bm-rail`; außerhalb:
+`.venv/bin/bm-rail`.
 
 Ausgaben in `out/<start>-<ziel>/`:
 
