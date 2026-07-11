@@ -22,8 +22,14 @@ from .terrain import TerrainModel
 HEATMAP_BUFFER_KM = 30.0   # Overlay-Rand um die Strecke
 HEATMAP_PX_KM = 0.25       # Zielauflösung des Rasters
 HEATMAP_MAX_PX = 1800      # Deckel je Achse
-HEATMAP_COLOR = (0, 114, 178)          # #0072B2, wie Status "Sicht"
-HEATMAP_ALPHA = (0, 70, 110, 150)      # 0 / 1 / 2 / >=3 Relais sichtbar
+# Kräftige Hellblau->Dunkelblau-Rampe (CVD-sicher: eine Farbachse,
+# Helligkeit trägt die Information) für 0 / 1 / 2 / >=3 sichtbare Relais
+HEATMAP_RAMP = np.array([
+    (0, 0, 0, 0),           # keine Abdeckung: transparent
+    (86, 180, 233, 150),    # 1 Relais  — #56B4E9
+    (0, 114, 178, 195),     # 2 Relais  — #0072B2
+    (3, 57, 92, 230),       # >=3 Relais — #03395C
+], dtype=np.uint8)
 
 # Farbenblind-sicher (rechnerisch geprüft: CVD-Delta-E >= 57, Kontrast zur
 # Kartenfläche >= 3:1) und redundant über den Linienstil kodiert — Status
@@ -51,8 +57,8 @@ _LEGEND = f"""
 {_legend_line(*STATUS_STYLE[MARGINAL][:2])} Grenzbereich (gestrichelt)<br>
 {_legend_line(*STATUS_STYLE[SHADOW][:2])} Schatten (gepunktet)<br>
 <span style="display:inline-block;width:30px;height:10px;vertical-align:middle;
-background:linear-gradient(90deg,#0072B246,#0072B296)"></span>
-Relais-Sichtfeld (kräftiger = mehrere Relais)
+background:linear-gradient(90deg,#56B4E9,#0072B2,#03395C)"></span>
+Relais-Sichtfeld (dunkler = mehr Relais)
 </div>
 """
 
@@ -107,12 +113,7 @@ def _coverage_raster(results: list[RepeaterResult], route: Route,
         layer = layer.filter(ImageFilter.MaxFilter(3))
         count = count + np.asarray(layer, dtype=np.uint8)
 
-    rgba = np.zeros((h, w, 4), dtype=np.uint8)
-    rgba[..., 0], rgba[..., 1], rgba[..., 2] = HEATMAP_COLOR
-    rgba[..., 3] = np.select(
-        [count == 0, count == 1, count == 2],
-        [HEATMAP_ALPHA[0], HEATMAP_ALPHA[1], HEATMAP_ALPHA[2]],
-        default=HEATMAP_ALPHA[3])
+    rgba = HEATMAP_RAMP[np.clip(count, 0, len(HEATMAP_RAMP) - 1)]
     # PNG selbst kodieren: branca normalisiert numpy-Arrays kanalweise auf
     # 255 und würde die Farbe verfälschen (Blau -> Cyan)
     buf = io.BytesIO()
@@ -158,7 +159,7 @@ def write_map(results: list[RepeaterResult], route: Route,
     if terrain is not None and results:
         image_uri, bounds = _coverage_raster(results, route, terrain)
         folium.raster_layers.ImageOverlay(
-            image=image_uri, bounds=bounds, opacity=0.55,
+            image=image_uri, bounds=bounds, opacity=0.8,
             name="Relais-Sichtfelder (rechnerisch)",
         ).add_to(m)
         folium.LayerControl().add_to(m)
