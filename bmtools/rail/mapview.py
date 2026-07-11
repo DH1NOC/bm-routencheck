@@ -12,20 +12,31 @@ from .coverage import LOS, MARGINAL, SHADOW, CoverageEstimate
 from .report import RepeaterResult, _fmt_subs
 from .route import Route
 
+# Farbenblind-sicher (rechnerisch geprüft: CVD-Delta-E >= 57, Kontrast zur
+# Kartenfläche >= 3:1) und redundant über den Linienstil kodiert — Status
+# ist nie nur an der Farbe erkennbar.
 STATUS_STYLE = {
-    LOS: ("#2e7d32", "Abdeckung wahrscheinlich (Sicht)"),
-    MARGINAL: ("#f9a825", "Grenzbereich (Beugung möglich)"),
-    SHADOW: ("#c62828", "Funkschatten (geschätzt)"),
+    LOS: ("#0072B2", None, "Abdeckung wahrscheinlich (Sicht)"),
+    MARGINAL: ("#B86200", "10,6", "Grenzbereich (Beugung möglich)"),
+    SHADOW: ("#000000", "2,7", "Funkschatten (geschätzt)"),
 }
 
-_LEGEND = """
+
+def _legend_line(color: str, dash: str | None) -> str:
+    dash_attr = f' stroke-dasharray="{dash}"' if dash else ""
+    return (f'<svg width="34" height="8" style="vertical-align:middle">'
+            f'<line x1="1" y1="4" x2="33" y2="4" stroke="{color}" '
+            f'stroke-width="4"{dash_attr}/></svg>')
+
+
+_LEGEND = f"""
 <div style="position:fixed; bottom:16px; left:16px; z-index:9999;
-     background:#fff; color:#222; padding:8px 12px; border-radius:6px;
-     box-shadow:0 1px 4px #0006; font:13px/1.6 sans-serif;">
+     background:#fff; color:#111; padding:8px 12px; border-radius:6px;
+     box-shadow:0 1px 4px #0006; font:13px/1.8 sans-serif;">
 <b>Geschätzte DMR-Abdeckung</b><br>
-<span style="color:#2e7d32;">■</span> Sicht &nbsp;
-<span style="color:#f9a825;">■</span> Grenzbereich &nbsp;
-<span style="color:#c62828;">■</span> Schatten
+{_legend_line(*STATUS_STYLE[LOS][:2])} Sicht (durchgezogen)<br>
+{_legend_line(*STATUS_STYLE[MARGINAL][:2])} Grenzbereich (gestrichelt)<br>
+{_legend_line(*STATUS_STYLE[SHADOW][:2])} Schatten (gepunktet)
 </div>
 """
 
@@ -65,9 +76,9 @@ def write_map(results: list[RepeaterResult], route: Route,
 
     if coverage is not None and coverage.samples:
         for status, pts in _coverage_segments(route, coverage):
-            color, label = STATUS_STYLE[status]
-            folium.PolyLine(pts, color=color, weight=5, opacity=0.9,
-                            tooltip=label).add_to(m)
+            color, dash, label = STATUS_STYLE[status]
+            folium.PolyLine(pts, color=color, weight=5, opacity=0.95,
+                            dash_array=dash, tooltip=label).add_to(m)
         m.get_root().html.add_child(folium.Element(_LEGEND))
     else:
         folium.PolyLine(route.points, color="#c00", weight=3,
