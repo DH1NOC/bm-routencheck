@@ -43,6 +43,11 @@ class Station:
     name: str
     lat: float
     lon: float
+    region: str = ""  # z. B. "Deutschland, Bayern, Mittelfranken"
+
+    @property
+    def label(self) -> str:
+        return f"{self.name} ({self.region})" if self.region else self.name
 
 
 @dataclass
@@ -108,7 +113,8 @@ class RoutePlanner:
     def __init__(self):
         self._http = httpx.Client(timeout=60, headers={"User-Agent": USER_AGENT})
 
-    def geocode_station(self, query: str) -> Station:
+    def geocode_candidates(self, query: str, limit: int = 6) -> list[Station]:
+        """Bahnhofs-Kandidaten inkl. Region (für Mehrdeutigkeits-Auswahl)."""
         r = self._http.get(
             f"{TRANSITOUS}/geocode",
             params={"text": query, "type": "STOP", "language": "de"},
@@ -117,8 +123,16 @@ class RoutePlanner:
         results = r.json()
         if not results:
             raise NoItineraryError(f"Bahnhof nicht gefunden: {query!r}")
-        best = results[0]
-        return Station(name=best["name"], lat=best["lat"], lon=best["lon"])
+        stations = []
+        for best in results[:limit]:
+            region = ", ".join(
+                a.get("name", "") for a in (best.get("areas") or [])[:3])
+            stations.append(Station(name=best["name"], lat=best["lat"],
+                                    lon=best["lon"], region=region))
+        return stations
+
+    def geocode_station(self, query: str) -> Station:
+        return self.geocode_candidates(query, limit=1)[0]
 
     def segment_options(
         self, frm: Station, to: Station, opts: PlanOptions
@@ -177,11 +191,10 @@ class RoutePlanner:
         return options
 
     def route_via_journey(
-        self, station_names: list[str], opts: PlanOptions,
+        self, stations: list[Station], opts: PlanOptions,
         chooser: Chooser | None = None,
     ) -> Route:
         """Echte Fahrt-Geometrie; bei Zwischenhalten je Abschnitt eine Wahl."""
-        stations = [self.geocode_station(n) for n in station_names]
         points: list[Point] = []
         legs: list[str] = []
         for frm, to in zip(stations, stations[1:]):
@@ -196,24 +209,23 @@ class RoutePlanner:
             raise NoItineraryError("Verbindung lieferte keine brauchbare Geometrie.")
         return Route(points=points, stations=stations, legs=legs)
 
-    def route_interpolated(self, station_names: list[str]) -> Route:
+    def route_interpolated(self, stations: list[Station]) -> Route:
         """Fallback: Luftlinie zwischen den angegebenen Bahnhöfen."""
-        stations = [self.geocode_station(n) for n in station_names]
         if len(stations) < 2:
             raise NoItineraryError("Fallback braucht mindestens zwei Bahnhöfe.")
         points = [(s.lat, s.lon) for s in stations]
         return Route(points=points, stations=stations, is_interpolated=True)
 
     def route(
-        self, station_names: list[str], opts: PlanOptions | None = None,
+        self, stations: list[Station], opts: PlanOptions | None = None,
         chooser: Chooser | None = None,
     ) -> Route:
         opts = opts or PlanOptions()
         try:
-            return self.route_via_journey(station_names, opts, chooser)
+            return self.route_via_journey(stations, opts, chooser)
         except httpx.HTTPError as e:
             # Nur bei API-Ausfall auf Luftlinie ausweichen; "keine Verbindung
             # gefunden" soll der Nutzer sehen und die Filter anpassen.
             print(f"WARNUNG: Verbindungssuche fehlgeschlagen ({e}); "
                   f"nutze Luftlinien-Fallback zwischen den Bahnhöfen.")
-            return self.route_interpolated(station_names)
+            return self.route_interpolated(stations)

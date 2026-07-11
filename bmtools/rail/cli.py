@@ -68,7 +68,36 @@ def _parse_time(raw: str) -> datetime:
         f"(Formate: 'JJJJ-MM-TT HH:MM', 'TT.MM.JJJJ HH:MM' oder 'HH:MM')")
 
 
-def _interactive(console: Console, args: argparse.Namespace) -> list[str]:
+def _norm(s: str) -> str:
+    return re.sub(r"\W+", "", s).lower()
+
+
+def _resolve_stations(planner: RoutePlanner, names: list[str],
+                      console: Console, interactive: bool) -> list[Station]:
+    """Bahnhofsnamen auflösen; bei Mehrdeutigkeit interaktiv nachfragen."""
+    stations: list[Station] = []
+    for name in names:
+        candidates = planner.geocode_candidates(name)
+        if (interactive and len(candidates) > 1
+                and _norm(candidates[0].name) != _norm(name)):
+            console.print(f"  [bold]'{name}' ist mehrdeutig:[/bold]")
+            for i, c in enumerate(candidates, start=1):
+                console.print(f"    [cyan]{i}[/cyan]  {c.label}")
+            idx = IntPrompt.ask(
+                "  [cyan]Welcher Bahnhof?[/cyan]",
+                choices=[str(i) for i in range(1, len(candidates) + 1)],
+                default=1)
+            chosen = candidates[idx - 1]
+        else:
+            chosen = candidates[0]
+        if interactive:
+            console.print(f"  [dim]→ {chosen.label}[/dim]")
+        stations.append(chosen)
+    return stations
+
+
+def _interactive(console: Console, args: argparse.Namespace,
+                 planner: RoutePlanner) -> list[Station]:
     """Fragt Strecke, Verbindungsfilter und Korridor ab."""
     console.print(Panel.fit(
         "[bold]bm-rail[/bold] — findet Brandmeister-DMR-Relais entlang "
@@ -82,6 +111,9 @@ def _interactive(console: Console, args: argparse.Namespace) -> list[str]:
         "  [cyan]Zwischenhalte[/cyan] [dim](optional, Komma-getrennt)[/dim]",
         default="", show_default=False,
     )
+    via = [v.strip() for v in via_raw.split(",") if v.strip()]
+    stations = _resolve_stations(
+        planner, [origin, *via, destination], console, interactive=True)
     args.modes = Prompt.ask(
         "  [cyan]Zuggattung[/cyan] [dim](alle=Fern+Nah)[/dim]",
         choices=["alle", "fern", "nah"], default=args.modes,
@@ -101,8 +133,7 @@ def _interactive(console: Console, args: argparse.Namespace) -> list[str]:
     args.corridor = FloatPrompt.ask(
         "  [cyan]Korridorbreite in km[/cyan]", default=args.corridor)
     args.open = True
-    via = [v.strip() for v in via_raw.split(",") if v.strip()]
-    return [origin, *via, destination]
+    return stations
 
 
 def _make_chooser(console: Console):
@@ -123,18 +154,18 @@ def _make_chooser(console: Console):
     return chooser
 
 
-def _run(names: list[str], args: argparse.Namespace, console: Console,
-         interactive: bool) -> int:
+def _run(stations: list[Station], args: argparse.Namespace, console: Console,
+         planner: RoutePlanner, interactive: bool) -> int:
+    names = [s.name for s in stations]
     out_dir = args.out or Path("out") / f"{_slug(names[0])}-{_slug(names[-1])}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     opts = PlanOptions(modes=args.modes, time=args.time,
                        arrive_by=args.arrive, direct_only=args.direct)
-    planner = RoutePlanner()
-    console.print(f"\n[bold]Route:[/bold] {' → '.join(names)}")
+    console.print(f"\n[bold]Route:[/bold] {' → '.join(s.label for s in stations)}")
     chooser = _make_chooser(console) if interactive else None
-    route = (planner.route_interpolated(names) if args.straight_line
-             else planner.route(names, opts, chooser))
+    route = (planner.route_interpolated(stations) if args.straight_line
+             else planner.route(stations, opts, chooser))
     console.print(f"  Gewählte Verbindung: {', '.join(route.legs) or 'Luftlinie'}")
 
     client = BrandmeisterClient()
@@ -222,19 +253,22 @@ def main() -> int:
 
     console = Console()
     interactive = False
+    planner = RoutePlanner()
     try:
         if args.stations:
             names = [s.strip() for s in args.stations.split(",") if s.strip()]
+            stations = _resolve_stations(planner, names, console, interactive=False)
         elif args.origin and args.destination:
             names = [args.origin, *args.via, args.destination]
+            stations = _resolve_stations(planner, names, console, interactive=False)
         elif sys.stdin.isatty() and not (args.origin or args.destination):
             interactive = True
-            names = _interactive(console, args)
+            stations = _interactive(console, args, planner)
         else:
             ap.error("Entweder --from UND --to angeben, oder --stations, "
                      "oder ohne Argumente interaktiv starten.")
 
-        return _run(names, args, console, interactive)
+        return _run(stations, args, console, planner, interactive)
     except (KeyboardInterrupt, EOFError):
         console.print("\n[dim]Abgebrochen.[/dim]")
         return 130
