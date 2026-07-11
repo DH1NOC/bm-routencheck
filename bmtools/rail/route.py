@@ -141,7 +141,10 @@ class RoutePlanner:
         params: dict = {
             "fromPlace": f"{frm.lat},{frm.lon}",
             "toPlace": f"{to.lat},{to.lon}",
-            "numItineraries": opts.num_itineraries,
+            # Bei Direktfilter mehr Kandidaten holen: gefiltert wird client-
+            # seitig, und die schnellsten N können alle Umsteiger sein
+            "numItineraries": (opts.num_itineraries * 2 if opts.direct_only
+                               else opts.num_itineraries),
             "transitModes": MODE_SETS[opts.modes],
         }
         if opts.time is not None:
@@ -178,15 +181,27 @@ class RoutePlanner:
                 trains=trains, labels=labels, points=points,
             ))
 
+        all_options = options
         if opts.direct_only:
             # maxTransfers=0 liefert bei Transitous fälschlich nichts ->
             # clientseitig filtern (verifiziert 2026-07-11)
             options = [o for o in options if o.transfers == 0]
         if not options:
+            when = ""
+            if opts.time is not None:
+                kind = "Ankunft" if opts.arrive_by else "Abfahrt"
+                when = f", {kind} {opts.time:%d.%m.%Y %H:%M}"
+            detail = "Die Suche lieferte gar keine Verbindung."
+            if all_options:
+                found = ", ".join(
+                    f"{o.start:%H:%M} ({o.transfers}x umsteigen)"
+                    for o in all_options[:5])
+                detail = (f"Gefunden, aber wegen des Direktfilters verworfen: "
+                          f"{found}.")
             raise NoItineraryError(
-                f"Keine passende Verbindung {frm.name} -> {to.name} gefunden "
+                f"Keine passende Verbindung {frm.name} -> {to.name} "
                 f"(Filter: {opts.modes}"
-                f"{', nur direkt' if opts.direct_only else ''})."
+                f"{', nur direkt' if opts.direct_only else ''}{when}). {detail}"
             )
         return options
 
