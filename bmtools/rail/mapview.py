@@ -123,28 +123,51 @@ def _coverage_raster(results: list[RepeaterResult], route: Route,
 
 
 def _coverage_segments(route: Route, coverage: CoverageEstimate):
-    """Streckenpunkte zu Abschnitten gleichen Abdeckungsstatus bündeln."""
+    """Streckenpunkte zu Abschnitten gleichen Abdeckungsstatus bündeln.
+
+    Liefert (status, punkte, start_km, end_km) je Abschnitt.
+    """
     cum = cumulative_km(route.points)
-    sample_kms = [k for k, _ in coverage.samples]
-    statuses = [s for _, s in coverage.samples]
+    sample_kms = [s.km for s in coverage.samples]
 
     def status_at(km: float) -> int:
         idx = bisect_right(sample_kms, km) - 1
-        return statuses[max(idx, 0)]
+        return coverage.samples[max(idx, 0)].status
 
-    segments: list[tuple[int, list]] = []
+    segments: list[tuple[int, list, float, float]] = []
     current = status_at(0.0)
     pts = [route.points[0]]
+    seg_start = 0.0
     for prev_k, p, k in zip(cum, route.points[1:], cum[1:]):
         s = status_at((prev_k + k) / 2)
         if s == current:
             pts.append(p)
         else:
-            segments.append((current, pts))
+            segments.append((current, pts, seg_start, prev_k))
             pts = [pts[-1], p]
+            seg_start = prev_k
             current = s
-    segments.append((current, pts))
+    segments.append((current, pts, seg_start, cum[-1]))
     return segments
+
+
+def _reachable_in_range(coverage: CoverageEstimate, start_km: float,
+                        end_km: float, corridor: set[str],
+                        status: int) -> str:
+    """Erreichbare Relais eines Abschnitts als Tooltip-Zusatz."""
+    names: set[str] = set()
+    extern = 0
+    for s in coverage.samples:
+        if start_km - 0.25 <= s.km <= end_km:
+            pool = s.los if status == LOS else (s.los + s.marginal)
+            names.update(c for c in pool if c in corridor)
+            extern = max(extern, len([c for c in pool if c not in corridor]))
+    if not names and not extern:
+        return ""
+    label = ", ".join(sorted(names)) if names else "nur Relais außerhalb des Korridors"
+    if extern:
+        label += f" (+{extern} außerhalb des Korridors)"
+    return f" — Relais: {label}"
 
 
 def write_map(results: list[RepeaterResult], route: Route,
@@ -165,10 +188,15 @@ def write_map(results: list[RepeaterResult], route: Route,
         folium.LayerControl().add_to(m)
 
     if coverage is not None and coverage.samples:
-        for status, pts in _coverage_segments(route, coverage):
+        corridor = {r.device.callsign for r in results}
+        for status, pts, start_km, end_km in _coverage_segments(route, coverage):
             color, dash, label = STATUS_STYLE[status]
+            tooltip = f"km {start_km:.0f}–{end_km:.0f}: {label}"
+            if status != SHADOW:
+                tooltip += _reachable_in_range(
+                    coverage, start_km, end_km, corridor, status)
             folium.PolyLine(pts, color=color, weight=5, opacity=0.95,
-                            dash_array=dash, tooltip=label).add_to(m)
+                            dash_array=dash, tooltip=tooltip).add_to(m)
         m.get_root().html.add_child(folium.Element(_LEGEND))
     else:
         folium.PolyLine(route.points, color="#c00", weight=3,

@@ -25,9 +25,17 @@ SAMPLE_KM = 0.5           # Abtastschritt entlang der Strecke
 MIN_GAP_KM = 5.0          # kleinere Lücken werden nicht einzeln gelistet
 BBOX_BUFFER_KM = 60.0     # Relais-Vorfilter um die Strecke
 MARGINAL_OBSTRUCTION_M = 30.0  # Hindernis bis hierhin: "Grenzbereich"
-MAX_LOS_CANDIDATES = 4    # nächste Relais, die je Punkt geprüft werden
+MAX_LOS_CANDIDATES = 6    # nächste Relais, die je Punkt geprüft werden
 
 LOS, MARGINAL, SHADOW = 2, 1, 0
+
+
+@dataclass(frozen=True)
+class SamplePoint:
+    km: float
+    status: int
+    los: tuple[str, ...]       # Rufzeichen mit Sichtkontakt
+    marginal: tuple[str, ...]  # Rufzeichen im Grenzbereich
 
 
 def horizon_km(agl_m: float) -> float:
@@ -61,7 +69,7 @@ class CoverageEstimate:
     uncovered_km: float
     gaps: list[Gap]  # Schatten-Lücken >= MIN_GAP_KM, längste zuerst
     terrain_used: bool
-    samples: list[tuple[float, int]]  # (Strecken-km, Status LOS/MARGINAL/SHADOW)
+    samples: list[SamplePoint]
 
     def pct(self, km: float) -> float:
         return 100.0 * km / self.total_km if self.total_km else 0.0
@@ -85,34 +93,37 @@ def estimate_coverage(points: list[Point], repeaters: list[Device],
             next_km = k + SAMPLE_KM
 
     lat_min, lon_min, lat_max, lon_max = bounding_box(points, BBOX_BUFFER_KM)
-    reps: list[tuple[float, float, float, float]] = []  # lat, lng, radius, agl
+    reps: list[tuple[float, float, float, float, str]] = []
     for d in repeaters:
         if d.lat is None or d.lng is None:
             continue
         if not (lat_min <= d.lat <= lat_max and lon_min <= d.lng <= lon_max):
             continue
         agl = d.agl or DEFAULT_AGL_M
-        reps.append((d.lat, d.lng, horizon_km(agl), agl))
+        reps.append((d.lat, d.lng, horizon_km(agl), agl, d.callsign))
 
-    def classify(lat: float, lon: float) -> int:
+    def classify(km: float, lat: float, lon: float) -> SamplePoint:
         candidates = sorted(
-            ((dist, rl, rn, agl) for rl, rn, radius, agl in reps
+            ((dist, rl, rn, agl, cs) for rl, rn, radius, agl, cs in reps
              if (dist := _haversine_km(lat, lon, rl, rn)) <= radius),
             key=lambda c: c[0])
-        if not candidates:
-            return SHADOW
-        if terrain is None:
-            return LOS  # Horizontmodell: Kandidat vorhanden = versorgt
-        best = math.inf
-        for dist, rl, rn, agl in candidates[:MAX_LOS_CANDIDATES]:
+        los: list[str] = []
+        marginal: list[str] = []
+        for dist, rl, rn, agl, cs in candidates[:MAX_LOS_CANDIDATES]:
+            if terrain is None:
+                los.append(cs)  # Horizontmodell: in Reichweite = versorgt
+                continue
             obstruction = terrain.obstruction_m(
                 rl, rn, agl, lat, lon, MOBILE_HEIGHT_M, dist)
             if obstruction <= 0:
-                return LOS
-            best = min(best, obstruction)
-        return MARGINAL if best <= MARGINAL_OBSTRUCTION_M else SHADOW
+                los.append(cs)
+            elif obstruction <= MARGINAL_OBSTRUCTION_M:
+                marginal.append(cs)
+        status = LOS if los else (MARGINAL if marginal else SHADOW)
+        return SamplePoint(km, status, tuple(los), tuple(marginal))
 
-    flags = [classify(lat, lon) for _, lat, lon in samples]
+    sample_points = [classify(k, lat, lon) for k, lat, lon in samples]
+    flags = [s.status for s in sample_points]
 
     covered = marginal = uncovered = 0.0
     gaps: list[Gap] = []
@@ -140,4 +151,4 @@ def estimate_coverage(points: list[Point], repeaters: list[Device],
     return CoverageEstimate(
         total_km=total, covered_km=covered, marginal_km=marginal,
         uncovered_km=uncovered, gaps=gaps, terrain_used=terrain is not None,
-        samples=[(k, f) for (k, _, _), f in zip(samples, flags)])
+        samples=sample_points)

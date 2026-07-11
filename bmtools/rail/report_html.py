@@ -10,9 +10,46 @@ import html
 from datetime import datetime
 from pathlib import Path
 
-from .coverage import CoverageEstimate, MIN_GAP_KM
+from .coverage import LOS, MIN_GAP_KM, CoverageEstimate
 from .report import RepeaterResult
 from .route import Route
+
+MIN_RANGE_KM = 2.0  # kürzere Relais-Abschnitte werden mit dem Vorgänger verschmolzen
+
+
+def _contact_ranges(coverage: CoverageEstimate, corridor: set[str]):
+    """Strecke in Abschnitte gleicher erreichbarer Relais gliedern.
+
+    Liefert (start_km, end_km, los_corridor, marginal_corridor, extern_n).
+    """
+    raw = []
+    for s in coverage.samples:
+        los = tuple(sorted(set(s.los) & corridor))
+        marginal = tuple(sorted(set(s.marginal) & corridor)) if not los else ()
+        extern = len([c for c in s.los if c not in corridor])
+        key = (los, marginal, s.status == LOS and not los and bool(extern))
+        raw.append((s.km, los, marginal, extern, key))
+
+    ranges = []
+    for i, (km, los, marginal, extern, key) in enumerate(raw):
+        end = raw[i + 1][0] if i + 1 < len(raw) else coverage.total_km
+        if ranges and ranges[-1][5] == key:
+            prev = ranges[-1]
+            ranges[-1] = (prev[0], end, prev[2], prev[3],
+                          max(prev[4], extern), key)
+        else:
+            ranges.append((km, end, los, marginal, extern, key))
+
+    # Mikro-Abschnitte in den Vorgänger falten
+    merged = []
+    for r in ranges:
+        if merged and r[1] - r[0] < MIN_RANGE_KM:
+            prev = merged[-1]
+            merged[-1] = (prev[0], r[1], *prev[2:])
+        else:
+            merged.append(r)
+    return [(a, b, los, marginal, extern)
+            for a, b, los, marginal, extern, _ in merged]
 
 _CSS = """
 :root { color-scheme: light dark; }
@@ -125,6 +162,28 @@ def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
                 "aktuell online gemeldeten Repeater der Umgebung, auch außerhalb "
                 "des Suchkorridors.</p>"
             )
+
+    # Erreichbare Relais je Streckenabschnitt
+    if coverage is not None and coverage.samples:
+        corridor = {r.device.callsign for r in results}
+        parts.append("<h2>Erreichbare Relais je Streckenabschnitt</h2>")
+        parts.append("<table><tr><th class='num'>von km</th>"
+                     "<th class='num'>bis km</th><th>Relais (potenziell erreichbar)</th></tr>")
+        for a, b, los, marginal, extern in _contact_ranges(coverage, corridor):
+            if los:
+                cell = ", ".join(e(c) for c in los)
+                if extern:
+                    cell += f" <span class='meta'>(+{extern} außerhalb des Korridors)</span>"
+            elif marginal:
+                cell = ("<i>nur grenzwertig:</i> "
+                        + ", ".join(e(c) for c in marginal))
+            elif extern:
+                cell = f"<i>nur Relais außerhalb des Korridors (+{extern})</i>"
+            else:
+                cell = "<i>— Funkschatten</i>"
+            parts.append(f"<tr><td class='num'>{a:.0f}</td>"
+                         f"<td class='num'>{b:.0f}</td><td>{cell}</td></tr>")
+        parts.append("</table>")
 
     # Detail je Relais: fertige Kanalliste für die CPS-Eingabe
     kind_label = {"static": "statisch", "timed": "zeitgeschaltet",
