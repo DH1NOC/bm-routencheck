@@ -17,9 +17,9 @@ bmtools            # Menü
 bmtools rail       # = bm-rail; Argumente werden durchgereicht
 
 # Am einfachsten: ohne Argumente starten -> interaktiver Assistent.
-# Er fragt Start/Ziel, Zuggattung (fern/nah), Direktverbindung, Abfahrts-
-# oder Ankunftszeit und Korridor ab, zeigt die gefundenen Verbindungen
-# zur Auswahl an und öffnet am Ende Bericht + Karte im Browser.
+# Auswahllisten (Zuggattung, mehrdeutige Bahnhöfe, Verbindungen) werden
+# mit den Pfeiltasten (↑/↓, alternativ j/k) navigiert und mit Enter
+# bestätigt; am Ende öffnen sich Bericht + Karte im Browser.
 bm-rail
 
 # Oder direkt mit Flags (für Skripte/Wiederholläufe):

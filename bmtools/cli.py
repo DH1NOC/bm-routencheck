@@ -12,9 +12,10 @@ from __future__ import annotations
 import sys
 from typing import Callable
 
+import questionary
+from questionary import Choice
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import IntPrompt
 
 
 def _rail_main() -> int:
@@ -59,18 +60,21 @@ def main() -> int:
         return 2
 
     console.print(Panel.fit(
-        "[bold]bmtools[/bold] — Werkzeuge rund um das Brandmeister-Netzwerk",
+        "[bold]bmtools[/bold] — Werkzeuge rund um das Brandmeister-Netzwerk\n"
+        "[dim]Auswahl mit ↑/↓ und Enter.[/dim]",
         border_style="cyan",
     ))
-    names = list(TOOLS)
-    for i, name in enumerate(names, start=1):
-        console.print(f"  [cyan]{i}[/cyan]  [bold]{name}[/bold] — {TOOLS[name][0]}")
-    idx = IntPrompt.ask(
-        "  [cyan]Welches Tool?[/cyan]",
-        choices=[str(i) for i in range(1, len(names) + 1)], default=1)
+    tool = questionary.select(
+        "Welches Tool?",
+        choices=[Choice(f"{name} — {desc}", name)
+                 for name, (desc, _) in TOOLS.items()],
+    ).ask()
+    if tool is None:
+        console.print("[dim]Abgebrochen.[/dim]")
+        return 130
     console.print()
-    sys.argv = [f"bmtools {names[idx - 1]}"]
-    return TOOLS[names[idx - 1]][1]()
+    sys.argv = [f"bmtools {tool}"]
+    return TOOLS[tool][1]()
 
 
 if __name__ == "__main__":

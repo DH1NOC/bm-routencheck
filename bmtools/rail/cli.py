@@ -13,9 +13,10 @@ import webbrowser
 from datetime import datetime
 from pathlib import Path
 
+import questionary
+from questionary import Choice
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Confirm, FloatPrompt, IntPrompt, Prompt
 from rich.progress import track
 
 from bmtools.bm_api import BrandmeisterClient, DeviceProfile, TalkgroupSub
@@ -68,6 +69,32 @@ def _parse_time(raw: str) -> datetime:
         f"(Formate: 'JJJJ-MM-TT HH:MM', 'TT.MM.JJJJ HH:MM' oder 'HH:MM')")
 
 
+def _q(prompt):
+    """questionary-Prompt ausführen; Ctrl-C/ESC bricht sauber ab."""
+    answer = prompt.ask()
+    if answer is None:
+        raise KeyboardInterrupt
+    return answer
+
+
+def _time_valid(raw: str):
+    if not raw.strip():
+        return True
+    try:
+        _parse_time(raw)
+        return True
+    except argparse.ArgumentTypeError:
+        return "Format: 'JJJJ-MM-TT HH:MM', 'TT.MM.JJJJ HH:MM' oder 'HH:MM'"
+
+
+def _float_valid(raw: str):
+    try:
+        float(raw.replace(",", "."))
+        return True
+    except ValueError:
+        return "Bitte eine Zahl eingeben"
+
+
 def _norm(s: str) -> str:
     return re.sub(r"\W+", "", s).lower()
 
@@ -80,14 +107,9 @@ def _resolve_stations(planner: RoutePlanner, names: list[str],
         candidates = planner.geocode_candidates(name)
         if (interactive and len(candidates) > 1
                 and _norm(candidates[0].name) != _norm(name)):
-            console.print(f"  [bold]'{name}' ist mehrdeutig:[/bold]")
-            for i, c in enumerate(candidates, start=1):
-                console.print(f"    [cyan]{i}[/cyan]  {c.label}")
-            idx = IntPrompt.ask(
-                "  [cyan]Welcher Bahnhof?[/cyan]",
-                choices=[str(i) for i in range(1, len(candidates) + 1)],
-                default=1)
-            chosen = candidates[idx - 1]
+            chosen = _q(questionary.select(
+                f"'{name}' ist mehrdeutig — welcher Bahnhof?",
+                choices=[Choice(c.label, value=c) for c in candidates]))
         else:
             chosen = candidates[0]
         if interactive:
@@ -101,37 +123,36 @@ def _interactive(console: Console, args: argparse.Namespace,
     """Fragt Strecke, Verbindungsfilter und Korridor ab."""
     console.print(Panel.fit(
         "[bold]bm-rail[/bold] — findet Brandmeister-DMR-Relais entlang "
-        "einer Bahnstrecke\n[dim]Leere Eingabe übernimmt den Vorschlag in "
-        "Klammern.[/dim]",
+        "einer Bahnstrecke\n[dim]Auswahl mit ↑/↓ und Enter; Texteingaben "
+        "mit Enter bestätigen.[/dim]",
         border_style="cyan",
     ))
-    origin = Prompt.ask("  [cyan]Startbahnhof[/cyan]", default="Koblenz Hbf")
-    destination = Prompt.ask("  [cyan]Zielbahnhof[/cyan]", default="Nürnberg Hbf")
-    via_raw = Prompt.ask(
-        "  [cyan]Zwischenhalte[/cyan] [dim](optional, Komma-getrennt)[/dim]",
-        default="", show_default=False,
-    )
+    origin = _q(questionary.text("Startbahnhof:", default="Nürnberg Hbf")).strip()
+    destination = _q(questionary.text("Zielbahnhof:", default="Berlin Hbf")).strip()
+    via_raw = _q(questionary.text("Zwischenhalte (optional, Komma-getrennt):"))
     via = [v.strip() for v in via_raw.split(",") if v.strip()]
     stations = _resolve_stations(
         planner, [origin, *via, destination], console, interactive=True)
-    args.modes = Prompt.ask(
-        "  [cyan]Zuggattung[/cyan] [dim](alle=Fern+Nah)[/dim]",
-        choices=["alle", "fern", "nah"], default=args.modes,
-    )
-    args.direct = Confirm.ask(
-        "  [cyan]Nur Direktverbindungen?[/cyan]", default=args.direct)
-    time_raw = Prompt.ask(
-        "  [cyan]Abfahrtszeit[/cyan] [dim](z. B. '2026-07-14 08:00' oder "
-        "'08:00'; leer = jetzt)[/dim]",
-        default="", show_default=False,
-    )
+    args.modes = _q(questionary.select(
+        "Zuggattung:",
+        choices=[
+            Choice("alle  — Fern- und Nahverkehr", "alle"),
+            Choice("fern  — ICE/IC/EC und Nachtzüge", "fern"),
+            Choice("nah   — RE/RB/S-Bahn", "nah"),
+        ],
+        default=None))
+    args.direct = _q(questionary.confirm(
+        "Nur Direktverbindungen?", default=args.direct))
+    time_raw = _q(questionary.text(
+        "Abfahrtszeit (z. B. '2026-07-14 08:00' oder '08:00'; leer = jetzt):",
+        validate=_time_valid))
     if time_raw.strip():
         args.time = _parse_time(time_raw)
-        args.arrive = Confirm.ask(
-            "  [cyan]Ist das die Ankunftszeit (statt Abfahrt)?[/cyan]",
-            default=False)
-    args.corridor = FloatPrompt.ask(
-        "  [cyan]Korridorbreite in km[/cyan]", default=args.corridor)
+        args.arrive = _q(questionary.confirm(
+            "Ist das die Ankunftszeit (statt Abfahrt)?", default=False))
+    args.corridor = float(_q(questionary.text(
+        "Korridorbreite in km:", default=f"{args.corridor:g}",
+        validate=_float_valid)).replace(",", "."))
     args.open = True
     return stations
 
@@ -144,13 +165,9 @@ def _make_chooser(console: Console):
             console.print(f"  Verbindung {frm.name} → {to.name}: "
                           f"{options[0].summary}")
             return options[0]
-        console.print(f"\n  [bold]Verbindungen {frm.name} → {to.name}:[/bold]")
-        for i, o in enumerate(options, start=1):
-            console.print(f"    [cyan]{i}[/cyan]  {o.summary}")
-        idx = IntPrompt.ask(
-            "  [cyan]Welche Verbindung?[/cyan]",
-            choices=[str(i) for i in range(1, len(options) + 1)], default=1)
-        return options[idx - 1]
+        return _q(questionary.select(
+            f"Verbindung {frm.name} → {to.name}:",
+            choices=[Choice(o.summary, value=o) for o in options]))
     return chooser
 
 
