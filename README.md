@@ -23,7 +23,7 @@ bmtools rail       # = bm-rail; Argumente werden durchgereicht
 bm-rail
 
 # Oder direkt mit Flags (für Skripte/Wiederholläufe):
-bm-rail --from "Koblenz Hbf" --to "Nürnberg Hbf" --corridor 15 --open
+bm-rail --from "Koblenz Hbf" --to "Nürnberg Hbf" --open
 bm-rail --from Hamburg --to München --modes fern --direct
 bm-rail --from Koblenz --to Nürnberg --time "2026-07-14 08:00"
 bm-rail --from Koblenz --to Nürnberg --time "2026-07-14 17:30" --arrive
@@ -50,6 +50,11 @@ Ausgaben in `out/<start>-<ziel>/`:
 Frequenzangaben in den Ausgaben sind aus Sicht des Funkgeräts
 (RX = Relais-Ausgabe). TG9 „Lokal" wird immer ergänzt, auch wenn die API sie
 nicht listet.
+
+Aufgenommen wird jedes Relais, das von mindestens einem Streckenpunkt aus
+**rechnerisch erreichbar** ist (Sichtlinien-Geländemodell) — egal wie weit es
+von der Trasse entfernt steht. `--corridor KM` begrenzt optional zusätzlich
+den maximalen Streckenabstand.
 
 **Hinweis:** Der AnyTone-Export nutzt derzeit das D878UV-Spaltenlayout als
 Arbeitsannahme; die Anpassung auf das AT-D890UV steht aus (siehe

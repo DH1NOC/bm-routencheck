@@ -22,7 +22,7 @@ from rich.progress import track
 from bmtools.bm_api import BrandmeisterClient, DeviceProfile, TalkgroupSub
 from .codeplug.anytone import write_anytone
 from .corridor import find_in_corridor
-from .coverage import estimate_coverage
+from .coverage import BBOX_BUFFER_KM, estimate_coverage
 from .terrain import TerrainError, TerrainModel
 from .mapview import write_map
 from .report import RepeaterResult, print_table, write_csv
@@ -160,9 +160,6 @@ def _interactive(console: Console, args: argparse.Namespace,
         args.time = _parse_time(time_raw)
         args.arrive = _q(questionary.confirm(
             "Ist das die Ankunftszeit (statt Abfahrt)?", default=False))
-    args.corridor = float(_text_with_default(
-        "Korridorbreite in km:", f"{args.corridor:g}",
-        validate=_float_valid).replace(",", "."))
     args.open = True
     return stations
 
@@ -198,12 +195,30 @@ def _run(stations: list[Station], args: argparse.Namespace, console: Console,
     client = BrandmeisterClient()
     console.print("[bold]Lade Brandmeister-Geräteliste …[/bold]")
     repeaters = client.repeaters()
-    hits = find_in_corridor(repeaters, route.points, args.corridor)
+
+    # Auswahlkriterium ist die rechnerische Erreichbarkeit von der Strecke
+    # (Sichtkontakt zu >=1 Streckenpunkt), nicht ein fester Abstand.
+    terrain = None if args.no_terrain else TerrainModel()
+    with console.status("Erreichbarkeit berechnen (Geländemodell; lädt ggf. "
+                        "Höhenkacheln) …" if terrain else
+                        "Erreichbarkeit berechnen (Horizontmodell) …"):
+        try:
+            coverage = estimate_coverage(route.points, repeaters, terrain)
+        except TerrainError as e:
+            console.print(f"[yellow]Höhendaten nicht verfügbar ({e}) — "
+                          f"Fallback auf Horizontmodell.[/yellow]")
+            terrain = None
+            coverage = estimate_coverage(route.points, repeaters, None)
+
+    reachable = [d for d in repeaters if d.id in coverage.reachable_ids]
+    max_dist = args.corridor if args.corridor else BBOX_BUFFER_KM
+    hits = find_in_corridor(reachable, route.points, max_dist)
+    limit_note = f" (Limit {args.corridor:g} km Streckenabstand)" if args.corridor else ""
     console.print(f"  {len(repeaters)} Repeater im Netz, "
-                  f"[bold]{len(hits)}[/bold] im {args.corridor:g}-km-Korridor")
+                  f"[bold]{len(hits)}[/bold] von der Strecke aus rechnerisch "
+                  f"erreichbar{limit_note}")
     if not hits:
-        console.print("[red]Keine Relais im Korridor gefunden.[/red] "
-                      "Tipp: Korridor vergrößern (--corridor 25).")
+        console.print("[red]Kein Relais von der Strecke aus erreichbar.[/red]")
         return 1
 
     results = [
@@ -215,16 +230,6 @@ def _run(stations: list[Station], args: argparse.Namespace, console: Console,
 
     print_table(results, console)
 
-    terrain = None if args.no_terrain else TerrainModel()
-    with console.status("Abdeckungsschätzung (Geländemodell; lädt ggf. "
-                        "Höhenkacheln) …" if terrain else
-                        "Abdeckungsschätzung (Horizontmodell) …"):
-        try:
-            coverage = estimate_coverage(route.points, repeaters, terrain)
-        except TerrainError as e:
-            console.print(f"[yellow]Höhendaten nicht verfügbar ({e}) — "
-                          f"Fallback auf Horizontmodell.[/yellow]")
-            coverage = estimate_coverage(route.points, repeaters, None)
     if coverage.terrain_used:
         console.print(
             f"  Abdeckung (Geländemodell): freie Sicht "
@@ -245,7 +250,7 @@ def _run(stations: list[Station], args: argparse.Namespace, console: Console,
     write_csv(results, csv_path)
     write_html_report(results, route, html_path, tg_names, coverage)
     with console.status("Karte erzeugen (inkl. Relais-Sichtfelder) …"):
-        write_map(results, route, args.corridor, map_path, coverage,
+        write_map(results, route, max_dist, map_path, coverage,
                   terrain if coverage.terrain_used else None)
     zone = f"{names[0].removesuffix(' Hbf')}-{names[-1].removesuffix(' Hbf')}"
     write_anytone(results, out_dir / "anytone", zone, tg_names)
@@ -292,8 +297,10 @@ def main() -> int:
                     help="--time als Ankunftszeit interpretieren")
     ap.add_argument("--direct", action="store_true",
                     help="Nur Direktverbindungen (ohne Umstieg)")
-    ap.add_argument("--corridor", type=float, default=15.0, metavar="KM",
-                    help="Korridorbreite in km (Default: 15)")
+    ap.add_argument("--corridor", type=float, default=None, metavar="KM",
+                    help="Optionales Limit: maximaler Streckenabstand in km. "
+                         "Ohne Angabe zählt allein die rechnerische "
+                         "Erreichbarkeit des Relais von der Strecke")
     ap.add_argument("--straight-line", action="store_true",
                     help="Keine Verbindungssuche, Luftlinie zwischen Bahnhöfen")
     ap.add_argument("--no-terrain", action="store_true",

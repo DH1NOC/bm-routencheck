@@ -152,22 +152,25 @@ def _coverage_segments(route: Route, coverage: CoverageEstimate):
 
 
 def _reachable_in_range(coverage: CoverageEstimate, start_km: float,
-                        end_km: float, corridor: set[str],
+                        end_km: float, listed: set[str],
                         status: int) -> str:
-    """Erreichbare Relais eines Abschnitts als Tooltip-Zusatz."""
+    """Erreichbare Relais eines Abschnitts als Tooltip-Zusatz.
+
+    * markiert Relais, die nicht in der Ergebnisliste stehen (z. B. wegen
+    --corridor-Limit oder weil sie nur grenzwertig erreichbar sind).
+    """
     names: set[str] = set()
-    extern = 0
+    unlisted: set[str] = set()
     for s in coverage.samples:
         if start_km - 0.25 <= s.km <= end_km:
             pool = s.los if status == LOS else (s.los + s.marginal)
-            names.update(c for c in pool if c in corridor)
-            extern = max(extern, len([c for c in pool if c not in corridor]))
-    if not names and not extern:
+            for c in pool:
+                (names if c in listed else unlisted).add(c)
+    parts = sorted(names) + [f"{c}*" for c in sorted(unlisted)]
+    if not parts:
         return ""
-    label = ", ".join(sorted(names)) if names else "nur Relais außerhalb des Korridors"
-    if extern:
-        label += f" (+{extern} außerhalb des Korridors)"
-    return f" — Relais: {label}"
+    suffix = " (* nicht in der Relais-Liste)" if unlisted else ""
+    return f" — Relais: {', '.join(parts)}{suffix}"
 
 
 def write_map(results: list[RepeaterResult], route: Route,
@@ -188,13 +191,13 @@ def write_map(results: list[RepeaterResult], route: Route,
         folium.LayerControl().add_to(m)
 
     if coverage is not None and coverage.samples:
-        corridor = {r.device.callsign for r in results}
+        listed = {r.device.callsign for r in results}
         for status, pts, start_km, end_km in _coverage_segments(route, coverage):
             color, dash, label = STATUS_STYLE[status]
             tooltip = f"km {start_km:.0f}–{end_km:.0f}: {label}"
             if status != SHADOW:
                 tooltip += _reachable_in_range(
-                    coverage, start_km, end_km, corridor, status)
+                    coverage, start_km, end_km, listed, status)
             folium.PolyLine(pts, color=color, weight=5, opacity=0.95,
                             dash_array=dash, tooltip=tooltip).add_to(m)
         m.get_root().html.add_child(folium.Element(_LEGEND))
