@@ -53,6 +53,7 @@ statisch, zeitgeschaltet und per Cluster.
 | TG9 Lokal | Wird immer als Standard-Eintrag ergänzt (TS2, bei Simplex TS1) — die API listet sie nie, sie ist auf jedem Relais implizit verfügbar (Entscheidung 2026-07-11) |
 | Slot 0 | Simplex-Repeater (RX=TX, z. B. DB0RUF 2 m) melden ihre TGs mit `slot: 0` → Anzeige unter TS1, Codeplug: Slot 1 + DMR MODE 0 (Simplex) |
 | Relais ohne TGs | Bleiben in allen Ausgaben sichtbar (vollständiges Lagebild), mit TG9 als Minimum |
+| Abdeckungsschätzung | Bericht + Konsole weisen den geschätzten Streckenanteil ohne DMR aus (Sichtlinien-Funkhorizont aus Antennenhöhe, ohne Geländemodell → Untergrenze; alle Online-Relais der Umgebung, nicht nur Korridor-Treffer) inkl. Lücken ≥ 5 km |
 | Sprache/Tooling | Python 3.14 (vorhandene venv), `pip` + `pyproject.toml`, ein Repo für alle Tools |
 
 ## 4. Architektur

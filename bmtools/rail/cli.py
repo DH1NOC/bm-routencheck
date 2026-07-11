@@ -22,6 +22,7 @@ from rich.progress import track
 from bmtools.bm_api import BrandmeisterClient, DeviceProfile, TalkgroupSub
 from .codeplug.anytone import write_anytone
 from .corridor import find_in_corridor
+from .coverage import estimate_coverage
 from .mapview import write_map
 from .report import RepeaterResult, print_table, write_csv
 from .report_html import write_html_report
@@ -205,12 +206,18 @@ def _run(stations: list[Station], args: argparse.Namespace, console: Console,
 
     print_table(results, console)
 
+    coverage = estimate_coverage(route.points, repeaters)
+    console.print(
+        f"  Abdeckungsschätzung: ca. [bold]{coverage.uncovered_pct:.0f} %[/bold] "
+        f"der Strecke ohne DMR ({coverage.uncovered_km:.0f} von "
+        f"{coverage.total_km:.0f} km; Sichtlinienmodell, ohne Gelände)")
+
     tg_names = client.talkgroup_names()
     csv_path = out_dir / "relais.csv"
     html_path = out_dir / "bericht.html"
     map_path = out_dir / "karte.html"
     write_csv(results, csv_path)
-    write_html_report(results, route, html_path, tg_names)
+    write_html_report(results, route, html_path, tg_names, coverage)
     write_map(results, route, args.corridor, map_path)
     zone = f"{names[0].removesuffix(' Hbf')}-{names[-1].removesuffix(' Hbf')}"
     write_anytone(results, out_dir / "anytone", zone, tg_names)

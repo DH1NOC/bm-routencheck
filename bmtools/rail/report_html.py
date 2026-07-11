@@ -10,6 +10,7 @@ import html
 from datetime import datetime
 from pathlib import Path
 
+from .coverage import CoverageEstimate, MIN_GAP_KM
 from .report import RepeaterResult
 from .route import Route
 
@@ -37,7 +38,8 @@ def _fmt_mhz(v: float | None) -> str:
 
 
 def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
-                      tg_names: dict[int, str] | None = None) -> None:
+                      tg_names: dict[int, str] | None = None,
+                      coverage: CoverageEstimate | None = None) -> None:
     tg_names = tg_names or {}
     e = html.escape
     stations = " – ".join(e(s.name) for s in route.stations)
@@ -70,6 +72,36 @@ def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
             f"<td class='num'>{d.colorcode or ''}</td></tr>"
         )
     parts.append("</table>")
+
+    # Abdeckungsschätzung
+    if coverage is not None:
+        parts.append("<h2>Abdeckungsschätzung</h2>")
+        parts.append(
+            f"<p>Voraussichtlich <b>ca. {coverage.uncovered_pct:.0f} %</b> der "
+            f"Strecke ohne DMR-Abdeckung "
+            f"({coverage.uncovered_km:.0f} von {coverage.total_km:.0f} km).</p>"
+        )
+        if coverage.gaps:
+            parts.append(f"<p>Größere Lücken (≥ {MIN_GAP_KM:.0f} km):</p>"
+                         "<table><tr><th class='num'>von km</th>"
+                         "<th class='num'>bis km</th>"
+                         "<th class='num'>Länge</th></tr>")
+            for g in coverage.gaps:
+                parts.append(
+                    f"<tr><td class='num'>{g.start_km:.0f}</td>"
+                    f"<td class='num'>{g.end_km:.0f}</td>"
+                    f"<td class='num'>{g.length_km:.0f} km</td></tr>")
+            parts.append("</table>")
+        else:
+            parts.append(f"<p>Keine Lücken ≥ {MIN_GAP_KM:.0f} km.</p>")
+        parts.append(
+            "<p class='meta'>Methodik: Sichtlinien-Funkhorizont je Relais aus "
+            "der Antennenhöhe (d ≈ 4,12·(√h<sub>Antenne</sub> + √2 m) km), "
+            "ohne Geländemodell — in Tälern und Mittelgebirgen optimistisch, "
+            "der Wert ist also eine Untergrenze. Berücksichtigt sind alle "
+            "aktuell online gemeldeten Repeater der Umgebung, auch außerhalb "
+            "des Suchkorridors.</p>"
+        )
 
     # Detail je Relais: fertige Kanalliste für die CPS-Eingabe
     kind_label = {"static": "statisch", "timed": "zeitgeschaltet",
