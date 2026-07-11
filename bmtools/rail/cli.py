@@ -236,7 +236,7 @@ def _run(stations: list[Station], args: argparse.Namespace, console: Console,
     map_path = out_dir / "karte.html"
     write_csv(results, csv_path)
     write_html_report(results, route, html_path, tg_names, coverage)
-    write_map(results, route, args.corridor, map_path)
+    write_map(results, route, args.corridor, map_path, coverage)
     zone = f"{names[0].removesuffix(' Hbf')}-{names[-1].removesuffix(' Hbf')}"
     write_anytone(results, out_dir / "anytone", zone, tg_names)
 

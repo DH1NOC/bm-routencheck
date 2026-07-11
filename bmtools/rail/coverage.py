@@ -61,6 +61,7 @@ class CoverageEstimate:
     uncovered_km: float
     gaps: list[Gap]  # Schatten-Lücken >= MIN_GAP_KM, längste zuerst
     terrain_used: bool
+    samples: list[tuple[float, int]]  # (Strecken-km, Status LOS/MARGINAL/SHADOW)
 
     def pct(self, km: float) -> float:
         return 100.0 * km / self.total_km if self.total_km else 0.0
@@ -138,4 +139,5 @@ def estimate_coverage(points: list[Point], repeaters: list[Device],
     gaps.sort(key=lambda g: -g.length_km)
     return CoverageEstimate(
         total_km=total, covered_km=covered, marginal_km=marginal,
-        uncovered_km=uncovered, gaps=gaps, terrain_used=terrain is not None)
+        uncovered_km=uncovered, gaps=gaps, terrain_used=terrain is not None,
+        samples=[(k, f) for (k, _, _), f in zip(samples, flags)])
