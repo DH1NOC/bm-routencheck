@@ -1,0 +1,7 @@
+.venv/
+.idea/
+__pycache__/
+*.egg-info/
+out/
+.claude/settings.local.json
+.DS_Store
