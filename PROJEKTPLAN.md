@@ -59,8 +59,9 @@ statisch, zeitgeschaltet und per Cluster.
 
 ```
 BrandmeisterTools/
-├── pyproject.toml            # uv-Projekt, CLI-Entrypoints
+├── pyproject.toml            # CLI-Entrypoints: bmtools (Dispatcher), bm-rail
 ├── bmtools/
+│   ├── cli.py                # Dach-Kommando: Menü + Subcommand-Dispatch
 │   ├── bm_api/               # Gemeinsamer BM-Client (alle Tools nutzen ihn)
 │   │   ├── client.py         # HTTP, Retry, Rate-Limit
 │   │   ├── models.py         # Device, Profile, TalkgroupSub (dataclasses)

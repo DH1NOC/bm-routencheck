@@ -216,7 +216,6 @@ def _run(stations: list[Station], args: argparse.Namespace, console: Console,
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        prog="bm-rail",
         description="Findet Brandmeister-DMR-Relais entlang einer Bahnstrecke "
                     "(Rufzeichen, Frequenzen, Talkgroups TS1/TS2 inkl. "
                     "Zeitschaltung und Cluster).",

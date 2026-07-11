@@ -12,6 +12,10 @@ zeitgeschaltet (mit Zeitfenster, Lokalzeit) und Cluster.
 # Installation (einmalig, in der venv)
 pip install -e .
 
+# Gemeinsamer Einstieg für alle Tools (Menü bzw. Subcommands):
+bmtools            # Menü
+bmtools rail       # = bm-rail; Argumente werden durchgereicht
+
 # Am einfachsten: ohne Argumente starten -> interaktiver Assistent.
 # Er fragt Start/Ziel, Zuggattung (fern/nah), Direktverbindung, Abfahrts-
 # oder Ankunftszeit und Korridor ab, zeigt die gefundenen Verbindungen

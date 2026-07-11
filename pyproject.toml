@@ -11,6 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
+bmtools = "bmtools.cli:main"
 bm-rail = "bmtools.rail.cli:main"
 
 [build-system]
