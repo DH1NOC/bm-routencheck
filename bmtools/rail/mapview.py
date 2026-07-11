@@ -1,16 +1,29 @@
 """Interaktive HTML-Karte: Streckenverlauf + Relais-Marker (folium/Leaflet)."""
 from __future__ import annotations
 
+import base64
 import html
+import io
+import math
 from bisect import bisect_right
 from pathlib import Path
 
 import folium
+import numpy as np
+from PIL import Image, ImageDraw, ImageFilter
 
-from .corridor import cumulative_km
-from .coverage import LOS, MARGINAL, SHADOW, CoverageEstimate
+from .corridor import bounding_box, cumulative_km
+from .coverage import (DEFAULT_AGL_M, LOS, MARGINAL, MOBILE_HEIGHT_M, SHADOW,
+                       CoverageEstimate, horizon_km)
 from .report import RepeaterResult, _fmt_subs
 from .route import Route
+from .terrain import TerrainModel
+
+HEATMAP_BUFFER_KM = 30.0   # Overlay-Rand um die Strecke
+HEATMAP_PX_KM = 0.25       # Zielauflösung des Rasters
+HEATMAP_MAX_PX = 1800      # Deckel je Achse
+HEATMAP_COLOR = (0, 114, 178)          # #0072B2, wie Status "Sicht"
+HEATMAP_ALPHA = (0, 70, 110, 150)      # 0 / 1 / 2 / >=3 Relais sichtbar
 
 # Farbenblind-sicher (rechnerisch geprüft: CVD-Delta-E >= 57, Kontrast zur
 # Kartenfläche >= 3:1) und redundant über den Linienstil kodiert — Status
@@ -36,9 +49,76 @@ _LEGEND = f"""
 <b>Geschätzte DMR-Abdeckung</b><br>
 {_legend_line(*STATUS_STYLE[LOS][:2])} Sicht (durchgezogen)<br>
 {_legend_line(*STATUS_STYLE[MARGINAL][:2])} Grenzbereich (gestrichelt)<br>
-{_legend_line(*STATUS_STYLE[SHADOW][:2])} Schatten (gepunktet)
+{_legend_line(*STATUS_STYLE[SHADOW][:2])} Schatten (gepunktet)<br>
+<span style="display:inline-block;width:30px;height:10px;vertical-align:middle;
+background:linear-gradient(90deg,#0072B246,#0072B296)"></span>
+Relais-Sichtfeld (kräftiger = mehrere Relais)
 </div>
 """
+
+
+def _coverage_raster(results: list[RepeaterResult], route: Route,
+                     terrain: TerrainModel):
+    """Viewsheds aller Korridor-Relais in ein RGBA-Raster aggregieren.
+
+    Ein Blauton, Deckkraft nach Zahl der abdeckenden Relais (sequenzielle
+    Ein-Farb-Rampe, farbfehlsichtigkeits-sicher).
+    """
+    lat_min, lon_min, lat_max, lon_max = bounding_box(
+        route.points, HEATMAP_BUFFER_KM)
+    mid_lat = (lat_min + lat_max) / 2
+    width_km = (lon_max - lon_min) * 111.32 * math.cos(math.radians(mid_lat))
+    height_km = (lat_max - lat_min) * 111.32
+    w = min(int(width_km / HEATMAP_PX_KM), HEATMAP_MAX_PX)
+    h = min(int(height_km / HEATMAP_PX_KM), HEATMAP_MAX_PX)
+
+    # Zeilen direkt in Mercator-Y verteilen: Leaflet spannt das Bild linear
+    # in Mercator auf — so bleibt die Geometrie ohne Reprojektion korrekt.
+    def merc_y(lat: float) -> float:
+        return math.log(math.tan(math.radians(45.0 + lat / 2.0)))
+
+    y_min, y_max = merc_y(lat_min), merc_y(lat_max)
+
+    def to_px(lat: float, lon: float) -> tuple[float, float]:
+        x = (lon - lon_min) / (lon_max - lon_min) * (w - 1)
+        y = (y_max - merc_y(lat)) / (y_max - y_min) * (h - 1)
+        return x, y
+
+    count = np.zeros((h, w), dtype=np.uint8)
+    for r in results:
+        d = r.device
+        agl = d.agl or DEFAULT_AGL_M
+        visible, lats, lons = terrain.viewshed(
+            d.lat, d.lng, agl, min(horizon_km(agl), 50.0),
+            mobile_m=MOBILE_HEIGHT_M)
+        layer = Image.new("L", (w, h), 0)
+        draw = ImageDraw.Draw(layer)
+        center = to_px(d.lat, d.lng)
+        for ray in range(visible.shape[0]):
+            vis = visible[ray]
+            # sichtbare Läufe entlang des Strahls als Linien zeichnen
+            idx = np.flatnonzero(np.diff(np.concatenate(
+                ([0], vis.view(np.int8), [0]))))
+            for start, stop in zip(idx[::2], idx[1::2]):
+                p1 = center if start == 0 else to_px(
+                    lats[ray, start], lons[ray, start])
+                p2 = to_px(lats[ray, stop - 1], lons[ray, stop - 1])
+                draw.line([p1, p2], fill=1, width=2)
+        layer = layer.filter(ImageFilter.MaxFilter(3))
+        count = count + np.asarray(layer, dtype=np.uint8)
+
+    rgba = np.zeros((h, w, 4), dtype=np.uint8)
+    rgba[..., 0], rgba[..., 1], rgba[..., 2] = HEATMAP_COLOR
+    rgba[..., 3] = np.select(
+        [count == 0, count == 1, count == 2],
+        [HEATMAP_ALPHA[0], HEATMAP_ALPHA[1], HEATMAP_ALPHA[2]],
+        default=HEATMAP_ALPHA[3])
+    # PNG selbst kodieren: branca normalisiert numpy-Arrays kanalweise auf
+    # 255 und würde die Farbe verfälschen (Blau -> Cyan)
+    buf = io.BytesIO()
+    Image.fromarray(rgba, "RGBA").save(buf, format="PNG")
+    uri = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    return uri, [[lat_min, lon_min], [lat_max, lon_max]]
 
 
 def _coverage_segments(route: Route, coverage: CoverageEstimate):
@@ -68,11 +148,20 @@ def _coverage_segments(route: Route, coverage: CoverageEstimate):
 
 def write_map(results: list[RepeaterResult], route: Route,
               corridor_km: float, path: Path,
-              coverage: CoverageEstimate | None = None) -> None:
+              coverage: CoverageEstimate | None = None,
+              terrain: TerrainModel | None = None) -> None:
     lats = [p[0] for p in route.points]
     lons = [p[1] for p in route.points]
     m = folium.Map()
     m.fit_bounds([(min(lats), min(lons)), (max(lats), max(lons))])
+
+    if terrain is not None and results:
+        image_uri, bounds = _coverage_raster(results, route, terrain)
+        folium.raster_layers.ImageOverlay(
+            image=image_uri, bounds=bounds, opacity=0.55,
+            name="Relais-Sichtfelder (rechnerisch)",
+        ).add_to(m)
+        folium.LayerControl().add_to(m)
 
     if coverage is not None and coverage.samples:
         for status, pts in _coverage_segments(route, coverage):
