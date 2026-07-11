@@ -106,20 +106,19 @@ def _float_valid(raw: str):
         return "Bitte eine Zahl eingeben"
 
 
-def _norm(s: str) -> str:
-    return re.sub(r"\W+", "", s).lower()
-
-
 def _resolve_stations(planner: RoutePlanner, names: list[str],
                       console: Console, interactive: bool) -> list[Station]:
-    """Bahnhofsnamen auflösen; bei Mehrdeutigkeit interaktiv nachfragen."""
+    """Bahnhofsnamen auflösen.
+
+    Interaktiv wird bei mehreren Kandidaten IMMER gefragt (Top-Treffer
+    vorausgewählt): Namensgleichheit ist kein Eindeutigkeitsbeweis —
+    'Koblenz' ist z. B. exakt der Name eines Schweizer Bahnhofs."""
     stations: list[Station] = []
     for name in names:
         candidates = planner.geocode_candidates(name)
-        if (interactive and len(candidates) > 1
-                and _norm(candidates[0].name) != _norm(name)):
+        if interactive and len(candidates) > 1:
             chosen = _q(questionary.select(
-                f"'{name}' ist mehrdeutig — welcher Bahnhof?",
+                f"Bahnhof für '{name}':",
                 choices=[Choice(c.label, value=c) for c in candidates]))
         else:
             chosen = candidates[0]
