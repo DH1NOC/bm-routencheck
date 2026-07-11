@@ -9,6 +9,8 @@ dependencies = [
     "folium>=0.16",
     "platformdirs>=4.0",
     "questionary>=2.0",
+    "numpy>=1.26",
+    "pillow>=10.0",
 ]
 
 [project.scripts]

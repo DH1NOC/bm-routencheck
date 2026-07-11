@@ -23,6 +23,7 @@ from bmtools.bm_api import BrandmeisterClient, DeviceProfile, TalkgroupSub
 from .codeplug.anytone import write_anytone
 from .corridor import find_in_corridor
 from .coverage import estimate_coverage
+from .terrain import TerrainError, TerrainModel
 from .mapview import write_map
 from .report import RepeaterResult, print_table, write_csv
 from .report_html import write_html_report
@@ -206,11 +207,28 @@ def _run(stations: list[Station], args: argparse.Namespace, console: Console,
 
     print_table(results, console)
 
-    coverage = estimate_coverage(route.points, repeaters)
-    console.print(
-        f"  Abdeckungsschätzung: ca. [bold]{coverage.uncovered_pct:.0f} %[/bold] "
-        f"der Strecke ohne DMR ({coverage.uncovered_km:.0f} von "
-        f"{coverage.total_km:.0f} km; Sichtlinienmodell, ohne Gelände)")
+    terrain = None if args.no_terrain else TerrainModel()
+    with console.status("Abdeckungsschätzung (Geländemodell; lädt ggf. "
+                        "Höhenkacheln) …" if terrain else
+                        "Abdeckungsschätzung (Horizontmodell) …"):
+        try:
+            coverage = estimate_coverage(route.points, repeaters, terrain)
+        except TerrainError as e:
+            console.print(f"[yellow]Höhendaten nicht verfügbar ({e}) — "
+                          f"Fallback auf Horizontmodell.[/yellow]")
+            coverage = estimate_coverage(route.points, repeaters, None)
+    if coverage.terrain_used:
+        console.print(
+            f"  Abdeckung (Geländemodell): freie Sicht "
+            f"[bold]{coverage.pct(coverage.covered_km):.0f} %[/bold], "
+            f"Grenzbereich {coverage.pct(coverage.marginal_km):.0f} %, "
+            f"Schatten [bold]{coverage.uncovered_pct:.0f} %[/bold] "
+            f"({coverage.uncovered_km:.0f} von {coverage.total_km:.0f} km)")
+    else:
+        console.print(
+            f"  Abdeckungsschätzung: ca. [bold]{coverage.uncovered_pct:.0f} %[/bold] "
+            f"der Strecke ohne DMR ({coverage.uncovered_km:.0f} von "
+            f"{coverage.total_km:.0f} km; Horizontmodell, ohne Gelände)")
 
     tg_names = client.talkgroup_names()
     csv_path = out_dir / "relais.csv"
@@ -268,6 +286,9 @@ def main() -> int:
                     help="Korridorbreite in km (Default: 15)")
     ap.add_argument("--straight-line", action="store_true",
                     help="Keine Verbindungssuche, Luftlinie zwischen Bahnhöfen")
+    ap.add_argument("--no-terrain", action="store_true",
+                    help="Abdeckungsschätzung ohne Geländemodell "
+                         "(kein Höhenkachel-Download)")
     ap.add_argument("--open", action="store_true",
                     help="Bericht und Karte danach im Browser öffnen")
     ap.add_argument("--out", type=Path, default=None, metavar="DIR",

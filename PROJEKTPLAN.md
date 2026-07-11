@@ -53,7 +53,7 @@ statisch, zeitgeschaltet und per Cluster.
 | TG9 Lokal | Wird immer als Standard-Eintrag ergänzt (TS2, bei Simplex TS1) — die API listet sie nie, sie ist auf jedem Relais implizit verfügbar (Entscheidung 2026-07-11) |
 | Slot 0 | Simplex-Repeater (RX=TX, z. B. DB0RUF 2 m) melden ihre TGs mit `slot: 0` → Anzeige unter TS1, Codeplug: Slot 1 + DMR MODE 0 (Simplex) |
 | Relais ohne TGs | Bleiben in allen Ausgaben sichtbar (vollständiges Lagebild), mit TG9 als Minimum |
-| Abdeckungsschätzung | Bericht + Konsole weisen den geschätzten Streckenanteil ohne DMR aus (Sichtlinien-Funkhorizont aus Antennenhöhe, ohne Geländemodell → Untergrenze; alle Online-Relais der Umgebung, nicht nur Korridor-Treffer) inkl. Lücken ≥ 5 km |
+| Abdeckungsschätzung | Standard: **Geländemodell** — Sichtlinienprüfung gegen SRTM-Höhendaten (Terrarium-Kacheln, AWS Open Data, Zoom 11 ≈ 50 m Raster, Disk-Cache) mit 4/3-Erdradius, dreistufig Sicht/Grenzbereich(≤30 m Hindernis)/Schatten, inkl. Schatten-Lücken ≥ 5 km. `--no-terrain` = Horizontmodell-Fallback (auch bei Downloadfehler). Alle Online-Relais der Umgebung, nicht nur Korridor-Treffer. Validiert: Mittelrheintal 63 % Schatten, Flachland Nürnberg–Berlin 25 % (inkl. realer Tunnelstrecken) |
 | Sprache/Tooling | Python 3.14 (vorhandene venv), `pip` + `pyproject.toml`, ein Repo für alle Tools |
 
 ## 4. Architektur
@@ -104,6 +104,7 @@ hält das Tool schlank.
 | M3 | TG-Anreicherung + Tabelle/CSV | ✅ inkl. Zeitschaltung („Fr 18:00–19:30", je Wochentag ein API-Datensatz, wird gebündelt) und Cluster-Auflösung |
 | M4 | HTML-Karte + HTML-Bericht | ✅ karte.html (folium) + bericht.html mit fertigen Kanaltabellen und TG-Namen |
 | M5 | Codeplug-Export AnyTone | ⚠️ implementiert im **D878UV-Format (Arbeitsannahme)**; wird angepasst, sobald Beispiel-Export aus der D890UV-CPS vorliegt. Importtest steht aus. |
+| M6 | Abdeckungsschätzung mit Geländemodell | ✅ SRTM-Sichtlinienmodell, Abnahme: Mittelrheintal als Schatten erkannt (63 %), Flachlandwerte stabil |
 
 Reihenfolge strikt sequenziell; jedes M endet mit einem konkreten Testlauf, kein Try&Error.
 

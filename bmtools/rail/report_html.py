@@ -76,13 +76,25 @@ def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
     # Abdeckungsschätzung
     if coverage is not None:
         parts.append("<h2>Abdeckungsschätzung</h2>")
-        parts.append(
-            f"<p>Voraussichtlich <b>ca. {coverage.uncovered_pct:.0f} %</b> der "
-            f"Strecke ohne DMR-Abdeckung "
-            f"({coverage.uncovered_km:.0f} von {coverage.total_km:.0f} km).</p>"
-        )
+        if coverage.terrain_used:
+            parts.append(
+                f"<p>Voraussichtlich <b>ca. {coverage.uncovered_pct:.0f} %</b> "
+                f"der Strecke ohne DMR-Abdeckung (Funkschatten; "
+                f"{coverage.uncovered_km:.0f} von {coverage.total_km:.0f} km). "
+                f"Dazu {coverage.pct(coverage.marginal_km):.0f} % "
+                f"({coverage.marginal_km:.0f} km) im Grenzbereich, wo Empfang "
+                f"durch Beugung möglich ist. Freie Sicht zu einem Relais: "
+                f"{coverage.pct(coverage.covered_km):.0f} %.</p>"
+            )
+        else:
+            parts.append(
+                f"<p>Voraussichtlich <b>ca. {coverage.uncovered_pct:.0f} %</b> der "
+                f"Strecke ohne DMR-Abdeckung "
+                f"({coverage.uncovered_km:.0f} von {coverage.total_km:.0f} km).</p>"
+            )
         if coverage.gaps:
-            parts.append(f"<p>Größere Lücken (≥ {MIN_GAP_KM:.0f} km):</p>"
+            label = "Funkschatten-Abschnitte" if coverage.terrain_used else "Lücken"
+            parts.append(f"<p>Größere {label} (≥ {MIN_GAP_KM:.0f} km):</p>"
                          "<table><tr><th class='num'>von km</th>"
                          "<th class='num'>bis km</th>"
                          "<th class='num'>Länge</th></tr>")
@@ -94,14 +106,25 @@ def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
             parts.append("</table>")
         else:
             parts.append(f"<p>Keine Lücken ≥ {MIN_GAP_KM:.0f} km.</p>")
-        parts.append(
-            "<p class='meta'>Methodik: Sichtlinien-Funkhorizont je Relais aus "
-            "der Antennenhöhe (d ≈ 4,12·(√h<sub>Antenne</sub> + √2 m) km), "
-            "ohne Geländemodell — in Tälern und Mittelgebirgen optimistisch, "
-            "der Wert ist also eine Untergrenze. Berücksichtigt sind alle "
-            "aktuell online gemeldeten Repeater der Umgebung, auch außerhalb "
-            "des Suchkorridors.</p>"
-        )
+        if coverage.terrain_used:
+            parts.append(
+                "<p class='meta'>Methodik: Sichtlinienprüfung gegen ein "
+                "digitales Höhenmodell (SRTM-basiert, ~50 m Raster) mit "
+                "4/3-Erdradius; Mobilantenne 2 m. „Grenzbereich“ = Hindernis "
+                "bis 30 m über der Sichtlinie (Beugungsempfang plausibel). "
+                "Vegetation/Bebauung und Sendeleistung sind nicht modelliert. "
+                "Berücksichtigt sind alle aktuell online gemeldeten Repeater "
+                "der Umgebung, auch außerhalb des Suchkorridors.</p>"
+            )
+        else:
+            parts.append(
+                "<p class='meta'>Methodik: Sichtlinien-Funkhorizont je Relais aus "
+                "der Antennenhöhe (d ≈ 4,12·(√h<sub>Antenne</sub> + √2 m) km), "
+                "ohne Geländemodell — in Tälern und Mittelgebirgen optimistisch, "
+                "der Wert ist also eine Untergrenze. Berücksichtigt sind alle "
+                "aktuell online gemeldeten Repeater der Umgebung, auch außerhalb "
+                "des Suchkorridors.</p>"
+            )
 
     # Detail je Relais: fertige Kanalliste für die CPS-Eingabe
     kind_label = {"static": "statisch", "timed": "zeitgeschaltet",
