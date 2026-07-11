@@ -12,15 +12,24 @@ zeitgeschaltet (mit Zeitfenster, Lokalzeit) und Cluster.
 # Installation (einmalig, in der venv)
 pip install -e .
 
-# Am einfachsten: ohne Argumente starten -> interaktiver Assistent,
-# der Start/Ziel/Korridor abfragt und den Bericht im Browser öffnet
+# Am einfachsten: ohne Argumente starten -> interaktiver Assistent.
+# Er fragt Start/Ziel, Zuggattung (fern/nah), Direktverbindung, Abfahrts-
+# oder Ankunftszeit und Korridor ab, zeigt die gefundenen Verbindungen
+# zur Auswahl an und öffnet am Ende Bericht + Karte im Browser.
 bm-rail
 
 # Oder direkt mit Flags (für Skripte/Wiederholläufe):
 bm-rail --from "Koblenz Hbf" --to "Nürnberg Hbf" --corridor 15 --open
-bm-rail --from Koblenz --via "Frankfurt Hbf" --to Nürnberg
+bm-rail --from Hamburg --to München --modes fern --direct
+bm-rail --from Koblenz --to Nürnberg --time "2026-07-14 08:00"
+bm-rail --from Koblenz --to Nürnberg --time "2026-07-14 17:30" --arrive
 bm-rail --stations "Koblenz Hbf, Mainz Hbf, Würzburg Hbf" --straight-line
 ```
+
+Die Zuggattung beeinflusst die Route real: Hamburg–München fährt der
+Fernverkehr z. B. via Berlin–Erfurt oder via Würzburg, der Nahverkehr eine
+ganz andere Kette — entsprechend ändern sich die gefundenen Relais.
+Im nicht-interaktiven Modus wird die erste passende Verbindung genommen.
 
 Im PyCharm-Terminal ist die venv aktiv, dort genügt `bm-rail`; außerhalb:
 `.venv/bin/bm-rail`.

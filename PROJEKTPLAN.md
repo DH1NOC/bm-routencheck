@@ -46,6 +46,7 @@ statisch, zeitgeschaltet und per Cluster.
 |---|---|
 | Interface | Python-CLI, z. B. `bm-rail --from Koblenz --to Nürnberg --corridor 15` |
 | Routenquelle | Verbindungsabfrage via Transitous/MOTIS (echte Fahrt-Polyline); Fallback: manuelle Bahnhofsliste (`--stations`/`--straight-line`) |
+| Verbindungsfilter | Zuggattung (`--modes alle/fern/nah` → MOTIS transitModes), Abfahrts-/Ankunftszeit (`--time`/`--arrive`), nur direkt (`--direct`, clientseitig gefiltert: `maxTransfers=0` liefert bei Transitous fälschlich leer, verifiziert 2026-07-11). Interaktiv: Auswahl unter bis zu 5 Verbindungen je Abschnitt. API-Zeiten sind UTC → Anzeige in Systemzeitzone |
 | Korridor | Fester Radius um die Streckengeometrie, konfigurierbar, Default 15 km |
 | Output | Konsolentabelle + CSV, HTML-Karte (folium/Leaflet), HTML-Bericht, Codeplug-Export |
 | Codeplug | AnyTone CPS-CSV (AT-D890UV); Motorola: manuelle Eingabe anhand HTML-Bericht (s. Einschränkung 4) |
