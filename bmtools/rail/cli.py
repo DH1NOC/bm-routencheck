@@ -79,6 +79,15 @@ def _q(prompt):
     return answer
 
 
+def _text_with_default(message: str, default: str, validate=None) -> str:
+    """Texteingabe mit leerem Feld statt Vorbefüllung: Der Default steht
+    als Hinweis daneben und gilt bei leerer Eingabe — nichts wegzulöschen."""
+    wrapped = (lambda v: True if not v.strip() else validate(v)) if validate else None
+    answer = _q(questionary.text(
+        message, instruction=f"(Enter = {default})", validate=wrapped)).strip()
+    return answer or default
+
+
 def _time_valid(raw: str):
     if not raw.strip():
         return True
@@ -129,8 +138,8 @@ def _interactive(console: Console, args: argparse.Namespace,
         "mit Enter bestätigen.[/dim]",
         border_style="cyan",
     ))
-    origin = _q(questionary.text("Startbahnhof:", default="Nürnberg Hbf")).strip()
-    destination = _q(questionary.text("Zielbahnhof:", default="Berlin Hbf")).strip()
+    origin = _text_with_default("Startbahnhof:", "Nürnberg Hbf")
+    destination = _text_with_default("Zielbahnhof:", "Berlin Hbf")
     via_raw = _q(questionary.text("Zwischenhalte (optional, Komma-getrennt):"))
     via = [v.strip() for v in via_raw.split(",") if v.strip()]
     stations = _resolve_stations(
@@ -152,9 +161,9 @@ def _interactive(console: Console, args: argparse.Namespace,
         args.time = _parse_time(time_raw)
         args.arrive = _q(questionary.confirm(
             "Ist das die Ankunftszeit (statt Abfahrt)?", default=False))
-    args.corridor = float(_q(questionary.text(
-        "Korridorbreite in km:", default=f"{args.corridor:g}",
-        validate=_float_valid)).replace(",", "."))
+    args.corridor = float(_text_with_default(
+        "Korridorbreite in km:", f"{args.corridor:g}",
+        validate=_float_valid).replace(",", "."))
     args.open = True
     return stations
 
