@@ -18,8 +18,8 @@ from . import viewshed_raster
 from .corridor import bounding_box, cumulative_km
 from .coverage import (DEFAULT_AGL_M, LOS, MARGINAL, SHADOW,
                        CoverageEstimate, horizon_km)
+from .model import Route
 from .report import RepeaterResult, _fmt_subs
-from .route import Route
 from .terrain import TerrainModel
 
 HEATMAP_PX_KM = 0.25       # Zielauflösung des Rasters
@@ -192,7 +192,9 @@ def _reachable_in_range(coverage: CoverageEstimate, start_km: float,
 def write_map(results: list[RepeaterResult], route: Route,
               corridor_km: float, path: Path,
               coverage: CoverageEstimate | None = None,
-              terrain: TerrainModel | None = None) -> None:
+              terrain: TerrainModel | None = None,
+              route_label: str = "Strecke",
+              waypoint_icon: str = "flag") -> None:
     lats = [p[0] for p in route.points]
     lons = [p[1] for p in route.points]
     m = folium.Map()
@@ -219,11 +221,11 @@ def write_map(results: list[RepeaterResult], route: Route,
         m.get_root().html.add_child(folium.Element(_LEGEND))
     else:
         folium.PolyLine(route.points, color="#c00", weight=3,
-                        tooltip="Bahnstrecke").add_to(m)
+                        tooltip=route_label).add_to(m)
     for s in route.stations:
         folium.Marker(
             (s.lat, s.lon), tooltip=s.name,
-            icon=folium.Icon(color="red", icon="train", prefix="fa"),
+            icon=folium.Icon(color="red", icon=waypoint_icon, prefix="fa"),
         ).add_to(m)
 
     e = html.escape

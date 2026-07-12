@@ -6,11 +6,13 @@ Interpolation zwischen den Bahnhöfen.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable
 
 import httpx
+
+from bmtools.routelib.model import Point, Route, Station, decode_polyline
 
 TRANSITOUS = "https://api.transitous.org/api/v1"
 USER_AGENT = "bmtools/0.1 (Amateurfunk-Tool; Kontakt: cnohl@gmx.de)"
@@ -21,9 +23,6 @@ MODE_SETS = {
     "fern": "HIGHSPEED_RAIL,LONG_DISTANCE,NIGHT_RAIL",
     "nah": "REGIONAL_RAIL,SUBURBAN",
 }
-
-Point = tuple[float, float]  # (lat, lon)
-
 
 class NoItineraryError(RuntimeError):
     """Verbindungssuche lieferte kein (passendes) Ergebnis."""
@@ -36,18 +35,6 @@ class PlanOptions:
     arrive_by: bool = False          # time = Ankunft statt Abfahrt
     direct_only: bool = False        # nur Verbindungen ohne Umstieg
     num_itineraries: int = 5
-
-
-@dataclass
-class Station:
-    name: str
-    lat: float
-    lon: float
-    region: str = ""  # z. B. "Deutschland, Bayern, Mittelfranken"
-
-    @property
-    def label(self) -> str:
-        return f"{self.name} ({self.region})" if self.region else self.name
 
 
 @dataclass
@@ -68,40 +55,8 @@ class ItineraryOption:
                 f"{' + '.join(self.trains) or '?'}")
 
 
-@dataclass
-class Route:
-    points: list[Point]
-    stations: list[Station]
-    legs: list[str] = field(default_factory=list)
-    is_interpolated: bool = False
-
-
 # Wählt aus mehreren gefundenen Verbindungen eine aus (interaktiv o. ä.)
 Chooser = Callable[[list[ItineraryOption], Station, Station], ItineraryOption]
-
-
-def decode_polyline(encoded: str, precision: int = 7) -> list[Point]:
-    """Google-Encoded-Polyline dekodieren (MOTIS nutzt Präzision 7)."""
-    factor = 10 ** precision
-    points: list[Point] = []
-    index = lat = lon = 0
-    while index < len(encoded):
-        for is_lon in (False, True):
-            shift = result = 0
-            while True:
-                b = ord(encoded[index]) - 63
-                index += 1
-                result |= (b & 0x1F) << shift
-                shift += 5
-                if b < 0x20:
-                    break
-            delta = ~(result >> 1) if result & 1 else result >> 1
-            if is_lon:
-                lon += delta
-            else:
-                lat += delta
-        points.append((lat / factor, lon / factor))
-    return points
 
 
 def _local(iso: str) -> datetime:

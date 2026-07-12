@@ -20,13 +20,13 @@ from rich.panel import Panel
 from rich.progress import track
 
 from bmtools.bm_api import BrandmeisterClient, DeviceProfile, TalkgroupSub
-from .codeplug.anytone import write_anytone
-from .corridor import find_in_corridor
-from .coverage import BBOX_BUFFER_KM, estimate_coverage
-from .terrain import TerrainError, TerrainModel
-from .mapview import write_map
-from .report import RepeaterResult, print_table, write_csv
-from .report_html import write_html_report
+from bmtools.routelib.codeplug.anytone import write_anytone
+from bmtools.routelib.corridor import find_in_corridor
+from bmtools.routelib.coverage import BBOX_BUFFER_KM, estimate_coverage
+from bmtools.routelib.terrain import TerrainError, TerrainModel
+from bmtools.routelib.mapview import write_map
+from bmtools.routelib.report import RepeaterResult, print_table, write_csv
+from bmtools.routelib.report_html import write_html_report
 from .route import (ItineraryOption, NoItineraryError, PlanOptions,
                     RoutePlanner, Station)
 
@@ -251,7 +251,8 @@ def _run(stations: list[Station], args: argparse.Namespace, console: Console,
     write_html_report(results, route, html_path, tg_names, coverage)
     with console.status("Karte erzeugen (inkl. Relais-Sichtfelder) …"):
         write_map(results, route, max_dist, map_path, coverage,
-                  terrain if coverage.terrain_used else None)
+                  terrain if coverage.terrain_used else None,
+                  route_label="Bahnstrecke", waypoint_icon="train")
     zone = f"{names[0].removesuffix(' Hbf')}-{names[-1].removesuffix(' Hbf')}"
     write_anytone(results, out_dir / "anytone", zone, tg_names)
 

@@ -11,8 +11,8 @@ from datetime import datetime
 from pathlib import Path
 
 from .coverage import MIN_GAP_KM, CoverageEstimate
+from .model import Route
 from .report import RepeaterResult
-from .route import Route
 
 MIN_RANGE_KM = 2.0  # kürzere Relais-Abschnitte werden mit dem Vorgänger verschmolzen
 
