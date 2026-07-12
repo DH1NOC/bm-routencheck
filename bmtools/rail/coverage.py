@@ -25,7 +25,6 @@ SAMPLE_KM = 0.5           # Abtastschritt entlang der Strecke
 MIN_GAP_KM = 5.0          # kleinere Lücken werden nicht einzeln gelistet
 BBOX_BUFFER_KM = 60.0     # Relais-Vorfilter um die Strecke
 MARGINAL_OBSTRUCTION_M = 30.0  # Hindernis bis hierhin: "Grenzbereich"
-MAX_LOS_CANDIDATES = 6    # nächste Relais, die je Punkt geprüft werden
 
 LOS, MARGINAL, SHADOW = 2, 1, 0
 
@@ -113,7 +112,10 @@ def estimate_coverage(points: list[Point], repeaters: list[Device],
             key=lambda c: c[0])
         los: list[str] = []
         marginal: list[str] = []
-        for dist, rl, rn, agl, cs, did in candidates[:MAX_LOS_CANDIDATES]:
+        # Alle Relais in Horizont-Reichweite prüfen — eine Kappung auf die
+        # nächsten N führte zu Widersprüchen mit der Viewshed-Heatmap
+        # (fernes Relais mit Sicht, nahe Relais alle verschattet)
+        for dist, rl, rn, agl, cs, did in candidates:
             if terrain is None:
                 los.append(cs)  # Horizontmodell: in Reichweite = versorgt
                 reachable_ids.add(did)

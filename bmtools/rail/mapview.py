@@ -19,7 +19,6 @@ from .report import RepeaterResult, _fmt_subs
 from .route import Route
 from .terrain import TerrainModel
 
-HEATMAP_BUFFER_KM = 30.0   # Overlay-Rand um die Strecke
 HEATMAP_PX_KM = 0.25       # Zielauflösung des Rasters
 HEATMAP_MAX_PX = 1800      # Deckel je Achse
 # Kräftige Hellblau->Dunkelblau-Rampe (CVD-sicher: eine Farbachse,
@@ -70,8 +69,19 @@ def _coverage_raster(results: list[RepeaterResult], route: Route,
     Ein Blauton, Deckkraft nach Zahl der abdeckenden Relais (sequenzielle
     Ein-Farb-Rampe, farbfehlsichtigkeits-sicher).
     """
-    lat_min, lon_min, lat_max, lon_max = bounding_box(
-        route.points, HEATMAP_BUFFER_KM)
+    # Raster-Ausdehnung: Strecke plus jedes Relais samt seiner vollen
+    # Sichtweite — sonst werden Viewsheds am Rasterrand abgeschnitten
+    # (weit abseits stehende Relais sogar komplett).
+    lat_min, lon_min, lat_max, lon_max = bounding_box(route.points, 2.0)
+    for r in results:
+        d = r.device
+        radius = horizon_km(d.agl or DEFAULT_AGL_M)
+        dlat = radius / 111.32
+        dlon = radius / (111.32 * math.cos(math.radians(d.lat)))
+        lat_min = min(lat_min, d.lat - dlat)
+        lat_max = max(lat_max, d.lat + dlat)
+        lon_min = min(lon_min, d.lng - dlon)
+        lon_max = max(lon_max, d.lng + dlon)
     mid_lat = (lat_min + lat_max) / 2
     width_km = (lon_max - lon_min) * 111.32 * math.cos(math.radians(mid_lat))
     height_km = (lat_max - lat_min) * 111.32
@@ -94,9 +104,10 @@ def _coverage_raster(results: list[RepeaterResult], route: Route,
     for r in results:
         d = r.device
         agl = d.agl or DEFAULT_AGL_M
+        # Volle Horizont-Reichweite rechnen — dieselbe Grenze wie in der
+        # Streckenklassifikation, sonst widersprechen sich Linie und Heatmap
         visible, lats, lons = terrain.viewshed(
-            d.lat, d.lng, agl, min(horizon_km(agl), 50.0),
-            mobile_m=MOBILE_HEIGHT_M)
+            d.lat, d.lng, agl, horizon_km(agl), mobile_m=MOBILE_HEIGHT_M)
         layer = Image.new("L", (w, h), 0)
         draw = ImageDraw.Draw(layer)
         center = to_px(d.lat, d.lng)
