@@ -13,8 +13,8 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 from .corridor import bounding_box, cumulative_km
-from .coverage import (DEFAULT_AGL_M, LOS, MARGINAL, MOBILE_HEIGHT_M, SHADOW,
-                       CoverageEstimate, horizon_km)
+from .coverage import (DEFAULT_AGL_M, LOS, MARGINAL, MARGINAL_OBSTRUCTION_M,
+                       MOBILE_HEIGHT_M, SHADOW, CoverageEstimate, horizon_km)
 from .report import RepeaterResult, _fmt_subs
 from .route import Route
 from .terrain import TerrainModel
@@ -22,9 +22,11 @@ from .terrain import TerrainModel
 HEATMAP_PX_KM = 0.25       # Zielauflösung des Rasters
 HEATMAP_MAX_PX = 1800      # Deckel je Achse
 # Kräftige Hellblau->Dunkelblau-Rampe (CVD-sicher: eine Farbachse,
-# Helligkeit trägt die Information) für 0 / 1 / 2 / >=3 sichtbare Relais
+# Helligkeit trägt die Information): hellste Stufe = nur Grenzbereich
+# (Beugung), darüber 1 / 2 / >=3 Relais mit freier Sicht
 HEATMAP_RAMP = np.array([
     (0, 0, 0, 0),           # keine Abdeckung: transparent
+    (166, 214, 235, 110),   # nur Grenzbereich — #A6D6EB
     (86, 180, 233, 150),    # 1 Relais  — #56B4E9
     (0, 114, 178, 195),     # 2 Relais  — #0072B2
     (3, 57, 92, 230),       # >=3 Relais — #03395C
@@ -56,8 +58,8 @@ _LEGEND = f"""
 {_legend_line(*STATUS_STYLE[MARGINAL][:2])} Grenzbereich (gestrichelt)<br>
 {_legend_line(*STATUS_STYLE[SHADOW][:2])} Schatten (gepunktet)<br>
 <span style="display:inline-block;width:30px;height:10px;vertical-align:middle;
-background:linear-gradient(90deg,#56B4E9,#0072B2,#03395C)"></span>
-Relais-Sichtfeld (dunkler = mehr Relais)
+background:linear-gradient(90deg,#A6D6EB,#56B4E9,#0072B2,#03395C)"></span>
+Relais-Sichtfeld (hellste Stufe: nur Beugung, sonst dunkler = mehr Relais)
 </div>
 """
 
@@ -100,31 +102,39 @@ def _coverage_raster(results: list[RepeaterResult], route: Route,
         y = (y_max - merc_y(lat)) / (y_max - y_min) * (h - 1)
         return x, y
 
-    count = np.zeros((h, w), dtype=np.uint8)
+    count = np.zeros((h, w), dtype=np.uint8)   # Relais mit freier Sicht
+    marginal = np.zeros((h, w), dtype=bool)    # Grenzbereich (Beugung)
     for r in results:
         d = r.device
         agl = d.agl or DEFAULT_AGL_M
         # Volle Horizont-Reichweite rechnen — dieselbe Grenze wie in der
         # Streckenklassifikation, sonst widersprechen sich Linie und Heatmap
-        visible, lats, lons = terrain.viewshed(
-            d.lat, d.lng, agl, horizon_km(agl), mobile_m=MOBILE_HEIGHT_M)
-        layer = Image.new("L", (w, h), 0)
-        draw = ImageDraw.Draw(layer)
+        level, lats, lons = terrain.viewshed(
+            d.lat, d.lng, agl, horizon_km(agl), mobile_m=MOBILE_HEIGHT_M,
+            marginal_m=MARGINAL_OBSTRUCTION_M)
         center = to_px(d.lat, d.lng)
-        for ray in range(visible.shape[0]):
-            vis = visible[ray]
-            # sichtbare Läufe entlang des Strahls als Linien zeichnen
-            idx = np.flatnonzero(np.diff(np.concatenate(
-                ([0], vis.view(np.int8), [0]))))
-            for start, stop in zip(idx[::2], idx[1::2]):
-                p1 = center if start == 0 else to_px(
-                    lats[ray, start], lons[ray, start])
-                p2 = to_px(lats[ray, stop - 1], lons[ray, stop - 1])
-                draw.line([p1, p2], fill=1, width=2)
-        layer = layer.filter(ImageFilter.MaxFilter(3))
-        count = count + np.asarray(layer, dtype=np.uint8)
+        layers = {2: Image.new("L", (w, h), 0), 1: Image.new("L", (w, h), 0)}
+        draws = {lvl: ImageDraw.Draw(img) for lvl, img in layers.items()}
+        for lvl, draw in draws.items():
+            mask = level == lvl
+            for ray in range(mask.shape[0]):
+                # Läufe der Stufe entlang des Strahls als Linien zeichnen
+                idx = np.flatnonzero(np.diff(np.concatenate(
+                    ([0], mask[ray].view(np.int8), [0]))))
+                for start, stop in zip(idx[::2], idx[1::2]):
+                    p1 = center if start == 0 else to_px(
+                        lats[ray, start], lons[ray, start])
+                    p2 = to_px(lats[ray, stop - 1], lons[ray, stop - 1])
+                    draw.line([p1, p2], fill=1, width=2)
+        los_layer = layers[2].filter(ImageFilter.MaxFilter(3))
+        marg_layer = layers[1].filter(ImageFilter.MaxFilter(3))
+        count = count + np.asarray(los_layer, dtype=np.uint8)
+        marginal |= np.asarray(marg_layer, dtype=bool)
 
-    rgba = HEATMAP_RAMP[np.clip(count, 0, len(HEATMAP_RAMP) - 1)]
+    # Rampenindex: 0 = nichts, 1 = nur Grenzbereich, 2..4 = 1/2/>=3 Relais
+    index = np.where(count > 0, 1 + np.clip(count, 0, 3),
+                     marginal.astype(np.uint8))
+    rgba = HEATMAP_RAMP[index]
     # PNG selbst kodieren: branca normalisiert numpy-Arrays kanalweise auf
     # 255 und würde die Farbe verfälschen (Blau -> Cyan)
     buf = io.BytesIO()

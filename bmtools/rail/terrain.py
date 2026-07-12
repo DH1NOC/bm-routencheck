@@ -77,15 +77,21 @@ class TerrainModel:
 
     def viewshed(self, lat: float, lon: float, agl_m: float, max_km: float,
                  mobile_m: float = 2.0, n_rays: int = 720,
-                 step_km: float = PROFILE_STEP_KM):
+                 step_km: float = PROFILE_STEP_KM,
+                 marginal_m: float = 30.0):
         """Sichtfeld eines Relais: welche Punkte im Umkreis sind funktech-
         nisch sichtbar (Empfänger in `mobile_m` Höhe, 4/3-Erdradius)?
 
         Klassischer Viewshed über Radialstrahlen: je Strahl wird der
         laufende maximale Geländewinkel mitgeführt; sichtbar ist, wessen
-        Empfangswinkel darüber liegt.
+        Empfangswinkel darüber liegt. Zusätzlich wird der Grenzbereich
+        (Hindernis <= marginal_m über der Sichtlinie, Beugung plausibel)
+        ausgewiesen — genähert über das winkelmaximale Hindernis des
+        Strahls; weitere, flachere Hindernisse bleiben unberücksichtigt,
+        die Schätzung ist also leicht optimistisch.
 
-        Returns: (visible, lats, lons) — Arrays der Form (n_rays, n_steps).
+        Returns: (level, lats, lons) — Arrays der Form (n_rays, n_steps);
+        level: 2 = Sicht, 1 = Grenzbereich, 0 = Schatten.
         """
         n_steps = max(int(max_km / step_km), 8)
         d = np.arange(1, n_steps + 1, dtype=np.float64) * step_km  # (S,)
@@ -105,8 +111,18 @@ class TerrainModel:
         running_max = np.maximum.accumulate(terrain_angle, axis=1)
         prev_max = np.concatenate(
             [np.full((n_rays, 1), -np.inf), running_max[:, :-1]], axis=1)
-        visible = rx_angle >= prev_max
-        return visible, lats, lons
+        # Abstand des maßgeblichen Hindernisses mitführen: Höhe über der
+        # Sichtlinie = d_Hindernis * (Hinderniswinkel - Empfangswinkel)
+        steps = np.arange(n_steps)
+        obs_idx = np.maximum.accumulate(
+            np.where(terrain_angle >= running_max, steps[None, :], 0), axis=1)
+        prev_obs_idx = np.concatenate(
+            [np.zeros((n_rays, 1), dtype=np.int64), obs_idx[:, :-1]], axis=1)
+        obstruction = 1000.0 * d[prev_obs_idx] * (prev_max - rx_angle)
+        level = np.where(rx_angle >= prev_max, 2,
+                         np.where(obstruction <= marginal_m, 1, 0)
+                         ).astype(np.uint8)
+        return level, lats, lons
 
     def obstruction_m(self, lat_a: float, lon_a: float, agl_a: float,
                       lat_b: float, lon_b: float, agl_b: float,
