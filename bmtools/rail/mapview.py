@@ -5,16 +5,19 @@ import base64
 import html
 import io
 import math
+import os
 from bisect import bisect_right
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import folium
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image
 
+from . import viewshed_raster
 from .corridor import bounding_box, cumulative_km
-from .coverage import (DEFAULT_AGL_M, LOS, MARGINAL, MARGINAL_OBSTRUCTION_M,
-                       MOBILE_HEIGHT_M, SHADOW, CoverageEstimate, horizon_km)
+from .coverage import (DEFAULT_AGL_M, LOS, MARGINAL, SHADOW,
+                       CoverageEstimate, horizon_km)
 from .report import RepeaterResult, _fmt_subs
 from .route import Route
 from .terrain import TerrainModel
@@ -90,46 +93,38 @@ def _coverage_raster(results: list[RepeaterResult], route: Route,
     w = min(int(width_km / HEATMAP_PX_KM), HEATMAP_MAX_PX)
     h = min(int(height_km / HEATMAP_PX_KM), HEATMAP_MAX_PX)
 
-    # Zeilen direkt in Mercator-Y verteilen: Leaflet spannt das Bild linear
-    # in Mercator auf — so bleibt die Geometrie ohne Reprojektion korrekt.
-    def merc_y(lat: float) -> float:
-        return math.log(math.tan(math.radians(45.0 + lat / 2.0)))
+    # Volle Horizont-Reichweite rechnen — dieselbe Grenze wie in der
+    # Streckenklassifikation, sonst widersprechen sich Linie und Heatmap
+    tasks: list[viewshed_raster.RenderTask] = [
+        (r.device.lat, r.device.lng, r.device.agl or DEFAULT_AGL_M,
+         w, h, lat_min, lon_min, lat_max, lon_max)
+        for r in results]
 
-    y_min, y_max = merc_y(lat_min), merc_y(lat_max)
-
-    def to_px(lat: float, lon: float) -> tuple[float, float]:
-        x = (lon - lon_min) / (lon_max - lon_min) * (w - 1)
-        y = (y_max - merc_y(lat)) / (y_max - y_min) * (h - 1)
-        return x, y
+    # Kacheln aller Sichtfelder vorab in einem Rutsch parallel laden —
+    # verhindert bei kaltem Cache doppelte Downloads konkurrierender Worker
+    pre_lats, pre_lons = [], []
+    for lat, lng, agl, *_ in tasks:
+        d_km = np.arange(0.0, horizon_km(agl) + 4.0, 4.0)
+        az = np.radians(np.arange(0.0, 360.0, 5.0))
+        pre_lats.append((lat + np.outer(np.cos(az), d_km) / 111.32).ravel())
+        pre_lons.append((lng + np.outer(np.sin(az), d_km)
+                         / (111.32 * math.cos(math.radians(lat)))).ravel())
+    terrain.prefetch(np.concatenate(pre_lats), np.concatenate(pre_lons))
 
     count = np.zeros((h, w), dtype=np.uint8)   # Relais mit freier Sicht
     marginal = np.zeros((h, w), dtype=bool)    # Grenzbereich (Beugung)
-    for r in results:
-        d = r.device
-        agl = d.agl or DEFAULT_AGL_M
-        # Volle Horizont-Reichweite rechnen — dieselbe Grenze wie in der
-        # Streckenklassifikation, sonst widersprechen sich Linie und Heatmap
-        level, lats, lons = terrain.viewshed(
-            d.lat, d.lng, agl, horizon_km(agl), mobile_m=MOBILE_HEIGHT_M,
-            marginal_m=MARGINAL_OBSTRUCTION_M)
-        center = to_px(d.lat, d.lng)
-        layers = {2: Image.new("L", (w, h), 0), 1: Image.new("L", (w, h), 0)}
-        draws = {lvl: ImageDraw.Draw(img) for lvl, img in layers.items()}
-        for lvl, draw in draws.items():
-            mask = level == lvl
-            for ray in range(mask.shape[0]):
-                # Läufe der Stufe entlang des Strahls als Linien zeichnen
-                idx = np.flatnonzero(np.diff(np.concatenate(
-                    ([0], mask[ray].view(np.int8), [0]))))
-                for start, stop in zip(idx[::2], idx[1::2]):
-                    p1 = center if start == 0 else to_px(
-                        lats[ray, start], lons[ray, start])
-                    p2 = to_px(lats[ray, stop - 1], lons[ray, stop - 1])
-                    draw.line([p1, p2], fill=1, width=2)
-        los_layer = layers[2].filter(ImageFilter.MaxFilter(3))
-        marg_layer = layers[1].filter(ImageFilter.MaxFilter(3))
-        count = count + np.asarray(los_layer, dtype=np.uint8)
-        marginal |= np.asarray(marg_layer, dtype=bool)
+    if len(tasks) > 1:
+        workers = min(len(tasks), os.cpu_count() or 2)
+        with ProcessPoolExecutor(
+                max_workers=workers,
+                initializer=viewshed_raster.init_worker) as pool:
+            rendered = list(pool.map(viewshed_raster.render_relay, tasks))
+    else:
+        rendered = [viewshed_raster.render_relay(t, terrain) for t in tasks]
+    for los, marg_bits in rendered:
+        count += los
+        marginal |= np.unpackbits(
+            marg_bits, count=h * w).reshape(h, w).astype(bool)
 
     # Rampenindex: 0 = nichts, 1 = nur Grenzbereich, 2..4 = 1/2/>=3 Relais
     index = np.where(count > 0, 1 + np.clip(count, 0, 3),

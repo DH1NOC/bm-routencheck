@@ -15,6 +15,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+import numpy as np
+
 from bmtools.bm_api.models import Device
 from .corridor import bounding_box, cumulative_km, Point
 from .terrain import TerrainModel
@@ -25,6 +27,7 @@ SAMPLE_KM = 0.5           # Abtastschritt entlang der Strecke
 MIN_GAP_KM = 5.0          # kleinere Lücken werden nicht einzeln gelistet
 BBOX_BUFFER_KM = 60.0     # Relais-Vorfilter um die Strecke
 MARGINAL_OBSTRUCTION_M = 30.0  # Hindernis bis hierhin: "Grenzbereich"
+PREFETCH_STEP_KM = 4.0    # Abtastung der Profillinien für den Kachel-Prefetch
 
 LOS, MARGINAL, SHADOW = 2, 1, 0
 
@@ -104,12 +107,32 @@ def estimate_coverage(points: list[Point], repeaters: list[Device],
 
     reachable_ids: set[int] = set()
 
-    def classify(km: float, lat: float, lon: float) -> SamplePoint:
-        candidates = sorted(
-            ((dist, rl, rn, agl, cs, did)
-             for rl, rn, radius, agl, cs, did in reps
-             if (dist := _haversine_km(lat, lon, rl, rn)) <= radius),
-            key=lambda c: c[0])
+    # Kandidaten je Streckenpunkt vorab bestimmen (reine Geometrie) …
+    per_sample = [
+        sorted(((dist, rl, rn, agl, cs, did)
+                for rl, rn, radius, agl, cs, did in reps
+                if (dist := _haversine_km(lat, lon, rl, rn)) <= radius),
+               key=lambda c: c[0])
+        for _, lat, lon in samples]
+
+    # … und die Höhenkacheln aller Profillinien in einem Rutsch parallel
+    # vorladen: der lazy Einzelabruf aus der Rechenschleife heraus war bei
+    # kaltem Cache der Flaschenhals. Grobe Linienabtastung reicht; selten
+    # gestreifte Randkacheln lädt der Einzelabruf nach.
+    if terrain is not None:
+        pre_lats: list[np.ndarray] = []
+        pre_lons: list[np.ndarray] = []
+        for (_, lat, lon), candidates in zip(samples, per_sample):
+            for dist, rl, rn, *_ in candidates:
+                f = np.linspace(0.0, 1.0,
+                                max(int(dist / PREFETCH_STEP_KM) + 2, 2))
+                pre_lats.append(lat + (rl - lat) * f)
+                pre_lons.append(lon + (rn - lon) * f)
+        if pre_lats:
+            terrain.prefetch(np.concatenate(pre_lats), np.concatenate(pre_lons))
+
+    def classify(km: float, lat: float, lon: float,
+                 candidates: list) -> SamplePoint:
         los: list[str] = []
         marginal: list[str] = []
         # Alle Relais in Horizont-Reichweite prüfen — eine Kappung auf die
@@ -130,7 +153,8 @@ def estimate_coverage(points: list[Point], repeaters: list[Device],
         status = LOS if los else (MARGINAL if marginal else SHADOW)
         return SamplePoint(km, status, tuple(los), tuple(marginal))
 
-    sample_points = [classify(k, lat, lon) for k, lat, lon in samples]
+    sample_points = [classify(k, lat, lon, cands)
+                     for (k, lat, lon), cands in zip(samples, per_sample)]
     flags = [s.status for s in sample_points]
 
     covered = marginal = uncovered = 0.0

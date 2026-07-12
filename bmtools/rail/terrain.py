@@ -8,6 +8,9 @@ auf Platte gecacht; ein Streckenlauf lädt einmalig ~10–30 MB.
 from __future__ import annotations
 
 import math
+import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import httpx
@@ -18,6 +21,7 @@ from platformdirs import user_cache_dir
 TILE_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 ZOOM = 11
 USER_AGENT = "bmtools/0.1 (Amateurfunk-Tool; Kontakt: cnohl@gmx.de)"
+MAX_PARALLEL_DOWNLOADS = 12
 
 EFFECTIVE_EARTH_KM = 6371.0 * 4.0 / 3.0  # 4/3-Erdradius (Funk-Refraktion)
 PROFILE_STEP_KM = 0.09                   # Abtastung entlang des Profils
@@ -36,41 +40,81 @@ class TerrainModel:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._http = httpx.Client(timeout=30, headers={"User-Agent": USER_AGENT})
         self._tiles: dict[tuple[int, int], np.ndarray] = {}
+        self._dl_lock = threading.Lock()
         self.tiles_downloaded = 0
+
+    def _tile_path(self, tx: int, ty: int) -> Path:
+        return self.cache_dir / f"{tx}_{ty}.png"
+
+    def _download(self, tx: int, ty: int) -> None:
+        path = self._tile_path(tx, ty)
+        if path.exists():
+            return
+        r = self._http.get(TILE_URL.format(z=self.zoom, x=tx, y=ty))
+        if r.status_code != 200:
+            raise TerrainError(
+                f"Höhenkachel {self.zoom}/{tx}/{ty} nicht ladbar "
+                f"(HTTP {r.status_code})")
+        # Atomar schreiben: mehrere Threads/Prozesse teilen den Disk-Cache
+        tmp = path.with_name(
+            f"{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+        tmp.write_bytes(r.content)
+        os.replace(tmp, path)
+        with self._dl_lock:
+            self.tiles_downloaded += 1
+
+    def _download_missing(self, keys: set[tuple[int, int]]) -> None:
+        """Fehlende Kacheln parallel laden — der sequenzielle Einzelabruf
+        war bei kaltem Cache der Flaschenhals des gesamten Laufs."""
+        missing = [k for k in keys
+                   if k not in self._tiles and not self._tile_path(*k).exists()]
+        if not missing:
+            return
+        if len(missing) == 1:
+            self._download(*missing[0])
+            return
+        with ThreadPoolExecutor(
+                max_workers=min(MAX_PARALLEL_DOWNLOADS, len(missing))) as pool:
+            for f in [pool.submit(self._download, tx, ty)
+                      for tx, ty in missing]:
+                f.result()
 
     def _tile(self, tx: int, ty: int) -> np.ndarray:
         cached = self._tiles.get((tx, ty))
         if cached is not None:
             return cached
-        path = self.cache_dir / f"{tx}_{ty}.png"
-        if not path.exists():
-            r = self._http.get(TILE_URL.format(z=self.zoom, x=tx, y=ty))
-            if r.status_code != 200:
-                raise TerrainError(
-                    f"Höhenkachel {self.zoom}/{tx}/{ty} nicht ladbar "
-                    f"(HTTP {r.status_code})")
-            path.write_bytes(r.content)
-            self.tiles_downloaded += 1
-        img = np.asarray(Image.open(path).convert("RGB"), dtype=np.float32)
+        self._download(tx, ty)
+        img = np.asarray(Image.open(self._tile_path(tx, ty)).convert("RGB"),
+                         dtype=np.float32)
         arr = img[:, :, 0] * 256.0 + img[:, :, 1] + img[:, :, 2] / 256.0 - 32768.0
         if len(self._tiles) > 512:  # ~130 MB Deckel für den RAM-Cache
             self._tiles.clear()
         self._tiles[(tx, ty)] = arr
         return arr
 
-    def elevations(self, lats: np.ndarray, lons: np.ndarray) -> np.ndarray:
-        """Geländehöhen (m üNN) für Koordinaten-Arrays; Nearest Neighbor —
-        bei ~50 m Raster und ~90 m Profilschritt ausreichend."""
+    def _tile_indices(self, lats: np.ndarray, lons: np.ndarray):
+        """(Kachel-, Pixel-)Indizes je Koordinate im Slippy-Map-Schema."""
         lat_r = np.radians(np.asarray(lats, dtype=np.float64))
         x = (np.asarray(lons, dtype=np.float64) + 180.0) / 360.0 * self.n
         y = (1.0 - np.log(np.tan(lat_r) + 1.0 / np.cos(lat_r)) / math.pi) / 2.0 * self.n
         max_px = self.n * 256 - 1
         px = np.clip((x * 256).astype(np.int64), 0, max_px)
         py = np.clip((y * 256).astype(np.int64), 0, max_px)
-        tx, ox = px // 256, px % 256
-        ty, oy = py // 256, py % 256
-        out = np.empty(px.shape, dtype=np.float32)
-        for tile_key in set(zip(tx.tolist(), ty.tolist())):
+        return px // 256, px % 256, py // 256, py % 256
+
+    def prefetch(self, lats: np.ndarray, lons: np.ndarray) -> None:
+        """Alle für die Koordinaten nötigen Kacheln parallel vorladen."""
+        tx, _, ty, _ = self._tile_indices(lats, lons)
+        self._download_missing(set(zip(tx.tolist(), ty.tolist())))
+
+    def elevations(self, lats: np.ndarray, lons: np.ndarray) -> np.ndarray:
+        """Geländehöhen (m üNN) für Koordinaten-Arrays; Nearest Neighbor —
+        bei ~50 m Raster und ~90 m Profilschritt ausreichend."""
+        tx, ox, ty, oy = self._tile_indices(lats, lons)
+        keys = set(zip(tx.tolist(), ty.tolist()))
+        self._download_missing(keys)
+        out = np.empty(tx.shape, dtype=np.float32)
+        for tile_key in keys:
             mask = (tx == tile_key[0]) & (ty == tile_key[1])
             out[mask] = self._tile(*tile_key)[oy[mask], ox[mask]]
         return out
