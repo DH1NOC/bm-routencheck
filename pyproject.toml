@@ -13,6 +13,9 @@ dependencies = [
     "pillow>=10.0",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
 [project.scripts]
 bmtools = "bmtools.cli:main"
 bm-rail = "bmtools.rail.cli:main"
