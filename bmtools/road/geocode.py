@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import httpx
 
-from . import RouteInputError
 from bmtools.routelib.model import Waypoint
+
+from . import RouteInputError
 
 TRANSITOUS_GEOCODE = "https://api.transitous.org/api/v1/geocode"
 USER_AGENT = "bmtools/0.1 (Amateurfunk-Tool; Kontakt: cnohl@gmx.de)"

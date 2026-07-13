@@ -8,7 +8,8 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
-from bmtools.bm_api.models import DeviceProfile, TalkgroupSub
+from bmtools.bm_api.models import Device, DeviceProfile, TalkgroupSub
+
 from .corridor import CorridorHit
 
 
@@ -22,7 +23,7 @@ class RepeaterResult:
     marginal_only: bool = False
 
     @property
-    def device(self):
+    def device(self) -> Device:
         return self.hit.device
 
 
@@ -37,7 +38,8 @@ def _fmt_subs(subs: list[TalkgroupSub]) -> str:
             parts.append(f"{s.talkgroup}⏱({s.note})" if s.note else f"{s.talkgroup}⏱")
         else:  # cluster
             ext = s.note.removeprefix("Cluster-TG ").strip()
-            parts.append(f"{s.talkgroup}⇄{ext}" if ext and ext != "Cluster" else f"{s.talkgroup}(Cluster)")
+            parts.append(f"{s.talkgroup}⇄{ext}" if ext and ext != "Cluster"
+                         else f"{s.talkgroup}(Cluster)")
     return ", ".join(parts)
 
 
@@ -76,6 +78,17 @@ def print_table(results: list[RepeaterResult], console: Console | None = None) -
     console.print(table)
 
 
+def _tgs(profile: DeviceProfile, slot: int, kind: str) -> str:
+    kinds = ("static", "implicit") if kind == "static" else (kind,)
+    items = [s for s in profile.for_slot(slot) if s.kind in kinds]
+    if kind == "timed":
+        return ", ".join(
+            f"{s.talkgroup} ({s.note})" if s.note else str(s.talkgroup)
+            for s in items
+        )
+    return ", ".join(str(s.talkgroup) for s in items)
+
+
 def write_csv(results: list[RepeaterResult], path: Path) -> None:
     fields = [
         "strecken_km", "rufzeichen", "standort", "abstand_km",
@@ -90,17 +103,6 @@ def write_csv(results: list[RepeaterResult], path: Path) -> None:
         w.writeheader()
         for r in results:
             d = r.device
-
-            def tgs(slot: int, kind: str) -> str:
-                kinds = ("static", "implicit") if kind == "static" else (kind,)
-                items = [s for s in r.profile.for_slot(slot) if s.kind in kinds]
-                if kind == "timed":
-                    return ", ".join(
-                        f"{s.talkgroup} ({s.note})" if s.note else str(s.talkgroup)
-                        for s in items
-                    )
-                return ", ".join(str(s.talkgroup) for s in items)
-
             w.writerow({
                 "strecken_km": f"{r.hit.chainage_km:.1f}",
                 "rufzeichen": d.callsign,
@@ -110,10 +112,10 @@ def write_csv(results: list[RepeaterResult], path: Path) -> None:
                 "rx_mhz": f"{d.tx_mhz:.5f}",  # aus Gerätesicht
                 "tx_mhz": f"{d.rx_mhz:.5f}",
                 "colorcode": d.colorcode or "",
-                "ts1_statisch": tgs(1, "static"),
-                "ts1_zeitgeschaltet": tgs(1, "timed"),
-                "ts2_statisch": tgs(2, "static"),
-                "ts2_zeitgeschaltet": tgs(2, "timed"),
+                "ts1_statisch": _tgs(r.profile, 1, "static"),
+                "ts1_zeitgeschaltet": _tgs(r.profile, 1, "timed"),
+                "ts2_statisch": _tgs(r.profile, 2, "static"),
+                "ts2_zeitgeschaltet": _tgs(r.profile, 2, "timed"),
                 "cluster": ", ".join(
                     f"TS{s.slot} {s.talkgroup}->{s.note.removeprefix('Cluster-TG ')}"
                     for s in r.profile.subscriptions if s.kind == "cluster"

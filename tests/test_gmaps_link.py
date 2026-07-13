@@ -7,8 +7,11 @@ import httpx
 import pytest
 
 from bmtools.road import RouteInputError
-from bmtools.road.gmaps_link import (GmapsRoute, expand_short_link,
-                                     is_gmaps_url, parse_gmaps_url)
+from bmtools.road.gmaps_link import (
+    expand_short_link,
+    is_gmaps_url,
+    parse_gmaps_url,
+)
 
 CAR_URL = (
     "https://www.google.com/maps/dir/Winkelhaider+Str.+4A,+90537+Feucht-Moosbach/"

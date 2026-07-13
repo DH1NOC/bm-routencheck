@@ -17,6 +17,8 @@ from pathlib import Path
 
 import jinja2
 
+from bmtools.bm_api.models import TalkgroupSub
+
 from .coverage import MIN_GAP_KM, CoverageEstimate
 from .model import Route
 from .report import RepeaterResult
@@ -24,7 +26,10 @@ from .report import RepeaterResult
 MIN_RANGE_KM = 2.0  # kürzere Relais-Abschnitte werden mit dem Vorgänger verschmolzen
 
 
-def _contact_ranges(coverage: CoverageEstimate):
+Range = tuple[float, float, tuple[str, ...], tuple[str, ...]]
+
+
+def _contact_ranges(coverage: CoverageEstimate) -> list[Range]:
     """Strecke in Abschnitte gleicher erreichbarer Relais gliedern.
 
     Im Stadtgebiet wechselt die sichtbare Relais-Menge fast an jedem
@@ -42,7 +47,7 @@ def _contact_ranges(coverage: CoverageEstimate):
     if not samples:
         return []
     kms = [s.km for s in samples]
-    ends = kms[1:] + [coverage.total_km]
+    ends = [*kms[1:], coverage.total_km]
 
     def smooth(present: list[bool]) -> list[bool]:
         out = present[:]
@@ -60,7 +65,7 @@ def _contact_ranges(coverage: CoverageEstimate):
     los_p = {c: smooth([c in s.los for s in samples]) for c in calls}
     marg_p = {c: smooth([c in s.marginal for s in samples]) for c in calls}
 
-    ranges = []
+    ranges: list[Range] = []
     for i in range(len(samples)):
         los = tuple(c for c in calls if los_p[c][i])
         marginal = (() if los
@@ -70,7 +75,7 @@ def _contact_ranges(coverage: CoverageEstimate):
         else:
             ranges.append((kms[i], ends[i], los, marginal))
 
-    merged = []
+    merged: list[Range] = []
     for r in ranges:
         if merged and r[1] - r[0] < MIN_RANGE_KM:
             prev = merged[-1]
@@ -80,7 +85,7 @@ def _contact_ranges(coverage: CoverageEstimate):
             merged[-1] = (prev[0], r[1], los, marginal)
         else:
             merged.append(r)
-    final = []
+    final: list[Range] = []
     for r in merged:
         if final and final[-1][2:] == r[2:]:
             final[-1] = (final[-1][0], r[1], r[2], r[3])
@@ -244,7 +249,7 @@ def _fmt_mhz(v: float | None) -> str:
     return f"{v:.5f}" if v else ""
 
 
-def _art(sub) -> str:
+def _art(sub: TalkgroupSub) -> str:
     if sub.kind == "cluster":
         ext = sub.note.removeprefix("Cluster-TG ").strip()
         return f"Cluster (⇄ TG {ext})" if ext and ext != "Cluster" else "Cluster"

@@ -66,7 +66,7 @@ def test_osrm_bike_profil():
 
 
 def test_fallback_transitous():
-    warnings = []
+    warnings: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.host == "routing.openstreetmap.de":
@@ -90,7 +90,7 @@ def test_fallback_transitous():
 
 
 def test_fallback_luftlinie():
-    warnings = []
+    warnings: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(503)
@@ -105,7 +105,8 @@ def test_fallback_luftlinie():
 def test_wegpunkt_ohne_koordinaten():
     with pytest.raises(ValueError, match="ohne Koordinaten"):
         route_waypoints([Waypoint("Feucht", 49.39, 11.26),
-                         Waypoint("Bendorf", None, None)], "car")
+                         Waypoint("Bendorf", None, None)],  # type: ignore[arg-type]
+                        "car")
 
 
 def test_route_from_track():

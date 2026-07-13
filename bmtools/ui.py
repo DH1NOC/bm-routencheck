@@ -70,6 +70,7 @@ _ARGPARSE_DE = {
 
 def argparse_deutsch() -> None:
     """Vor dem Anlegen des ArgumentParser aufrufen."""
-    argparse._ = lambda s: _ARGPARSE_DE.get(s, s)  # noqa: SLF001
-    argparse.ngettext = lambda s, p, n: _ARGPARSE_DE.get(
-        s if n == 1 else p, s if n == 1 else p)
+    argparse._ = (  # type: ignore[attr-defined]
+        lambda s: _ARGPARSE_DE.get(s, s))
+    argparse.ngettext = (  # type: ignore[attr-defined]
+        lambda s, p, n: _ARGPARSE_DE.get(s if n == 1 else p, s if n == 1 else p))

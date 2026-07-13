@@ -8,8 +8,13 @@ from datetime import datetime
 
 import pytest
 
-from bmtools.rail.bahn_link import (BahnLinkError, TZ, extract_vbid,
-                                    is_bahn_url, parse_recon)
+from bmtools.rail.bahn_link import (
+    TZ,
+    BahnLinkError,
+    extract_vbid,
+    is_bahn_url,
+    parse_recon,
+)
 
 VBID = "d406032b-b663-4266-952d-f8e117dd3e41"
 URL = f"https://www.bahn.de/buchung/start?vbid={VBID}"
@@ -124,8 +129,8 @@ def test_route_fixed_ueberbrueckt_unaufloesbaren_abschnitt():
             return [_option(legs[1].dep, "ICE 514")]
         raise NoItineraryError("kenn ich nicht")
 
-    planner.segment_options = kennt_nur_leg1
-    warnungen = []
+    planner.segment_options = kennt_nur_leg1  # type: ignore[method-assign]
+    warnungen: list[str] = []
     route = planner.route_fixed(legs, warn=warnungen.append)
     assert "Luftlinie" in route.legs[0] and "3285" in route.legs[0]
     assert "ICE 514" in route.legs[1] and "Luftlinie" not in route.legs[1]
@@ -139,7 +144,7 @@ def test_match_warnt_ohne_zeittreffer_und_nimmt_naechste():
     leg = parse_recon(RECON)[0]
     frueher = _option(leg.dep - timedelta(minutes=60), "RE7 (3283)")
     spaeter = _option(leg.dep + timedelta(minutes=30), "RE 96")
-    warnungen = []
+    warnungen: list[str] = []
     chosen = _match_fixed_leg([frueher, spaeter], leg, warn=warnungen.append)
     assert chosen is spaeter
     assert "3285" in warnungen[0]

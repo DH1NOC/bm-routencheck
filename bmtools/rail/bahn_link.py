@@ -87,7 +87,7 @@ def parse_recon(recon: str) -> list[BahnLeg]:
     except IndexError:
         raise BahnLinkError(
             "bahn.de lieferte die Verbindung in einem unbekannten Format "
-            "(kein HKI-Recon) — vermutlich hat sich die API geändert.")
+            "(kein HKI-Recon) — vermutlich hat sich die API geändert.") from None
     legs: list[BahnLeg] = []
     for part in section.split("§"):
         if not part.startswith("T$"):
@@ -118,7 +118,7 @@ def fetch_verbindung(vbid: str, http: httpx.Client | None = None) -> BahnVerbind
         r = http.get(f"{VERBINDUNG_API}/{vbid}",
                      headers={"Accept": "application/json"})
     except httpx.HTTPError as e:
-        raise BahnLinkError(f"bahn.de nicht erreichbar: {e}")
+        raise BahnLinkError(f"bahn.de nicht erreichbar: {e}") from e
     finally:
         if own_client:
             http.close()

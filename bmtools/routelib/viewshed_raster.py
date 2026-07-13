@@ -30,7 +30,8 @@ def merc_y(lat: float) -> float:
     return math.log(math.tan(math.radians(45.0 + lat / 2.0)))
 
 
-def render_relay(task: RenderTask, terrain: TerrainModel | None = None):
+def render_relay(task: RenderTask, terrain: TerrainModel | None = None,
+                 ) -> tuple[np.ndarray, np.ndarray]:
     """Sicht- und Grenzbereichs-Layer eines Relais ins Rasterbild zeichnen.
 
     Zeilen des Rasters liegen in Mercator-Y (Leaflet spannt ImageOverlays
@@ -39,6 +40,7 @@ def render_relay(task: RenderTask, terrain: TerrainModel | None = None):
     """
     lat, lng, agl, w, h, lat_min, lon_min, lat_max, lon_max = task
     t = terrain if terrain is not None else _terrain
+    assert t is not None, "Worker ohne init_worker() gestartet"
     y_min, y_max = merc_y(lat_min), merc_y(lat_max)
 
     def to_px(la: float, lo: float) -> tuple[float, float]:
@@ -58,7 +60,7 @@ def render_relay(task: RenderTask, terrain: TerrainModel | None = None):
             # Läufe der Stufe entlang des Strahls als Linien zeichnen
             idx = np.flatnonzero(np.diff(np.concatenate(
                 ([0], mask[ray].view(np.int8), [0]))))
-            for start, stop in zip(idx[::2], idx[1::2]):
+            for start, stop in zip(idx[::2], idx[1::2], strict=True):
                 p1 = center if start == 0 else to_px(
                     lats[ray, start], lons[ray, start])
                 p2 = to_px(lats[ray, stop - 1], lons[ray, stop - 1])

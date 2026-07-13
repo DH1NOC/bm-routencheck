@@ -11,7 +11,9 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlsplit
 
 import questionary
@@ -21,9 +23,15 @@ from rich.console import Console
 from bmtools import ui
 from bmtools.routelib.model import Route, Waypoint
 from bmtools.routelib.pipeline import run_pipeline, slug
+
 from . import RouteInputError
 from .geocode import geocode_candidates
-from .gmaps_link import SHORTLINK_HOSTS, expand_short_link, parse_gmaps_url
+from .gmaps_link import (
+    SHORTLINK_HOSTS,
+    LinkWaypoint,
+    expand_short_link,
+    parse_gmaps_url,
+)
 from .gpx import read_gpx
 from .komoot import SPORT_LABEL, fetch_tour, is_komoot_url, parse_komoot_url
 from .routing import MODE_LABEL, route_from_track, route_waypoints
@@ -48,7 +56,7 @@ Aliasse gültig.
 """
 
 
-def _q(prompt):
+def _q(prompt: questionary.Question) -> Any:
     """questionary-Prompt ausführen; Ctrl-C/ESC bricht sauber ab."""
     answer = prompt.ask()
     if answer is None:
@@ -56,7 +64,7 @@ def _q(prompt):
     return answer
 
 
-def _nonempty(v: str):
+def _nonempty(v: str) -> bool | str:
     return True if v.strip() else "Bitte etwas eingeben"
 
 
@@ -67,13 +75,17 @@ def _short_name(name: str) -> str:
     return re.sub(r"^\d{4,5}\s+", "", part) or name
 
 
-def _resolve(names_or_wps, console: Console, interactive: bool) -> list[Waypoint]:
+def _resolve(names_or_wps: Sequence[str | Waypoint | LinkWaypoint],
+             console: Console, interactive: bool) -> list[Waypoint]:
     """Unaufgelöste Wegpunkte geocodieren (interaktiv mit Auswahl)."""
     resolved: list[Waypoint] = []
     for item in names_or_wps:
-        if isinstance(item, Waypoint) or getattr(item, "resolved", False):
-            resolved.append(Waypoint(item.name, item.lat, item.lon,
-                                     getattr(item, "region", "")))
+        if isinstance(item, Waypoint):
+            resolved.append(item)
+            continue
+        if (isinstance(item, LinkWaypoint)
+                and item.lat is not None and item.lon is not None):
+            resolved.append(Waypoint(item.name, item.lat, item.lon))
             continue
         name = item if isinstance(item, str) else item.name
         candidates = geocode_candidates(name)
@@ -89,12 +101,12 @@ def _resolve(names_or_wps, console: Console, interactive: bool) -> list[Waypoint
     return resolved
 
 
-def _warn(console: Console):
+def _warn(console: Console) -> Callable[[str], None]:
     return lambda msg: console.print(f"[yellow]{msg}[/yellow]")
 
 
-def _route_from_gmaps(link: str, args, console: Console, profile: str,
-                      interactive: bool) -> tuple[Route, str]:
+def _route_from_gmaps(link: str, args: argparse.Namespace, console: Console,
+                      profile: str, interactive: bool) -> tuple[Route, str]:
     if urlsplit(link).netloc.lower() in SHORTLINK_HOSTS:
         link = expand_short_link(link)
     g = parse_gmaps_url(link)
@@ -148,7 +160,8 @@ def _route_from_gpx(path: Path, console: Console) -> tuple[Route, str]:
     return route, track.name
 
 
-def _interactive(console: Console, args, label: str, cmd: str) -> None:
+def _interactive(console: Console, args: argparse.Namespace,
+                 label: str, cmd: str) -> None:
     """Fragt Link (Google/Komoot) oder Start/Ziel/Via ab."""
     console.print()
     ui.banner(

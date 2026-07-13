@@ -16,6 +16,7 @@ from rich.panel import Panel
 from rich.progress import track
 
 from bmtools.bm_api import BrandmeisterClient, DeviceProfile, TalkgroupSub
+
 from .codeplug.anytone import write_anytone
 from .corridor import find_in_corridor
 from .coverage import estimate_coverage
@@ -25,9 +26,12 @@ from .report import RepeaterResult, print_table, write_csv
 from .report_html import write_html_report
 from .terrain import TerrainError, TerrainModel
 
+_UMLAUTE: dict[str, str | int | None] = {
+    "ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}
+
 
 def slug(text: str) -> str:
-    text = text.lower().translate(str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}))
+    text = text.lower().translate(str.maketrans(_UMLAUTE))
     return re.sub(r"[^a-z0-9]+", "-", text).strip("-")
 
 

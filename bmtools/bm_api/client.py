@@ -7,6 +7,7 @@ gedrosselt, um die API nicht zu belasten.
 from __future__ import annotations
 
 import time
+from typing import Any
 
 import httpx
 
@@ -43,7 +44,7 @@ class BrandmeisterClient:
         self._misc_cache = Cache(TALKGROUP_TTL, "bmtools/misc")
         self._delay = REQUEST_DELAY
 
-    def _fetch_json(self, path: str, cache: Cache, key: str):
+    def _fetch_json(self, path: str, cache: Cache, key: str) -> Any:
         cached = None if self._refresh else cache.get(key)
         if cached is not None:
             return cached

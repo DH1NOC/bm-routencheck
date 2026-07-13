@@ -7,13 +7,15 @@ Interpolation zwischen den Bahnhöfen.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Callable
+from itertools import pairwise
 
 import httpx
 
 from bmtools.routelib.model import Point, Route, Station, decode_polyline
+
 from .bahn_link import BahnLeg
 
 TRANSITOUS = "https://api.transitous.org/api/v1"
@@ -21,7 +23,9 @@ USER_AGENT = "bmtools/0.1 (Amateurfunk-Tool; Kontakt: cnohl@gmx.de)"
 
 # Zuggattungs-Filter (MOTIS-Mode-Enum)
 MODE_SETS = {
-    "alle": "RAIL",  # = HIGHSPEED_RAIL,LONG_DISTANCE,NIGHT_RAIL,REGIONAL_RAIL,SUBURBAN,SUBWAY
+    # "RAIL" = HIGHSPEED_RAIL, LONG_DISTANCE, NIGHT_RAIL, REGIONAL_RAIL,
+    # SUBURBAN und SUBWAY zusammen
+    "alle": "RAIL",
     "fern": "HIGHSPEED_RAIL,LONG_DISTANCE,NIGHT_RAIL",
     "nah": "REGIONAL_RAIL,SUBURBAN",
     # Nur intern für bahn.de-Links: feste Verbindungen können Bus-
@@ -91,7 +95,7 @@ def _local(iso: str) -> datetime:
 
 
 class RoutePlanner:
-    def __init__(self):
+    def __init__(self) -> None:
         self._http = httpx.Client(timeout=60, headers={"User-Agent": USER_AGENT})
 
     def geocode_candidates(self, query: str, limit: int = 6) -> list[Station]:
@@ -119,7 +123,7 @@ class RoutePlanner:
         self, frm: Station, to: Station, opts: PlanOptions
     ) -> list[ItineraryOption]:
         """Verbindungs-Kandidaten für einen Streckenabschnitt."""
-        params: dict = {
+        params: dict[str, str | int] = {
             "fromPlace": f"{frm.lat},{frm.lon}",
             "toPlace": f"{to.lat},{to.lon}",
             # Bei Direktfilter mehr Kandidaten holen: gefiltert wird client-
@@ -196,7 +200,7 @@ class RoutePlanner:
         """Echte Fahrt-Geometrie; bei Zwischenhalten je Abschnitt eine Wahl."""
         points: list[Point] = []
         legs: list[str] = []
-        for frm, to in zip(stations, stations[1:]):
+        for frm, to in pairwise(stations):
             options = self.segment_options(frm, to, opts)
             chosen = chooser(options, frm, to) if chooser else options[0]
             seg_points = chosen.points

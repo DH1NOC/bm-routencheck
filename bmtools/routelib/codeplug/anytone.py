@@ -98,7 +98,7 @@ def write_anytone(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Kanäle: ein Kanal je (Relais, Talkgroup, Slot); Cluster über die lokale TG
-    channels: list[dict] = []
+    channels: list[dict[str, str]] = []
     used_names: set[str] = set()
     used_tgs: set[int] = set()
     for r in results:

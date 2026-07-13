@@ -28,7 +28,7 @@ Datenquellen in [`PROJEKTPLAN.md`](PROJEKTPLAN.md).
   - [Voraussetzungen](#voraussetzungen)
   - [Installation](#installation)
   - [Starten](#starten)
-  - [Tests ausführen (Entwicklung)](#tests-ausführen-entwicklung)
+  - [Qualitätssicherung (Entwicklung)](#qualitätssicherung-entwicklung)
 - [Die Tools im Detail](#die-tools-im-detail)
   - [`bmtools` — gemeinsamer Einstieg](#bmtools--gemeinsamer-einstieg)
   - [`bm-bahn` — Relais entlang einer Bahnstrecke](#bm-bahn--relais-entlang-einer-bahnstrecke)
@@ -139,12 +139,27 @@ Alle API-Antworten und Höhenkacheln landen in einem lokalen Disk-Cache;
 Wiederholläufe brauchen dadurch nur Sekunden. `--aktualisieren` erzwingt
 frische Brandmeister-Daten.
 
-### Tests ausführen (Entwicklung)
+### Qualitätssicherung (Entwicklung)
 
 ```bash
 pip install -e ".[dev]"
-pytest
+make qs          # Lint (ruff) + Typprüfung (mypy strict) + Tests (pytest)
+make abdeckung   # Tests mit HTML-Abdeckungsbericht (out/coverage/)
 ```
+
+Dieselben Prüfungen laufen als GitHub-Actions-Workflow bei jedem Push
+(`.github/workflows/qs.yml`). Konfiguriert ist alles in `pyproject.toml`:
+
+- **ruff** — Lint inkl. Import-Sortierung, bugbear und Modernisierung;
+  Ausnahmen (z. B. deutsche Typografie) sind dort begründet.
+- **mypy strict** — der gesamte Quellcode ist streng typgeprüft; die
+  wenigen Lockerungen (ungetypte Bibliotheken, Tests ohne
+  Annotationszwang) sind als Overrides dokumentiert.
+- **pytest + coverage** — getestet wird die Kernlogik (Parser, Geometrie,
+  Abdeckungsschätzung, Berichte, Codeplug, API-Clients mit gemockten
+  HTTP-Antworten). Interaktive CLIs und Karten-Rendering sind bewusst
+  ausgenommen; die Untergrenze (`fail_under`) sichert das erreichte
+  Niveau ab, ohne Statistik-Kosmetik zu belohnen.
 
 ## Die Tools im Detail
 
@@ -304,7 +319,7 @@ BrandmeisterTools/
 │   ├── road/             # bm-auto / bm-rad (Maps-/Komoot-Link, GPX, OSRM, Geocoding)
 │   ├── cli.py            # bmtools-Einstieg: Menü und Subcommand-Dispatcher
 │   └── ui.py             # Gemeinsames CLI-Erscheinungsbild (Banner, Farben)
-├── tests/                # pytest-Suite (Link-Parser, GPX, Komoot, Routing)
+├── tests/                # pytest-Suite (Parser, Geometrie, Berichte, Clients)
 ├── out/                  # Generierte Berichte/Karten/CSV je Route (nicht versioniert)
 ├── pyproject.toml        # Paketdefinition, Abhängigkeiten, Entry Points
 ├── PROJEKTPLAN.md        # Offene Punkte, Festlegungen, API-Eigenheiten

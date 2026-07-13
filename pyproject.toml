@@ -14,7 +14,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "mypy>=1.11",
+    "ruff>=0.6",
+]
 
 [project.scripts]
 bmtools = "bmtools.cli:main"
@@ -32,3 +37,67 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["bmtools*"]
+
+# ---------------------------------------------------------------------------
+# Qualitätssicherung: `make qs` führt Lint, Typprüfung und Tests aus.
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+# E/W pycodestyle, F pyflakes, I Import-Sortierung, UP Modernisierung,
+# B bugbear (echte Fehlerquellen), SIM Vereinfachungen, RUF Ruff-eigene.
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "SIM108",  # ternary statt if/else nicht erzwingen (Lesbarkeit)
+    "SIM117",  # verschachtelte with-Blöcke sind teils bewusst getrennt
+    "RUF001",  # deutsche Typografie (Gedankenstrich, ❯) ist gewollt,
+    "RUF002",  # auch in Docstrings …
+    "RUF003",  # … und Kommentaren
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["bmtools"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+# Bewusste Lockerungen gegenüber strict (dokumentiert, nicht schleichend):
+disallow_untyped_calls = false     # rich/questionary sind teils ungetypt
+warn_return_any = false            # JSON-Antworten (Any) werden durchgereicht
+packages = ["bmtools", "tests"]
+
+[[tool.mypy.overrides]]
+# Bibliotheken ohne Typ-Stubs
+module = ["folium.*", "questionary.*", "PIL.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Tests: inhaltlich mitprüfen, aber ohne Annotationszwang für jede
+# Testfunktion ("-> None" überall wäre Formalismus ohne Erkenntnis).
+module = ["tests.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers -q"
+
+[tool.coverage.run]
+source = ["bmtools"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+# Untergrenze bewusst auf erreichtem Niveau: Kernlogik (Parser, Geometrie,
+# Auswertung, API-Client) ist getestet; interaktive CLIs, Karten-/HTML-
+# Rendering und Geländemodell (Netz/Grafik) drücken den Schnitt — die
+# blind auf 100 % zu treiben wäre Statistik-Kosmetik.
+fail_under = 55
+
+[tool.coverage.html]
+directory = "out/coverage"

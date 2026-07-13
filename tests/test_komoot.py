@@ -7,8 +7,7 @@ import httpx
 import pytest
 
 from bmtools.road import RouteInputError
-from bmtools.road.komoot import (KomootRef, fetch_tour, is_komoot_url,
-                                 parse_komoot_url)
+from bmtools.road.komoot import KomootRef, fetch_tour, is_komoot_url, parse_komoot_url
 
 SMARTTOUR_URL = ("https://www.komoot.com/de-de/smarttour/e1868296068/"
                  "traumpfad-hoehlen-und-schluchtensteig?ref=wdd&t_s=referral")

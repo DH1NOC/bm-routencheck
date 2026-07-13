@@ -9,19 +9,21 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import questionary
 from questionary import Choice
 from rich.console import Console
 
 from bmtools import ui
-from bmtools.routelib.model import Route
+from bmtools.routelib.model import Route, Station
 from bmtools.routelib.pipeline import run_pipeline, slug
+
 from .bahn_link import BahnLinkError, extract_vbid, fetch_verbindung
-from .route import (ItineraryOption, NoItineraryError, PlanOptions,
-                    RoutePlanner, Station)
+from .route import Chooser, ItineraryOption, NoItineraryError, PlanOptions, RoutePlanner
 
 EXAMPLES = """\
 Beispiele:
@@ -52,7 +54,7 @@ def _parse_time(raw: str) -> datetime:
         f"(Formate: 'JJJJ-MM-TT HH:MM', 'TT.MM.JJJJ HH:MM' oder 'HH:MM')")
 
 
-def _q(prompt):
+def _q(prompt: questionary.Question) -> Any:
     """questionary-Prompt ausführen; Ctrl-C/ESC bricht sauber ab."""
     answer = prompt.ask()
     if answer is None:
@@ -60,7 +62,9 @@ def _q(prompt):
     return answer
 
 
-def _text_with_default(message: str, default: str, validate=None) -> str:
+def _text_with_default(message: str, default: str,
+                       validate: Callable[[str], bool | str] | None = None,
+                       ) -> str:
     """Texteingabe mit leerem Feld statt Vorbefüllung: Der Default steht
     als Hinweis daneben und gilt bei leerer Eingabe — nichts wegzulöschen."""
     wrapped = (lambda v: True if not v.strip() else validate(v)) if validate else None
@@ -70,7 +74,7 @@ def _text_with_default(message: str, default: str, validate=None) -> str:
     return answer or default
 
 
-def _time_valid(raw: str):
+def _time_valid(raw: str) -> bool | str:
     if not raw.strip():
         return True
     try:
@@ -80,7 +84,7 @@ def _time_valid(raw: str):
         return "Format: 'JJJJ-MM-TT HH:MM', 'TT.MM.JJJJ HH:MM' oder 'HH:MM'"
 
 
-def _float_valid(raw: str):
+def _float_valid(raw: str) -> bool | str:
     try:
         float(raw.replace(",", "."))
         return True
@@ -88,7 +92,7 @@ def _float_valid(raw: str):
         return "Bitte eine Zahl eingeben"
 
 
-def _link_valid(raw: str):
+def _link_valid(raw: str) -> bool | str:
     if not raw.strip():
         return True
     try:
@@ -166,7 +170,7 @@ def _interactive(console: Console, args: argparse.Namespace,
     return stations
 
 
-def _make_chooser(console: Console):
+def _make_chooser(console: Console) -> Chooser:
     """Interaktive Auswahl unter den gefundenen Verbindungen je Abschnitt."""
     def chooser(options: list[ItineraryOption],
                 frm: Station, to: Station) -> ItineraryOption:

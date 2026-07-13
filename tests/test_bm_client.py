@@ -1,4 +1,6 @@
 """Tests Brandmeister-Client: Rate-Limit-Verhalten (HTTP 429)."""
+import time
+
 import httpx
 import pytest
 
@@ -17,7 +19,7 @@ def _client(handler, tmp_path) -> BrandmeisterClient:
 
 def test_429_wartet_retry_after_ab_und_drosselt(tmp_path, monkeypatch):
     sleeps: list[float] = []
-    monkeypatch.setattr(bm_client.time, "sleep", sleeps.append)
+    monkeypatch.setattr(time, "sleep", sleeps.append)
     calls: list[str] = []
 
     def handler(request):
@@ -34,7 +36,7 @@ def test_429_wartet_retry_after_ab_und_drosselt(tmp_path, monkeypatch):
 
 
 def test_429_dauerhaft_meldet_rate_limit_mit_cache_hinweis(tmp_path, monkeypatch):
-    monkeypatch.setattr(bm_client.time, "sleep", lambda s: None)
+    monkeypatch.setattr(time, "sleep", lambda s: None)
     c = _client(lambda r: httpx.Response(429), tmp_path)
     with pytest.raises(RuntimeError, match="Rate-Limit"):
         c._fetch_json("/x", c._misc_cache, "x")
@@ -42,7 +44,7 @@ def test_429_dauerhaft_meldet_rate_limit_mit_cache_hinweis(tmp_path, monkeypatch
 
 def test_retry_after_als_datum_faellt_auf_obergrenze(tmp_path, monkeypatch):
     sleeps: list[float] = []
-    monkeypatch.setattr(bm_client.time, "sleep", sleeps.append)
+    monkeypatch.setattr(time, "sleep", sleeps.append)
     calls: list[str] = []
 
     def handler(request):

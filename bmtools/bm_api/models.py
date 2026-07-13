@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
-def _to_mhz(value) -> float | None:
+def _to_mhz(value: Any) -> float | None:
     """Frequenzfeld der API ("438.2000") → MHz; 0/leer = unbekannt."""
     try:
         f = float(value)
@@ -13,7 +14,7 @@ def _to_mhz(value) -> float | None:
     return f if f > 0 else None
 
 
-def _to_coord(value) -> float | None:
+def _to_coord(value: Any) -> float | None:
     try:
         return float(value)
     except (TypeError, ValueError):
@@ -36,7 +37,7 @@ class Device:
     last_seen: str
 
     @classmethod
-    def from_api(cls, d: dict) -> "Device":
+    def from_api(cls, d: dict[str, Any]) -> Device:
         return cls(
             id=int(d["id"]),
             callsign_raw=(d.get("callsign") or "").strip(),
@@ -81,7 +82,7 @@ _WEEKDAYS = [
 ]
 
 
-def _hhmm(sec) -> str:
+def _hhmm(sec: Any) -> str:
     try:
         sec = int(sec)
     except (TypeError, ValueError):
@@ -89,12 +90,13 @@ def _hhmm(sec) -> str:
     return f"{sec // 3600:02d}:{sec % 3600 // 60:02d}"
 
 
-def _timed_note(day_indices: set[int], start, stop) -> str:
+def _timed_note(day_indices: set[int], start: Any, stop: Any) -> str:
     """Zeitschaltung menschenlesbar: 'Mo,Fr 18:00–19:30'."""
     if not day_indices or len(day_indices) >= 7:
         day_str = "täglich"
     else:
-        day_str = ",".join(de for i, (_, de) in enumerate(_WEEKDAYS) if i in day_indices)
+        day_str = ",".join(
+            de for i, (_, de) in enumerate(_WEEKDAYS) if i in day_indices)
     if start is None or stop is None:
         return day_str
     if (start, stop) == (0, 86400):
@@ -116,13 +118,13 @@ class DeviceProfile:
     subscriptions: list[TalkgroupSub] = field(default_factory=list)
 
     @classmethod
-    def from_api(cls, device_id: int, p: dict) -> "DeviceProfile":
+    def from_api(cls, device_id: int, p: dict[str, Any]) -> DeviceProfile:
         subs: list[TalkgroupSub] = []
         for s in p.get("staticSubscriptions") or []:
             subs.append(TalkgroupSub(int(s["talkgroup"]), int(s["slot"]), "static"))
         # Die API liefert je Wochentag einen eigenen Datensatz; gleiche
         # Zeitfenster derselben TG werden hier zu einem Eintrag gebündelt.
-        timed: dict[tuple, set[int]] = {}
+        timed: dict[tuple[int, int, Any, Any], set[int]] = {}
         for s in p.get("timedSubscriptions") or []:
             data = s.get("data") if isinstance(s.get("data"), dict) else {}
             key = (int(s["talkgroup"]), int(s["slot"]),
@@ -135,7 +137,8 @@ class DeviceProfile:
         for c in p.get("clusters") or []:
             ext = c.get("extTalkgroup")
             note = f"Cluster-TG {ext}" if ext else "Cluster"
-            subs.append(TalkgroupSub(int(c["talkgroup"]), int(c["slot"]), "cluster", note))
+            subs.append(TalkgroupSub(
+                int(c["talkgroup"]), int(c["slot"]), "cluster", note))
         subs.sort(key=lambda s: (s.slot, s.talkgroup))
         return cls(device_id=device_id, subscriptions=subs)
 

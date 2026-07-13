@@ -18,7 +18,8 @@ from dataclasses import dataclass
 import numpy as np
 
 from bmtools.bm_api.models import Device
-from .corridor import bounding_box, cumulative_km, Point
+
+from .corridor import Point, bounding_box, cumulative_km
 from .terrain import TerrainModel
 
 MOBILE_HEIGHT_M = 2.0     # Handfunkgerät im Zug
@@ -91,7 +92,7 @@ def estimate_coverage(points: list[Point], repeaters: list[Device],
     # Strecke in ~SAMPLE_KM-Schritten abtasten (Polyline-Punkte sind dichter)
     samples: list[tuple[float, float, float]] = []
     next_km = 0.0
-    for p, k in zip(points, cum):
+    for p, k in zip(points, cum, strict=True):
         if k >= next_km:
             samples.append((k, p[0], p[1]))
             next_km = k + SAMPLE_KM
@@ -124,7 +125,7 @@ def estimate_coverage(points: list[Point], repeaters: list[Device],
     if terrain is not None:
         pre_lats: list[np.ndarray] = []
         pre_lons: list[np.ndarray] = []
-        for (_, lat, lon), candidates in zip(samples, per_sample):
+        for (_, lat, lon), candidates in zip(samples, per_sample, strict=True):
             for dist, rl, rn, *_ in candidates:
                 f = np.linspace(0.0, 1.0,
                                 max(int(dist / PREFETCH_STEP_KM) + 2, 2))
@@ -134,7 +135,8 @@ def estimate_coverage(points: list[Point], repeaters: list[Device],
             terrain.prefetch(np.concatenate(pre_lats), np.concatenate(pre_lons))
 
     def classify(km: float, lat: float, lon: float,
-                 candidates: list) -> SamplePoint:
+                 candidates: list[tuple[float, float, float, float, str, int]],
+                 ) -> SamplePoint:
         los: list[str] = []
         marginal: list[str] = []
         # Alle Relais in Horizont-Reichweite prüfen — eine Kappung auf die
@@ -157,7 +159,8 @@ def estimate_coverage(points: list[Point], repeaters: list[Device],
         return SamplePoint(km, status, tuple(los), tuple(marginal))
 
     sample_points = [classify(k, lat, lon, cands)
-                     for (k, lat, lon), cands in zip(samples, per_sample)]
+                     for (k, lat, lon), cands in zip(samples, per_sample,
+                                                     strict=True)]
     flags = [s.status for s in sample_points]
 
     covered = marginal = uncovered = 0.0

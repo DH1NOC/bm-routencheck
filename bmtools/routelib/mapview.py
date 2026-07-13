@@ -14,11 +14,12 @@ import folium
 import numpy as np
 from PIL import Image
 
+from bmtools.bm_api.models import Device
+
 from . import viewshed_raster
 from .corridor import bounding_box, cumulative_km
-from .coverage import (DEFAULT_AGL_M, LOS, MARGINAL, SHADOW,
-                       CoverageEstimate, horizon_km)
-from .model import Route
+from .coverage import DEFAULT_AGL_M, LOS, MARGINAL, SHADOW, CoverageEstimate, horizon_km
+from .model import Point, Route
 from .report import RepeaterResult, _fmt_subs
 from .terrain import TerrainModel
 
@@ -68,8 +69,15 @@ Marker: blau = Sicht zur Strecke, grau = nur Grenzbereich (Beugung)
 """
 
 
+def _pos(d: Device) -> tuple[float, float]:
+    """Koordinaten als Nicht-None: is_repeater() filtert Positionslose,
+    bevor sie hierher gelangen."""
+    assert d.lat is not None and d.lng is not None
+    return d.lat, d.lng
+
+
 def _coverage_raster(results: list[RepeaterResult], route: Route,
-                     terrain: TerrainModel):
+                     terrain: TerrainModel) -> tuple[str, list[list[float]]]:
     """Viewsheds aller Korridor-Relais in ein RGBA-Raster aggregieren.
 
     Ein Blauton, Deckkraft nach Zahl der abdeckenden Relais (sequenzielle
@@ -80,14 +88,14 @@ def _coverage_raster(results: list[RepeaterResult], route: Route,
     # (weit abseits stehende Relais sogar komplett).
     lat_min, lon_min, lat_max, lon_max = bounding_box(route.points, 2.0)
     for r in results:
-        d = r.device
-        radius = horizon_km(d.agl or DEFAULT_AGL_M)
+        d_lat, d_lng = _pos(r.device)
+        radius = horizon_km(r.device.agl or DEFAULT_AGL_M)
         dlat = radius / 111.32
-        dlon = radius / (111.32 * math.cos(math.radians(d.lat)))
-        lat_min = min(lat_min, d.lat - dlat)
-        lat_max = max(lat_max, d.lat + dlat)
-        lon_min = min(lon_min, d.lng - dlon)
-        lon_max = max(lon_max, d.lng + dlon)
+        dlon = radius / (111.32 * math.cos(math.radians(d_lat)))
+        lat_min = min(lat_min, d_lat - dlat)
+        lat_max = max(lat_max, d_lat + dlat)
+        lon_min = min(lon_min, d_lng - dlon)
+        lon_max = max(lon_max, d_lng + dlon)
     mid_lat = (lat_min + lat_max) / 2
     width_km = (lon_max - lon_min) * 111.32 * math.cos(math.radians(mid_lat))
     height_km = (lat_max - lat_min) * 111.32
@@ -97,7 +105,7 @@ def _coverage_raster(results: list[RepeaterResult], route: Route,
     # Volle Horizont-Reichweite rechnen — dieselbe Grenze wie in der
     # Streckenklassifikation, sonst widersprechen sich Linie und Heatmap
     tasks: list[viewshed_raster.RenderTask] = [
-        (r.device.lat, r.device.lng, r.device.agl or DEFAULT_AGL_M,
+        (*_pos(r.device), r.device.agl or DEFAULT_AGL_M,
          w, h, lat_min, lon_min, lat_max, lon_max)
         for r in results]
 
@@ -139,7 +147,9 @@ def _coverage_raster(results: list[RepeaterResult], route: Route,
     return uri, [[lat_min, lon_min], [lat_max, lon_max]]
 
 
-def _coverage_segments(route: Route, coverage: CoverageEstimate):
+def _coverage_segments(
+    route: Route, coverage: CoverageEstimate,
+) -> list[tuple[int, list[Point], float, float]]:
     """Streckenpunkte zu Abschnitten gleichen Abdeckungsstatus bündeln.
 
     Liefert (status, punkte, start_km, end_km) je Abschnitt.
@@ -151,11 +161,11 @@ def _coverage_segments(route: Route, coverage: CoverageEstimate):
         idx = bisect_right(sample_kms, km) - 1
         return coverage.samples[max(idx, 0)].status
 
-    segments: list[tuple[int, list, float, float]] = []
+    segments: list[tuple[int, list[Point], float, float]] = []
     current = status_at(0.0)
     pts = [route.points[0]]
     seg_start = 0.0
-    for prev_k, p, k in zip(cum, route.points[1:], cum[1:]):
+    for prev_k, p, k in zip(cum, route.points[1:], cum[1:], strict=False):
         s = status_at((prev_k + k) / 2)
         if s == current:
             pts.append(p)
@@ -229,7 +239,9 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
                     coverage, start_km, end_km, listed, status)
             folium.PolyLine(pts, color=color, weight=5, opacity=0.95,
                             dash_array=dash, tooltip=tooltip).add_to(m)
-        m.get_root().html.add_child(folium.Element(_LEGEND))
+        # branca.Element bekommt .html erst zur Laufzeit angehängt
+        m.get_root().html.add_child(  # type: ignore[attr-defined]
+            folium.Element(_LEGEND))
     else:
         folium.PolyLine(route.points, color="#c00", weight=3,
                         tooltip=route_label).add_to(m)
@@ -258,7 +270,7 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
         if r.marginal_only:
             tooltip += " — nur Grenzbereich"
         folium.Marker(
-            (d.lat, d.lng),
+            _pos(d),
             tooltip=tooltip,
             popup=folium.Popup(popup, max_width=340),
             icon=folium.Icon(color="gray" if r.marginal_only else "blue",

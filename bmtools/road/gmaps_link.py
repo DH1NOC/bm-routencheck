@@ -109,7 +109,8 @@ def parse_gmaps_url(url: str) -> GmapsRoute:
         start = segments.index("dir") + 1
     except ValueError:
         raise RouteInputError(
-            "Google-Maps-Link ohne Wegpunkte (…/maps/dir/<start>/<ziel>/…).")
+            "Google-Maps-Link ohne Wegpunkte "
+            "(…/maps/dir/<start>/<ziel>/…).") from None
 
     names: list[str] = []
     blob = ""
@@ -130,7 +131,7 @@ def parse_gmaps_url(url: str) -> GmapsRoute:
              for lon, lat in _BLOB_PAIR.findall(blob)]
     if pairs:
         if len(pairs) == len(waypoints):
-            for wp, (lat, lon) in zip(waypoints, pairs):
+            for wp, (lat, lon) in zip(waypoints, pairs, strict=True):
                 wp.lat, wp.lon = lat, lon
         elif len(pairs) > len(waypoints) >= 2:
             # Mehr Koordinaten als Namen (z. B. per Drag gesetzte Vias):

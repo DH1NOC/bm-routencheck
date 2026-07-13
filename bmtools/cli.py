@@ -10,7 +10,7 @@ eigene main() mit (inkl. eigener --help und ggf. interaktivem Modus).
 from __future__ import annotations
 
 import sys
-from typing import Callable
+from collections.abc import Callable
 
 import questionary
 from questionary import Choice, Separator

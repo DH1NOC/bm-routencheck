@@ -10,7 +10,8 @@ route_from_track() macht aus fertiger Geometrie direkt ein Route-Objekt.
 """
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
+from itertools import pairwise
 
 import httpx
 
@@ -105,7 +106,7 @@ def _route_transitous(waypoints: list[Waypoint], mode: str,
     points: list[Point] = []
     dist_m = 0.0
     dur_s = 0.0
-    for frm, to in zip(waypoints, waypoints[1:]):
+    for frm, to in pairwise(waypoints):
         r = http.get(TRANSITOUS_PLAN, params={
             "fromPlace": f"{frm.lat},{frm.lon}",
             "toPlace": f"{to.lat},{to.lon}",

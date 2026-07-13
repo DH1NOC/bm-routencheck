@@ -92,7 +92,9 @@ class TerrainModel:
         self._tiles[(tx, ty)] = arr
         return arr
 
-    def _tile_indices(self, lats: np.ndarray, lons: np.ndarray):
+    def _tile_indices(
+        self, lats: np.ndarray, lons: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """(Kachel-, Pixel-)Indizes je Koordinate im Slippy-Map-Schema."""
         lat_r = np.radians(np.asarray(lats, dtype=np.float64))
         x = (np.asarray(lons, dtype=np.float64) + 180.0) / 360.0 * self.n
@@ -105,13 +107,13 @@ class TerrainModel:
     def prefetch(self, lats: np.ndarray, lons: np.ndarray) -> None:
         """Alle für die Koordinaten nötigen Kacheln parallel vorladen."""
         tx, _, ty, _ = self._tile_indices(lats, lons)
-        self._download_missing(set(zip(tx.tolist(), ty.tolist())))
+        self._download_missing(set(zip(tx.tolist(), ty.tolist(), strict=True)))
 
     def elevations(self, lats: np.ndarray, lons: np.ndarray) -> np.ndarray:
         """Geländehöhen (m üNN) für Koordinaten-Arrays; Nearest Neighbor —
         bei ~50 m Raster und ~90 m Profilschritt ausreichend."""
         tx, ox, ty, oy = self._tile_indices(lats, lons)
-        keys = set(zip(tx.tolist(), ty.tolist()))
+        keys = set(zip(tx.tolist(), ty.tolist(), strict=True))
         self._download_missing(keys)
         out = np.empty(tx.shape, dtype=np.float32)
         for tile_key in keys:
@@ -122,7 +124,8 @@ class TerrainModel:
     def viewshed(self, lat: float, lon: float, agl_m: float, max_km: float,
                  mobile_m: float = 2.0, n_rays: int = 720,
                  step_km: float = PROFILE_STEP_KM,
-                 marginal_m: float = 30.0):
+                 marginal_m: float = 30.0,
+                 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Sichtfeld eines Relais: welche Punkte im Umkreis sind funktech-
         nisch sichtbar (Empfänger in `mobile_m` Höhe, 4/3-Erdradius)?
 

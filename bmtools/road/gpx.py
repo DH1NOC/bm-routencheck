@@ -11,8 +11,9 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import RouteInputError
 from bmtools.routelib.model import Point
+
+from . import RouteInputError
 
 
 @dataclass
@@ -29,7 +30,7 @@ def read_gpx(path: Path) -> GpxTrack:
     try:
         root = ET.parse(path).getroot()
     except (ET.ParseError, OSError) as e:
-        raise RouteInputError(f"GPX-Datei nicht lesbar ({path}): {e}")
+        raise RouteInputError(f"GPX-Datei nicht lesbar ({path}): {e}") from e
 
     points: list[Point] = []
     route_points: list[Point] = []
@@ -43,7 +44,7 @@ def read_gpx(path: Path) -> GpxTrack:
                 continue
             (points if tag == "trkpt" else route_points).append(p)
         elif tag == "name" and not name and (el.text or "").strip():
-            name = el.text.strip()
+            name = (el.text or "").strip()
 
     points = points or route_points
     if len(points) < 2:

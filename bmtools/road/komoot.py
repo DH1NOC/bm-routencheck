@@ -16,12 +16,14 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
 
-from . import RouteInputError
 from bmtools.routelib.model import Point
+
+from . import RouteInputError
 
 API_TOUR = "https://api.komoot.de/v007/tours/{id}"
 USER_AGENT = "bmtools/0.1 (Amateurfunk-Tool; Kontakt: cnohl@gmx.de)"
@@ -64,8 +66,9 @@ def parse_komoot_url(url: str) -> KomootRef:
         raise RouteInputError(
             "Das ist kein Komoot-Tour-Link (erwartet …/tour/<id> oder "
             "…/smarttour/e<id>/…).")
-    token = (parse_qs(split.query).get("share_token") or [None])[0]
-    return KomootRef(tour_id=int(m.group(1)), share_token=token)
+    tokens = parse_qs(split.query).get("share_token") or []
+    return KomootRef(tour_id=int(m.group(1)),
+                     share_token=tokens[0] if tokens else None)
 
 
 def fetch_tour(ref: KomootRef, http: httpx.Client | None = None,
@@ -110,13 +113,13 @@ def fetch_tour(ref: KomootRef, http: httpx.Client | None = None,
     except httpx.HTTPError as e:
         raise RouteInputError(
             f"Komoot-Abruf fehlgeschlagen ({e}) — als Ausweg die Tour als "
-            f"GPX exportieren und mit --gpx übergeben.")
+            f"GPX exportieren und mit --gpx übergeben.") from e
     finally:
         if own_client:
             http.close()
 
 
-def _items_from_html(http: httpx.Client, page_url: str) -> list[dict]:
+def _items_from_html(http: httpx.Client, page_url: str) -> list[dict[str, Any]]:
     """Fallback: Koordinaten-Array aus dem eingebetteten (backslash-
     escapten) JSON der Tour-Seite ziehen. Best effort — bei Misserfolg
     leere Liste, der Aufrufer verweist dann auf den GPX-Weg."""

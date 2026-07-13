@@ -5,6 +5,7 @@ import hashlib
 import json
 import time
 from pathlib import Path
+from typing import Any
 
 from platformdirs import user_cache_dir
 
@@ -19,7 +20,7 @@ class Cache:
         digest = hashlib.sha256(key.encode()).hexdigest()[:24]
         return self.dir / f"{digest}.json"
 
-    def get(self, key: str):
+    def get(self, key: str) -> Any:
         path = self._path(key)
         try:
             envelope = json.loads(path.read_text())
@@ -30,6 +31,6 @@ class Cache:
             return None
         return envelope["data"]
 
-    def set(self, key: str, data) -> None:
+    def set(self, key: str, data: Any) -> None:
         envelope = {"ts": time.time(), "key": key, "data": data}
         self._path(key).write_text(json.dumps(envelope))

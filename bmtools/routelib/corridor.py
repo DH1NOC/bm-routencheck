@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from itertools import pairwise
 
 from bmtools.bm_api.models import Device
 
@@ -41,7 +42,7 @@ def point_to_segment_km(p: Point, a: Point, b: Point) -> tuple[float, float]:
 def cumulative_km(points: list[Point]) -> list[float]:
     """Streckenkilometer je Punkt (Start = 0)."""
     cum = [0.0]
-    for a, b in zip(points, points[1:]):
+    for a, b in pairwise(points):
         ref = (a[0] + b[0]) / 2
         ax, ay = _project_km(a, ref)
         bx, by = _project_km(b, ref)
@@ -49,7 +50,8 @@ def cumulative_km(points: list[Point]) -> list[float]:
     return cum
 
 
-def bounding_box(points: list[Point], buffer_km: float) -> tuple[float, float, float, float]:
+def bounding_box(points: list[Point],
+                 buffer_km: float) -> tuple[float, float, float, float]:
     lats = [p[0] for p in points]
     lons = [p[1] for p in points]
     dlat = buffer_km / 111.0
@@ -73,10 +75,9 @@ def find_in_corridor(
     Streckenkilometer; die Vorauswahl trifft dann der Aufrufer (z. B. über
     die rechnerische Erreichbarkeit)."""
     unlimited = corridor_km is None
-    if unlimited:
-        corridor_km = math.inf
-    else:
-        lat_min, lon_min, lat_max, lon_max = bounding_box(points, corridor_km)
+    limit = math.inf if corridor_km is None else corridor_km
+    if not unlimited:
+        lat_min, lon_min, lat_max, lon_max = bounding_box(points, limit)
     cum = cumulative_km(points)
     hits: list[CorridorHit] = []
     for dev in devices:
@@ -88,18 +89,18 @@ def find_in_corridor(
         p = (dev.lat, dev.lng)
         best_dist = math.inf
         best_chainage = 0.0
-        for i, (a, b) in enumerate(zip(points, points[1:])):
+        for i, (a, b) in enumerate(pairwise(points)):
             # Grobfilter: Segment ganz außer Reichweite überspringen
             if (
-                min(a[0], b[0]) - corridor_km / 111.0 > dev.lat
-                or max(a[0], b[0]) + corridor_km / 111.0 < dev.lat
+                min(a[0], b[0]) - limit / 111.0 > dev.lat
+                or max(a[0], b[0]) + limit / 111.0 < dev.lat
             ):
                 continue
             dist, t = point_to_segment_km(p, a, b)
             if dist < best_dist:
                 best_dist = dist
                 best_chainage = cum[i] + t * (cum[i + 1] - cum[i])
-        if best_dist <= corridor_km:
+        if best_dist <= limit:
             hits.append(CorridorHit(dev, best_dist, best_chainage))
     hits.sort(key=lambda h: h.chainage_km)
     return hits

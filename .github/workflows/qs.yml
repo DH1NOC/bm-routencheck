@@ -1,0 +1,25 @@
+# Qualitätssicherung: gleiche Prüfungen wie `make qs` lokal.
+name: QS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  qs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Abhängigkeiten installieren
+        run: pip install -e .[dev]
+      - name: Lint (ruff)
+        run: ruff check bmtools tests
+      - name: Typprüfung (mypy strict)
+        run: mypy
+      - name: Tests + Abdeckung (pytest)
+        run: pytest --cov=bmtools
