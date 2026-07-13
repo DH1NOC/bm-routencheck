@@ -1,6 +1,6 @@
 # BrandmeisterTools — Projektplan
 
-Stand: 2026-07-11
+Stand: 2026-07-13
 
 ## 1. Ziel
 
@@ -11,6 +11,10 @@ Gemeinsame Basis: ein wiederverwendbarer Brandmeister-API-Client.
 (z. B. ICE Koblenz–Nürnberg) und liefert pro Relais: Rufzeichen, RX/TX-Frequenz,
 Colorcode, Standort, Entfernung zur Strecke sowie die Talkgroups in TS1/TS2 —
 statisch, zeitgeschaltet und per Cluster.
+
+**Tool 2/3 — `bm-car` / `bm-bike`:** Dieselbe Auswertung für Auto- und
+Radrouten; Eingabe per Google-Maps-Link, Komoot-Tour-Link, GPX-Datei oder
+Start/Ziel-Text (Plan und Verifikation: Abschnitt 7; fertig seit 2026-07-13).
 
 ## 2. Verifizierte Datenlage (getestet am 2026-07-11)
 
@@ -120,6 +124,12 @@ Reihenfolge strikt sequenziell; jedes M endet mit einem konkreten Testlauf, kein
 - [ ] AnyTone AT-D890UV: Beispiel-Export (Channel/TalkGroups/Zone-CSV) aus der Nutzer-CPS einpflegen, Header/Defaults in `bmtools/rail/codeplug/anytone.py` anpassen, Importtest (M5)
 - [x] Zeitzone der Zeitschaltungen = **Lokalzeit** (verifiziert 2026-07-11 am Frankenrundspruch, Fr 19:30: DK0WUE-Zeitfenster-Lücke endet exakt 19:30; UTC-Lesart ergäbe sinnlose Zeiten). Offizielle Doku existiert nicht (Seite leer).
 - [ ] Spätere Tools konkretisieren (Ideen: Lastheard-Monitor via MQTT/WebSocket, TG-Aktivitätsstatistik)
+- [ ] Google-Link mit per Maus verschobener Route (Drag-Via) an einem echten
+      Link verifizieren — Heuristik ist implementiert und unit-getestet,
+      ein echter Beispiel-Link steht noch aus
+- [ ] Komoot-API-Geometrie gegen einen echten GPX-Export aus der Nutzer-CPS
+      der Komoot-App vergleichen (Kreuzvalidierung Komoot-Lauf vs. Lauf mit
+      selbst erzeugtem GPX war identisch; ein Original-Export fehlt noch)
 
 ---
 
@@ -229,4 +239,4 @@ nur als Hinweis. Ohne Link: Start/Ziel/Via als Text mit Kandidaten-Auswahl
 | R2 | `gmaps_link.py`, `komoot.py` und `gpx.py` mit Unit-Tests (echte URLs/Dateien aus R0 als Fixtures, inkl. Fehlerfälle: ÖPNV-Link, kaputter Blob, Consent-Wall, private Tour ohne share_token, leeres/kaputtes GPX) | ✅ 2026-07-13: 24 Tests grün (offline, httpx-MockTransport) + Live-Smoke-Test aller vier echten Links (Google Auto/Rad expandiert+geparst, Komoot Smarttour+privat abgerufen). ⚠️ GPX-Referenzvergleich offen: braucht einen Nutzer-Export aus der Komoot-App (API-`.gpx` verlangt Login) |
 | R3 | `routing.py`: OSRM-Route über alle Wegpunkte, Fallback-Kette OSRM → Transitous (`maxDirectTime=86400`, sonst filtert das Default-Limit lange Abschnitte) → Luftlinie mit Warnung, `Route`-Objekt (Komoot/GPX umgehen das Routing via `route_from_track`) | Implementiert 2026-07-13, 6 neue Tests (30 gesamt grün). Live-Lauf der echten Links: Auto 358 km/3:28 h (5.001 Punkte), Rad 448 km/16:24 h (14.956 Punkte), beide Komoot-Touren als Track. ✅ Abnahme 2026-07-13: Nutzer hat Verlauf und Distanzen gegen Google verglichen — passt |
 | R4 | `road/cli.py`: Assistent + Flags (`--gpx`), volle Pipeline (Erreichbarkeit, Bericht, Karte, CSV, AnyTone), Dispatcher + Entrypoints; Pipeline nach `routelib/pipeline.py` extrahiert (rail-Regression erneut bestanden, nur `last_seen` frischer); Geocoder-Entscheid: Transitous ohne type-Filter (hausnummerngenau verifiziert) | ✅ 2026-07-13, drei komplette Läufe: `bm-car` Google-Kurzlink (358 km, 22 Relais, Schatten 19 %), `bm-bike` Komoot-Link (27,6 km, 5 Relais), `bm-bike --gpx` — Komoot- und GPX-Lauf byte-identisch (Kreuzvalidierung der Eingabewege) |
-| R5 | README + Projektplan aktualisieren | Doku beschreibt Link-Workflow inkl. Grenzen (7.2) |
+| R5 | README + Projektplan aktualisieren | ✅ 2026-07-13: README-Abschnitt bm-car/bm-bike mit Link-Workflow und klaren Ansagen (keine Geometrie im Google-Link, Komoot-share_token, GPX als garantierter Weg, ÖPNV → bm-rail) |

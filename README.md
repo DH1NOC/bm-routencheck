@@ -64,8 +64,55 @@ Datenquellen: [Brandmeister-API](https://api.brandmeister.network/v2/) (ohne
 Key, nur Lesezugriff, Antworten werden lokal gecacht) und
 [Transitous](https://transitous.org) für die Streckengeometrie.
 
+## bm-car & bm-bike — DMR-Relais entlang einer Auto- oder Radroute
+
+Gleiche Auswertung und gleiche Ausgaben wie bm-rail, aber für Straße und
+Rad. Der einfachste Weg: Route in Google Maps oder Komoot planen, Link
+kopieren, ins Tool einfügen.
+
+```bash
+# Interaktiver Assistent (fragt nach Link oder Start/Ziel):
+bm-car
+bm-bike
+
+# Google-Maps-Link (Kurzlink vom Teilen-Button genügt):
+bm-car "https://maps.app.goo.gl/…"
+
+# Komoot-Tour (bei privaten Touren den „Mit Link teilen“-Link nehmen,
+# er enthält den nötigen share_token):
+bm-bike "https://www.komoot.com/tour/…?share_token=…"
+
+# GPX-Datei (z. B. Komoot-Export — funktioniert immer):
+bm-bike --gpx tour.gpx
+
+# Oder klassisch mit Orts-/Adressangaben (hausnummerngenau):
+bm-car --from "Winkelhaider Str. 4a, Feucht" --to "Bendorf" --open
+```
+
+Was dabei zu wissen ist (klare Ansagen):
+
+- **Ein Google-Maps-Link enthält keine Routen-Geometrie**, nur die
+  Wegpunkte. Das Tool routet daher selbst (OSRM auf OpenStreetMap-Daten,
+  [FOSSGIS-Server](https://routing.openstreetmap.de)) — der Verlauf kann
+  von Googles Vorschlag leicht abweichen. Per Maus verschobene
+  Routenpunkte stehen als Via-Punkte im Link und werden übernommen.
+- **Ein Komoot-Link ist der bessere Fall:** Er zeigt auf eine
+  gespeicherte Tour, deren exakte Geometrie übernommen wird — kein
+  Nachrouten. Private Touren brauchen den Teilen-Link; klappt der Abruf
+  nicht, ist der GPX-Export der Tour der garantierte Weg (`--gpx`).
+- ÖPNV-Links lehnt das Tool ab und verweist auf `bm-rail`.
+- Widerspricht das Verkehrsmittel im Link dem Tool (Rad-Link in
+  `bm-car`), wird interaktiv nachgefragt; in Skripten gewinnt der Link.
+
+Ausgaben wie bei bm-rail in `out/<route>/`: `bericht.html`, `relais.csv`,
+`karte.html`, `anytone/*.CSV`.
+
 ## Projektstruktur
 
 - `bmtools/bm_api/` — wiederverwendbarer Brandmeister-API-Client (Cache, Modelle)
-- `bmtools/rail/` — bm-rail (Route, Korridor, Berichte, Codeplug-Export)
+- `bmtools/routelib/` — gemeinsamer Kern: Erreichbarkeit (Geländemodell),
+  Berichte, Karte, Codeplug-Export, Pipeline
+- `bmtools/rail/` — bm-rail (Bahnverbindungen via Transitous)
+- `bmtools/road/` — bm-car/bm-bike (Google-Maps-/Komoot-Link, GPX,
+  OSRM-Routing, Geocoding)
 - `PROJEKTPLAN.md` — Plan, Entscheidungen, offene Punkte
