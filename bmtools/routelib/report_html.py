@@ -75,7 +75,9 @@ th { background: #8882; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 code, td.mono { font-family: ui-monospace, 'SF Mono', Consolas, monospace; }
 .meta { color: #888; font-size: .85rem; }
-.badge { border-radius: .6em; padding: 0 .5em; font-size: .8em; }
+.badge { border-radius: .6em; padding: 0 .5em; font-size: .8em;
+         background: #b8620033; border: 1px solid #b8620066;
+         white-space: nowrap; }
 .timed { background: #e6a70033; } .cluster { background: #0a84ff22; }
 @media print { body { margin: 0; } h2 { page-break-before: auto; } }
 """
@@ -105,7 +107,8 @@ Uhrzeiten von Zeitschaltungen sind Lokalzeit.</p>
 <th class="num">TX [MHz]</th><th class="num">CC</th></tr>
 {% for r in overview %}
 <tr><td class="num">{{ r.km }}</td>
-<td><a href="#id{{ r.id }}">{{ r.callsign }}</a></td><td>{{ r.city }}</td>
+<td><a href="#id{{ r.id }}">{{ r.callsign }}</a>{% if r.marginal %}
+<span class="badge">Grenzbereich</span>{% endif %}</td><td>{{ r.city }}</td>
 <td class="num">{{ r.dist }} km</td>
 <td class="num mono">{{ r.rx }}</td>
 <td class="num mono">{{ r.tx }}</td>
@@ -171,10 +174,15 @@ gemeldeten Repeater der Umgebung, auch außerhalb des Suchkorridors.</p>
 {% endif %}
 
 {% for rep in repeaters %}
-<h2 id="id{{ rep.id }}">{{ rep.callsign }} — {{ rep.city }}</h2>
+<h2 id="id{{ rep.id }}">{{ rep.callsign }} — {{ rep.city }}{% if rep.marginal %}
+<span class="badge">nur Grenzbereich</span>{% endif %}</h2>
 <p class="meta">DMR-ID {{ rep.id }} · Streckenkilometer {{ rep.km }} ·
 Abstand zur Strecke {{ rep.dist }} km · Antenne {{ rep.agl }} m AGL ·
 {{ rep.pep }} W · zuletzt gesehen {{ rep.last_seen }}</p>
+{% if rep.marginal %}
+<p><i>Keine freie Sicht zu einem Streckenpunkt — Empfang nur per
+Beugung plausibel (Hindernis ≤ 30 m über der Sichtlinie).</i></p>
+{% endif %}
 {% if rep.only_implicit %}
 <p><i>Keine statischen Talkgroups konfiguriert — nur TG9 Lokal und
 dynamische Nutzung (per PTT-Anmeldung).</i></p>
@@ -224,7 +232,7 @@ def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
     overview = [{
         "km": f"{r.hit.chainage_km:.0f}", "id": r.device.id,
         "callsign": r.device.callsign, "city": r.device.city,
-        "dist": f"{r.hit.distance_km:.1f}",
+        "dist": f"{r.hit.distance_km:.1f}", "marginal": r.marginal_only,
         "rx": _fmt_mhz(r.device.tx_mhz), "tx": _fmt_mhz(r.device.rx_mhz),
         "cc": r.device.colorcode or "",
     } for r in results]
@@ -253,10 +261,16 @@ def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
     repeaters = []
     for r in results:
         d = r.device
+        # Slot 0 heißt "keine Slot-Angabe": bei Simplex-Repeatern (RX=TX)
+        # ist das der Normalfall; auf Duplex-Relais kommt es ebenfalls vor
+        # (verifiziert 2026-07-13 an DB0TU, TG 26231) — dort wäre
+        # "Simplex" falsch, angezeigt wird die TS1-Annahme mit Herkunft.
+        simplex = d.tx_mhz == d.rx_mhz
+        slot0_label = "1 (Simplex)" if simplex else "1 (BM: ohne Slot)"
         repeaters.append({
             "id": d.id, "callsign": d.callsign, "city": d.city,
             "km": f"{r.hit.chainage_km:.0f}",
-            "dist": f"{r.hit.distance_km:.1f}",
+            "dist": f"{r.hit.distance_km:.1f}", "marginal": r.marginal_only,
             "agl": d.agl or "?", "pep": d.pep or "?",
             "last_seen": d.last_seen,
             "only_implicit": all(s.kind == "implicit"
@@ -266,7 +280,7 @@ def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
                 "css": s.kind if s.kind in ("timed", "cluster") else "",
                 "rx": _fmt_mhz(d.tx_mhz), "tx": _fmt_mhz(d.rx_mhz),
                 "cc": d.colorcode or "",
-                "slot": s.slot if s.slot in (1, 2) else "1 (Simplex)",
+                "slot": s.slot if s.slot in (1, 2) else slot0_label,
                 "tg": s.talkgroup, "tg_name": tg_names.get(s.talkgroup, ""),
                 "art": _art(s),
             } for s in r.profile.subscriptions],

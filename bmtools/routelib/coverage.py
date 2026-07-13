@@ -73,6 +73,7 @@ class CoverageEstimate:
     terrain_used: bool
     samples: list[SamplePoint]
     reachable_ids: set[int]  # Geräte-IDs mit Sichtkontakt zu >=1 Streckenpunkt
+    marginal_ids: set[int]   # Geräte-IDs mit >=1 Streckenpunkt im Grenzbereich
 
     def pct(self, km: float) -> float:
         return 100.0 * km / self.total_km if self.total_km else 0.0
@@ -106,6 +107,7 @@ def estimate_coverage(points: list[Point], repeaters: list[Device],
         reps.append((d.lat, d.lng, horizon_km(agl), agl, d.callsign, d.id))
 
     reachable_ids: set[int] = set()
+    marginal_ids: set[int] = set()
 
     # Kandidaten je Streckenpunkt vorab bestimmen (reine Geometrie) …
     per_sample = [
@@ -150,6 +152,7 @@ def estimate_coverage(points: list[Point], repeaters: list[Device],
                 reachable_ids.add(did)
             elif obstruction <= MARGINAL_OBSTRUCTION_M:
                 marginal.append(cs)
+                marginal_ids.add(did)
         status = LOS if los else (MARGINAL if marginal else SHADOW)
         return SamplePoint(km, status, tuple(los), tuple(marginal))
 
@@ -183,4 +186,5 @@ def estimate_coverage(points: list[Point], repeaters: list[Device],
     return CoverageEstimate(
         total_km=total, covered_km=covered, marginal_km=marginal,
         uncovered_km=uncovered, gaps=gaps, terrain_used=terrain is not None,
-        samples=sample_points, reachable_ids=reachable_ids)
+        samples=sample_points, reachable_ids=reachable_ids,
+        marginal_ids=marginal_ids)

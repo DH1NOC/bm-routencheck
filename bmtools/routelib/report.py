@@ -16,6 +16,10 @@ from .corridor import CorridorHit
 class RepeaterResult:
     hit: CorridorHit
     profile: DeviceProfile
+    # True: erreicht die Strecke nur im Grenzbereich (Beugung), nie mit
+    # freier Sicht — wird überall mitgeführt, damit Karte, Bericht und
+    # CSV dieselben Relais zeigen (Konsistenz-Zusage)
+    marginal_only: bool = False
 
     @property
     def device(self):
@@ -43,7 +47,8 @@ def print_table(results: list[RepeaterResult], console: Console | None = None) -
         title="DMR-Relais entlang der Strecke "
               "(RX/TX aus Sicht deines Funkgeräts)",
         caption="⏱ = zeitgeschaltet (Uhrzeiten: Lokalzeit), "
-                "⇄ = Cluster (lokale TG ⇄ Cluster-TG)",
+                "⇄ = Cluster (lokale TG ⇄ Cluster-TG), "
+                "gedimmt = nur Grenzbereich (Beugung)",
     )
     table.add_column("km", justify="right")
     table.add_column("Rufzeichen")
@@ -66,6 +71,7 @@ def print_table(results: list[RepeaterResult], console: Console | None = None) -
             str(d.colorcode or ""),
             _fmt_subs(r.profile.for_slot(1)),
             _fmt_subs(r.profile.for_slot(2)),
+            style="dim" if r.marginal_only else None,
         )
     console.print(table)
 
@@ -73,6 +79,7 @@ def print_table(results: list[RepeaterResult], console: Console | None = None) -
 def write_csv(results: list[RepeaterResult], path: Path) -> None:
     fields = [
         "strecken_km", "rufzeichen", "standort", "abstand_km",
+        "erreichbarkeit",
         "rx_mhz", "tx_mhz", "colorcode",
         "ts1_statisch", "ts1_zeitgeschaltet",
         "ts2_statisch", "ts2_zeitgeschaltet", "cluster",
@@ -99,6 +106,7 @@ def write_csv(results: list[RepeaterResult], path: Path) -> None:
                 "rufzeichen": d.callsign,
                 "standort": d.city,
                 "abstand_km": f"{r.hit.distance_km:.1f}",
+                "erreichbarkeit": "Grenzbereich" if r.marginal_only else "Sicht",
                 "rx_mhz": f"{d.tx_mhz:.5f}",  # aus Gerätesicht
                 "tx_mhz": f"{d.rx_mhz:.5f}",
                 "colorcode": d.colorcode or "",

@@ -62,7 +62,8 @@ _LEGEND = f"""
 {_legend_line(*STATUS_STYLE[SHADOW][:2])} Schatten (gepunktet)<br>
 <span style="display:inline-block;width:30px;height:10px;vertical-align:middle;
 background:linear-gradient(90deg,#A6D6EB,#56B4E9,#0072B2,#03395C)"></span>
-Relais-Sichtfeld (hellste Stufe: nur Beugung, sonst dunkler = mehr Relais)
+Relais-Sichtfeld (hellste Stufe: nur Beugung, sonst dunkler = mehr Relais)<br>
+Marker: blau = Sicht zur Strecke, grau = nur Grenzbereich (Beugung)
 </div>
 """
 
@@ -189,8 +190,7 @@ def _reachable_in_range(coverage: CoverageEstimate, start_km: float,
     return f" — Relais: {', '.join(parts)}{suffix}"
 
 
-def write_map(results: list[RepeaterResult], route: Route,
-              corridor_km: float, path: Path,
+def write_map(results: list[RepeaterResult], route: Route, path: Path,
               coverage: CoverageEstimate | None = None,
               terrain: TerrainModel | None = None,
               route_label: str = "Strecke",
@@ -242,8 +242,11 @@ def write_map(results: list[RepeaterResult], route: Route,
     e = html.escape
     for r in results:
         d = r.device
+        marginal_note = ("<b>Nur Grenzbereich</b> — keine freie Sicht zur "
+                         "Strecke, Empfang per Beugung möglich<br>"
+                         if r.marginal_only else "")
         popup = (
-            f"<b>{e(d.callsign)}</b> — {e(d.city)}<br>"
+            f"<b>{e(d.callsign)}</b> — {e(d.city)}<br>{marginal_note}"
             f"RX <code>{d.tx_mhz:.5f}</code> / TX <code>{d.rx_mhz:.5f}</code> MHz, "
             f"CC{d.colorcode}<br>"
             f"TS1: {e(_fmt_subs(r.profile.for_slot(1)) or '–')}<br>"
@@ -251,11 +254,15 @@ def write_map(results: list[RepeaterResult], route: Route,
             f"<small>km {r.hit.chainage_km:.0f}, Abstand "
             f"{r.hit.distance_km:.1f} km, DMR-ID {d.id}</small>"
         )
+        tooltip = f"{d.callsign} ({r.hit.distance_km:.1f} km)"
+        if r.marginal_only:
+            tooltip += " — nur Grenzbereich"
         folium.Marker(
             (d.lat, d.lng),
-            tooltip=f"{d.callsign} ({r.hit.distance_km:.1f} km)",
+            tooltip=tooltip,
             popup=folium.Popup(popup, max_width=340),
-            icon=folium.Icon(color="blue", icon="tower-cell", prefix="fa"),
+            icon=folium.Icon(color="gray" if r.marginal_only else "blue",
+                             icon="tower-cell", prefix="fa"),
         ).add_to(m)
 
     m.save(str(path))

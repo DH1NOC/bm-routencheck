@@ -18,7 +18,7 @@ from rich.progress import track
 from bmtools.bm_api import BrandmeisterClient, DeviceProfile, TalkgroupSub
 from .codeplug.anytone import write_anytone
 from .corridor import find_in_corridor
-from .coverage import BBOX_BUFFER_KM, estimate_coverage
+from .coverage import estimate_coverage
 from .mapview import write_map
 from .model import Route
 from .report import RepeaterResult, print_table, write_csv
@@ -68,13 +68,21 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
             terrain = None
             coverage = estimate_coverage(route.points, repeaters, None)
 
-    reachable = [d for d in repeaters if d.id in coverage.reachable_ids]
-    max_dist = corridor_km if corridor_km else BBOX_BUFFER_KM
-    hits = find_in_corridor(reachable, route.points, max_dist)
+    # Konsistenz-Zusage: Jedes Relais, das irgendwo (Karte, Abschnitts-
+    # tabelle) als erreichbar oder grenzwertig auftaucht, bekommt auch
+    # einen vollen Eintrag — Grenzbereichs-Relais markiert, kein
+    # implizites Abstandslimit (nur --corridor begrenzt).
+    listed_ids = coverage.reachable_ids | coverage.marginal_ids
+    reachable = [d for d in repeaters if d.id in listed_ids]
+    hits = find_in_corridor(reachable, route.points, corridor_km)
+    marginal_count = sum(1 for h in hits
+                         if h.device.id not in coverage.reachable_ids)
     limit_note = f" (Limit {corridor_km:g} km Streckenabstand)" if corridor_km else ""
+    marginal_note = (f", davon {marginal_count} nur im Grenzbereich"
+                     if marginal_count else "")
     console.print(f"  {len(repeaters)} Repeater im Netz, "
                   f"[bold]{len(hits)}[/bold] von der Strecke aus rechnerisch "
-                  f"erreichbar{limit_note}")
+                  f"erreichbar{limit_note}{marginal_note}")
     if not hits:
         console.print("[red]Kein Relais von der Strecke aus erreichbar.[/red]")
         return 1
@@ -82,7 +90,8 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
     results = [
         RepeaterResult(hit=h, profile=_with_local_tg(
             client.profile(h.device.id),
-            simplex=h.device.tx_mhz == h.device.rx_mhz))
+            simplex=h.device.tx_mhz == h.device.rx_mhz),
+            marginal_only=h.device.id not in coverage.reachable_ids)
         for h in track(hits, description="Talkgroup-Profile laden …")
     ]
 
@@ -108,7 +117,7 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
     write_csv(results, csv_path)
     write_html_report(results, route, html_path, tg_names, coverage)
     with console.status("Karte erzeugen (inkl. Relais-Sichtfelder) …"):
-        write_map(results, route, max_dist, map_path, coverage,
+        write_map(results, route, map_path, coverage,
                   terrain if coverage.terrain_used else None,
                   route_label=route_label, waypoint_icon=waypoint_icon)
     write_anytone(results, out_dir / "anytone", zone, tg_names)

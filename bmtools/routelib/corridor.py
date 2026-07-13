@@ -65,16 +65,25 @@ class CorridorHit:
 
 
 def find_in_corridor(
-    devices: list[Device], points: list[Point], corridor_km: float
+    devices: list[Device], points: list[Point], corridor_km: float | None
 ) -> list[CorridorHit]:
-    """Alle Geräte mit Abstand <= corridor_km, sortiert nach Streckenkilometer."""
-    lat_min, lon_min, lat_max, lon_max = bounding_box(points, corridor_km)
+    """Alle Geräte mit Abstand <= corridor_km, sortiert nach Streckenkilometer.
+
+    corridor_km=None: kein Abstandslimit — jedes Gerät bekommt Distanz und
+    Streckenkilometer; die Vorauswahl trifft dann der Aufrufer (z. B. über
+    die rechnerische Erreichbarkeit)."""
+    unlimited = corridor_km is None
+    if unlimited:
+        corridor_km = math.inf
+    else:
+        lat_min, lon_min, lat_max, lon_max = bounding_box(points, corridor_km)
     cum = cumulative_km(points)
     hits: list[CorridorHit] = []
     for dev in devices:
         if dev.lat is None or dev.lng is None:
             continue
-        if not (lat_min <= dev.lat <= lat_max and lon_min <= dev.lng <= lon_max):
+        if not unlimited and not (
+                lat_min <= dev.lat <= lat_max and lon_min <= dev.lng <= lon_max):
             continue
         p = (dev.lat, dev.lng)
         best_dist = math.inf
