@@ -3,12 +3,19 @@
 Ziel: sauberes Copy&Paste. Pro Relais eine fertige Kanaltabelle
 (eine Zeile je Talkgroup) mit allen Werten, die die CPS verlangt —
 Frequenzen aus Sicht des Funkgeräts.
+
+Gerendert per jinja2 (Autoescaping) als vollständiges HTML5-Dokument:
+<meta charset> ist Pflicht — ohne sie riet z. B. Samsung Internet die
+Kodierung falsch und zeigte Umlaute/Symbole als Zeichensalat
+(gemeldet 2026-07-13); der Viewport-Tag macht den Bericht auf dem
+Smartphone lesbar, breite Tabellen scrollen im eigenen Wrapper.
 """
 from __future__ import annotations
 
-import html
 from datetime import datetime
 from pathlib import Path
+
+import jinja2
 
 from .coverage import MIN_GAP_KM, CoverageEstimate
 from .model import Route
@@ -54,11 +61,13 @@ def _contact_ranges(coverage: CoverageEstimate):
             final.append(r)
     return final
 
+
 _CSS = """
 :root { color-scheme: light dark; }
 body { font-family: -apple-system, 'Segoe UI', sans-serif; margin: 2rem auto;
        max-width: 62rem; line-height: 1.45; padding: 0 1rem; }
 h1 { font-size: 1.5rem; } h2 { font-size: 1.15rem; margin-top: 2.2rem; }
+.tablewrap { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; margin: .6rem 0 1rem; }
 th, td { border: 1px solid #8886; padding: .3rem .55rem; text-align: left;
          font-size: .92rem; }
@@ -68,159 +77,207 @@ code, td.mono { font-family: ui-monospace, 'SF Mono', Consolas, monospace; }
 .meta { color: #888; font-size: .85rem; }
 .badge { border-radius: .6em; padding: 0 .5em; font-size: .8em; }
 .timed { background: #e6a70033; } .cluster { background: #0a84ff22; }
-summary-table td { white-space: nowrap; }
 @media print { body { margin: 0; } h2 { page-break-before: auto; } }
 """
+
+_TEMPLATE = jinja2.Environment(autoescape=True).from_string("""\
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DMR-Relais {{ stations }}</title>
+<style>{{ css }}</style>
+</head>
+<body>
+<h1>DMR-Relais entlang der Strecke {{ stations }}</h1>
+<p class="meta">Erstellt {{ created }} · Quelle: Brandmeister-API ·
+Verbindung: {{ legs }}{% if interpolated %} ·
+<b>Achtung: Luftlinien-Interpolation!</b>{% endif %}</p>
+<p><b>Alle Frequenzangaben aus Sicht deines Funkgeräts:</b>
+RX = Relais-Ausgabe (du hörst), TX = Relais-Eingabe (du sendest).
+Uhrzeiten von Zeitschaltungen sind Lokalzeit.</p>
+
+<h2>Übersicht</h2>
+<div class="tablewrap"><table>
+<tr><th class="num">km</th><th>Rufzeichen</th><th>Standort</th>
+<th class="num">Abstand</th><th class="num">RX [MHz]</th>
+<th class="num">TX [MHz]</th><th class="num">CC</th></tr>
+{% for r in overview %}
+<tr><td class="num">{{ r.km }}</td>
+<td><a href="#id{{ r.id }}">{{ r.callsign }}</a></td><td>{{ r.city }}</td>
+<td class="num">{{ r.dist }} km</td>
+<td class="num mono">{{ r.rx }}</td>
+<td class="num mono">{{ r.tx }}</td>
+<td class="num">{{ r.cc }}</td></tr>
+{% endfor %}
+</table></div>
+
+{% if cov %}
+<h2>Abdeckungsschätzung</h2>
+{% if cov.terrain %}
+<p>Voraussichtlich <b>ca. {{ cov.uncovered_pct }} %</b> der Strecke ohne
+DMR-Abdeckung (Funkschatten; {{ cov.uncovered_km }} von
+{{ cov.total_km }} km). Dazu {{ cov.marginal_pct }} %
+({{ cov.marginal_km }} km) im Grenzbereich, wo Empfang durch Beugung
+möglich ist. Freie Sicht zu einem Relais: {{ cov.covered_pct }} %.</p>
+{% else %}
+<p>Voraussichtlich <b>ca. {{ cov.uncovered_pct }} %</b> der Strecke ohne
+DMR-Abdeckung ({{ cov.uncovered_km }} von {{ cov.total_km }} km).</p>
+{% endif %}
+{% if cov.gaps %}
+<p>Größere {{ "Funkschatten-Abschnitte" if cov.terrain else "Lücken" }}
+(≥ {{ cov.min_gap_km }} km):</p>
+<div class="tablewrap"><table>
+<tr><th class="num">von km</th><th class="num">bis km</th>
+<th class="num">Länge</th></tr>
+{% for g in cov.gaps %}
+<tr><td class="num">{{ g.start }}</td><td class="num">{{ g.end }}</td>
+<td class="num">{{ g.len }} km</td></tr>
+{% endfor %}
+</table></div>
+{% else %}
+<p>Keine Lücken ≥ {{ cov.min_gap_km }} km.</p>
+{% endif %}
+{% if cov.terrain %}
+<p class="meta">Methodik: Sichtlinienprüfung gegen ein digitales
+Höhenmodell (SRTM-basiert, ~50 m Raster) mit 4/3-Erdradius;
+Mobilantenne 2 m. „Grenzbereich“ = Hindernis bis 30 m über der
+Sichtlinie (Beugungsempfang plausibel). Vegetation/Bebauung und
+Sendeleistung sind nicht modelliert. Die Relais-Auswahl folgt der
+rechnerischen Erreichbarkeit von der Strecke (kein fester Korridor);
+geprüft werden alle aktuell online gemeldeten Repeater der Umgebung.</p>
+{% else %}
+<p class="meta">Methodik: Sichtlinien-Funkhorizont je Relais aus der
+Antennenhöhe (d ≈ 4,12·(√h<sub>Antenne</sub> + √2 m) km), ohne
+Geländemodell — in Tälern und Mittelgebirgen optimistisch, der Wert
+ist also eine Untergrenze. Berücksichtigt sind alle aktuell online
+gemeldeten Repeater der Umgebung, auch außerhalb des Suchkorridors.</p>
+{% endif %}
+{% endif %}
+
+{% if ranges %}
+<h2>Erreichbare Relais je Streckenabschnitt</h2>
+<div class="tablewrap"><table>
+<tr><th class="num">von km</th><th class="num">bis km</th>
+<th>Relais (potenziell erreichbar)</th></tr>
+{% for r in ranges %}
+<tr><td class="num">{{ r.start }}</td><td class="num">{{ r.end }}</td>
+<td>{% if r.kind == "los" %}{{ r.names | join(", ") }}
+{%- elif r.kind == "marginal" %}<i>nur grenzwertig:</i> {{ r.names | join(", ") }}
+{%- else %}<i>— Funkschatten</i>{% endif %}</td></tr>
+{% endfor %}
+</table></div>
+{% endif %}
+
+{% for rep in repeaters %}
+<h2 id="id{{ rep.id }}">{{ rep.callsign }} — {{ rep.city }}</h2>
+<p class="meta">DMR-ID {{ rep.id }} · Streckenkilometer {{ rep.km }} ·
+Abstand zur Strecke {{ rep.dist }} km · Antenne {{ rep.agl }} m AGL ·
+{{ rep.pep }} W · zuletzt gesehen {{ rep.last_seen }}</p>
+{% if rep.only_implicit %}
+<p><i>Keine statischen Talkgroups konfiguriert — nur TG9 Lokal und
+dynamische Nutzung (per PTT-Anmeldung).</i></p>
+{% endif %}
+<div class="tablewrap"><table>
+<tr><th>Kanalname</th><th class="num">RX [MHz]</th>
+<th class="num">TX [MHz]</th><th class="num">CC</th>
+<th class="num">Slot</th><th class="num">Talkgroup</th>
+<th>TG-Name</th><th>Art</th></tr>
+{% for c in rep.channels %}
+<tr{% if c.css %} class="{{ c.css }}"{% endif %}><td class="mono">{{ c.name }}</td>
+<td class="num mono">{{ c.rx }}</td>
+<td class="num mono">{{ c.tx }}</td>
+<td class="num">{{ c.cc }}</td>
+<td class="num">{{ c.slot }}</td>
+<td class="num">{{ c.tg }}</td>
+<td>{{ c.tg_name }}</td><td>{{ c.art }}</td></tr>
+{% endfor %}
+</table></div>
+{% endfor %}
+</body>
+</html>
+""")
+
+_KIND_LABEL = {"static": "statisch", "timed": "zeitgeschaltet",
+               "cluster": "Cluster", "implicit": "Lokal (Standard)"}
 
 
 def _fmt_mhz(v: float | None) -> str:
     return f"{v:.5f}" if v else ""
 
 
+def _art(sub) -> str:
+    if sub.kind == "cluster":
+        ext = sub.note.removeprefix("Cluster-TG ").strip()
+        return f"Cluster (⇄ TG {ext})" if ext and ext != "Cluster" else "Cluster"
+    if sub.kind == "timed" and sub.note:
+        return f"zeitgeschaltet ({sub.note})"
+    return _KIND_LABEL[sub.kind]
+
+
 def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
                       tg_names: dict[int, str] | None = None,
                       coverage: CoverageEstimate | None = None) -> None:
     tg_names = tg_names or {}
-    e = html.escape
-    stations = " – ".join(e(s.name) for s in route.stations)
-    parts: list[str] = [f"<style>{_CSS}</style>"]
-    parts.append(f"<h1>DMR-Relais entlang der Strecke {stations}</h1>")
-    parts.append(
-        f"<p class='meta'>Erstellt {datetime.now():%d.%m.%Y %H:%M} · "
-        f"Quelle: Brandmeister-API · Verbindung: {e(', '.join(route.legs) or 'Luftlinie')}"
-        f"{' · <b>Achtung: Luftlinien-Interpolation!</b>' if route.is_interpolated else ''}</p>"
-    )
-    parts.append(
-        "<p><b>Alle Frequenzangaben aus Sicht deines Funkgeräts:</b> "
-        "RX = Relais-Ausgabe (du hörst), TX = Relais-Eingabe (du sendest). "
-        "Uhrzeiten von Zeitschaltungen sind Lokalzeit.</p>"
-    )
 
-    # Übersicht
-    parts.append("<h2>Übersicht</h2><table><tr>"
-                 "<th class='num'>km</th><th>Rufzeichen</th><th>Standort</th>"
-                 "<th class='num'>Abstand</th><th class='num'>RX [MHz]</th>"
-                 "<th class='num'>TX [MHz]</th><th class='num'>CC</th></tr>")
-    for r in results:
-        d = r.device
-        parts.append(
-            f"<tr><td class='num'>{r.hit.chainage_km:.0f}</td>"
-            f"<td><a href='#id{d.id}'>{e(d.callsign)}</a></td><td>{e(d.city)}</td>"
-            f"<td class='num'>{r.hit.distance_km:.1f} km</td>"
-            f"<td class='num mono'>{_fmt_mhz(d.tx_mhz)}</td>"
-            f"<td class='num mono'>{_fmt_mhz(d.rx_mhz)}</td>"
-            f"<td class='num'>{d.colorcode or ''}</td></tr>"
-        )
-    parts.append("</table>")
+    overview = [{
+        "km": f"{r.hit.chainage_km:.0f}", "id": r.device.id,
+        "callsign": r.device.callsign, "city": r.device.city,
+        "dist": f"{r.hit.distance_km:.1f}",
+        "rx": _fmt_mhz(r.device.tx_mhz), "tx": _fmt_mhz(r.device.rx_mhz),
+        "cc": r.device.colorcode or "",
+    } for r in results]
 
-    # Abdeckungsschätzung
+    cov = None
+    ranges = []
     if coverage is not None:
-        parts.append("<h2>Abdeckungsschätzung</h2>")
-        if coverage.terrain_used:
-            parts.append(
-                f"<p>Voraussichtlich <b>ca. {coverage.uncovered_pct:.0f} %</b> "
-                f"der Strecke ohne DMR-Abdeckung (Funkschatten; "
-                f"{coverage.uncovered_km:.0f} von {coverage.total_km:.0f} km). "
-                f"Dazu {coverage.pct(coverage.marginal_km):.0f} % "
-                f"({coverage.marginal_km:.0f} km) im Grenzbereich, wo Empfang "
-                f"durch Beugung möglich ist. Freie Sicht zu einem Relais: "
-                f"{coverage.pct(coverage.covered_km):.0f} %.</p>"
-            )
-        else:
-            parts.append(
-                f"<p>Voraussichtlich <b>ca. {coverage.uncovered_pct:.0f} %</b> der "
-                f"Strecke ohne DMR-Abdeckung "
-                f"({coverage.uncovered_km:.0f} von {coverage.total_km:.0f} km).</p>"
-            )
-        if coverage.gaps:
-            label = "Funkschatten-Abschnitte" if coverage.terrain_used else "Lücken"
-            parts.append(f"<p>Größere {label} (≥ {MIN_GAP_KM:.0f} km):</p>"
-                         "<table><tr><th class='num'>von km</th>"
-                         "<th class='num'>bis km</th>"
-                         "<th class='num'>Länge</th></tr>")
-            for g in coverage.gaps:
-                parts.append(
-                    f"<tr><td class='num'>{g.start_km:.0f}</td>"
-                    f"<td class='num'>{g.end_km:.0f}</td>"
-                    f"<td class='num'>{g.length_km:.0f} km</td></tr>")
-            parts.append("</table>")
-        else:
-            parts.append(f"<p>Keine Lücken ≥ {MIN_GAP_KM:.0f} km.</p>")
-        if coverage.terrain_used:
-            parts.append(
-                "<p class='meta'>Methodik: Sichtlinienprüfung gegen ein "
-                "digitales Höhenmodell (SRTM-basiert, ~50 m Raster) mit "
-                "4/3-Erdradius; Mobilantenne 2 m. „Grenzbereich“ = Hindernis "
-                "bis 30 m über der Sichtlinie (Beugungsempfang plausibel). "
-                "Vegetation/Bebauung und Sendeleistung sind nicht modelliert. "
-                "Die Relais-Auswahl folgt der rechnerischen Erreichbarkeit "
-                "von der Strecke (kein fester Korridor); geprüft werden alle "
-                "aktuell online gemeldeten Repeater der Umgebung.</p>"
-            )
-        else:
-            parts.append(
-                "<p class='meta'>Methodik: Sichtlinien-Funkhorizont je Relais aus "
-                "der Antennenhöhe (d ≈ 4,12·(√h<sub>Antenne</sub> + √2 m) km), "
-                "ohne Geländemodell — in Tälern und Mittelgebirgen optimistisch, "
-                "der Wert ist also eine Untergrenze. Berücksichtigt sind alle "
-                "aktuell online gemeldeten Repeater der Umgebung, auch außerhalb "
-                "des Suchkorridors.</p>"
-            )
+        cov = {
+            "terrain": coverage.terrain_used,
+            "uncovered_pct": f"{coverage.uncovered_pct:.0f}",
+            "uncovered_km": f"{coverage.uncovered_km:.0f}",
+            "total_km": f"{coverage.total_km:.0f}",
+            "marginal_pct": f"{coverage.pct(coverage.marginal_km):.0f}",
+            "marginal_km": f"{coverage.marginal_km:.0f}",
+            "covered_pct": f"{coverage.pct(coverage.covered_km):.0f}",
+            "min_gap_km": f"{MIN_GAP_KM:.0f}",
+            "gaps": [{"start": f"{g.start_km:.0f}", "end": f"{g.end_km:.0f}",
+                      "len": f"{g.length_km:.0f}"} for g in coverage.gaps],
+        }
+        if coverage.samples:
+            for a, b, los, marginal in _contact_ranges(coverage):
+                kind = "los" if los else ("marginal" if marginal else "shadow")
+                ranges.append({"start": f"{a:.0f}", "end": f"{b:.0f}",
+                               "kind": kind, "names": los or marginal})
 
-    # Erreichbare Relais je Streckenabschnitt
-    if coverage is not None and coverage.samples:
-        parts.append("<h2>Erreichbare Relais je Streckenabschnitt</h2>")
-        parts.append("<table><tr><th class='num'>von km</th>"
-                     "<th class='num'>bis km</th><th>Relais (potenziell erreichbar)</th></tr>")
-        for a, b, los, marginal in _contact_ranges(coverage):
-            if los:
-                cell = ", ".join(e(c) for c in los)
-            elif marginal:
-                cell = ("<i>nur grenzwertig:</i> "
-                        + ", ".join(e(c) for c in marginal))
-            else:
-                cell = "<i>— Funkschatten</i>"
-            parts.append(f"<tr><td class='num'>{a:.0f}</td>"
-                         f"<td class='num'>{b:.0f}</td><td>{cell}</td></tr>")
-        parts.append("</table>")
-
-    # Detail je Relais: fertige Kanalliste für die CPS-Eingabe
-    kind_label = {"static": "statisch", "timed": "zeitgeschaltet",
-                  "cluster": "Cluster", "implicit": "Lokal (Standard)"}
+    repeaters = []
     for r in results:
         d = r.device
-        parts.append(f"<h2 id='id{d.id}'>{e(d.callsign)} — {e(d.city)}</h2>")
-        parts.append(
-            f"<p class='meta'>DMR-ID {d.id} · Streckenkilometer {r.hit.chainage_km:.0f} · "
-            f"Abstand zur Strecke {r.hit.distance_km:.1f} km · "
-            f"Antenne {d.agl or '?'} m AGL · {d.pep or '?'} W · "
-            f"zuletzt gesehen {e(d.last_seen)}</p>"
-        )
-        if all(s.kind == "implicit" for s in r.profile.subscriptions):
-            parts.append("<p><i>Keine statischen Talkgroups konfiguriert — nur "
-                         "TG9 Lokal und dynamische Nutzung (per PTT-Anmeldung).</i></p>")
-        parts.append("<table><tr><th>Kanalname</th><th class='num'>RX [MHz]</th>"
-                     "<th class='num'>TX [MHz]</th><th class='num'>CC</th>"
-                     "<th class='num'>Slot</th><th class='num'>Talkgroup</th>"
-                     "<th>TG-Name</th><th>Art</th></tr>")
-        for s in r.profile.subscriptions:
-            name = f"{d.callsign} {s.talkgroup}"[:16]
-            css = f" class='{s.kind}'" if s.kind in ("timed", "cluster") else ""
-            art = kind_label[s.kind]
-            if s.kind == "cluster":
-                ext = s.note.removeprefix("Cluster-TG ").strip()
-                art = f"Cluster (⇄ TG {e(ext)})" if ext and ext != "Cluster" else "Cluster"
-            elif s.kind == "timed" and s.note:
-                art = f"zeitgeschaltet ({e(s.note)})"
-            parts.append(
-                f"<tr{css}><td class='mono'>{e(name)}</td>"
-                f"<td class='num mono'>{_fmt_mhz(d.tx_mhz)}</td>"
-                f"<td class='num mono'>{_fmt_mhz(d.rx_mhz)}</td>"
-                f"<td class='num'>{d.colorcode or ''}</td>"
-                f"<td class='num'>{s.slot if s.slot in (1, 2) else '1 (Simplex)'}</td>"
-                f"<td class='num'>{s.talkgroup}</td>"
-                f"<td>{e(tg_names.get(s.talkgroup, ''))}</td><td>{art}</td></tr>"
-            )
-        parts.append("</table>")
+        repeaters.append({
+            "id": d.id, "callsign": d.callsign, "city": d.city,
+            "km": f"{r.hit.chainage_km:.0f}",
+            "dist": f"{r.hit.distance_km:.1f}",
+            "agl": d.agl or "?", "pep": d.pep or "?",
+            "last_seen": d.last_seen,
+            "only_implicit": all(s.kind == "implicit"
+                                 for s in r.profile.subscriptions),
+            "channels": [{
+                "name": f"{d.callsign} {s.talkgroup}"[:16],
+                "css": s.kind if s.kind in ("timed", "cluster") else "",
+                "rx": _fmt_mhz(d.tx_mhz), "tx": _fmt_mhz(d.rx_mhz),
+                "cc": d.colorcode or "",
+                "slot": s.slot if s.slot in (1, 2) else "1 (Simplex)",
+                "tg": s.talkgroup, "tg_name": tg_names.get(s.talkgroup, ""),
+                "art": _art(s),
+            } for s in r.profile.subscriptions],
+        })
 
-    path.write_text("\n".join(parts), encoding="utf-8")
+    html = _TEMPLATE.render(
+        css=_CSS,
+        stations=" – ".join(s.name for s in route.stations),
+        created=f"{datetime.now():%d.%m.%Y %H:%M}",
+        legs=", ".join(route.legs) or "Luftlinie",
+        interpolated=route.is_interpolated,
+        overview=overview, cov=cov, ranges=ranges, repeaters=repeaters,
+    )
+    path.write_text(html, encoding="utf-8")
