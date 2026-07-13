@@ -7,9 +7,7 @@ konkreten Zugverbindung); alle Angaben lassen sich auch als Flags
 from __future__ import annotations
 
 import argparse
-import re
 import sys
-import webbrowser
 from datetime import datetime
 from pathlib import Path
 
@@ -17,16 +15,8 @@ import questionary
 from questionary import Choice
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import track
 
-from bmtools.bm_api import BrandmeisterClient, DeviceProfile, TalkgroupSub
-from bmtools.routelib.codeplug.anytone import write_anytone
-from bmtools.routelib.corridor import find_in_corridor
-from bmtools.routelib.coverage import BBOX_BUFFER_KM, estimate_coverage
-from bmtools.routelib.terrain import TerrainError, TerrainModel
-from bmtools.routelib.mapview import write_map
-from bmtools.routelib.report import RepeaterResult, print_table, write_csv
-from bmtools.routelib.report_html import write_html_report
+from bmtools.routelib.pipeline import run_pipeline, slug
 from .route import (ItineraryOption, NoItineraryError, PlanOptions,
                     RoutePlanner, Station)
 
@@ -39,21 +29,6 @@ Beispiele:
   bm-rail --from Koblenz --to Nürnberg --time "2026-07-14 17:30" --arrive
   bm-rail --stations "Koblenz Hbf, Mainz Hbf, Würzburg Hbf" --straight-line
 """
-
-
-def _with_local_tg(profile: DeviceProfile, simplex: bool) -> DeviceProfile:
-    """TG9 'Lokal' ist auf jedem Relais implizit verfügbar, fehlt aber in
-    der API — hier als Standard-Eintrag ergänzen (TS2; Simplex: Slot 0)."""
-    if not any(s.talkgroup == 9 for s in profile.subscriptions):
-        profile.subscriptions.append(
-            TalkgroupSub(9, 0 if simplex else 2, "implicit", "Lokal"))
-        profile.subscriptions.sort(key=lambda s: (s.slot, s.talkgroup))
-    return profile
-
-
-def _slug(text: str) -> str:
-    text = text.lower().translate(str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}))
-    return re.sub(r"[^a-z0-9]+", "-", text).strip("-")
 
 
 def _parse_time(raw: str) -> datetime:
@@ -181,8 +156,7 @@ def _make_chooser(console: Console):
 def _run(stations: list[Station], args: argparse.Namespace, console: Console,
          planner: RoutePlanner, interactive: bool) -> int:
     names = [s.name for s in stations]
-    out_dir = args.out or Path("out") / f"{_slug(names[0])}-{_slug(names[-1])}"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = args.out or Path("out") / f"{slug(names[0])}-{slug(names[-1])}"
 
     opts = PlanOptions(modes=args.modes, time=args.time,
                        arrive_by=args.arrive, direct_only=args.direct)
@@ -192,84 +166,11 @@ def _run(stations: list[Station], args: argparse.Namespace, console: Console,
              else planner.route(stations, opts, chooser))
     console.print(f"  Gewählte Verbindung: {', '.join(route.legs) or 'Luftlinie'}")
 
-    client = BrandmeisterClient()
-    console.print("[bold]Lade Brandmeister-Geräteliste …[/bold]")
-    repeaters = client.repeaters()
-
-    # Auswahlkriterium ist die rechnerische Erreichbarkeit von der Strecke
-    # (Sichtkontakt zu >=1 Streckenpunkt), nicht ein fester Abstand.
-    terrain = None if args.no_terrain else TerrainModel()
-    with console.status("Erreichbarkeit berechnen (Geländemodell; lädt ggf. "
-                        "Höhenkacheln) …" if terrain else
-                        "Erreichbarkeit berechnen (Horizontmodell) …"):
-        try:
-            coverage = estimate_coverage(route.points, repeaters, terrain)
-        except TerrainError as e:
-            console.print(f"[yellow]Höhendaten nicht verfügbar ({e}) — "
-                          f"Fallback auf Horizontmodell.[/yellow]")
-            terrain = None
-            coverage = estimate_coverage(route.points, repeaters, None)
-
-    reachable = [d for d in repeaters if d.id in coverage.reachable_ids]
-    max_dist = args.corridor if args.corridor else BBOX_BUFFER_KM
-    hits = find_in_corridor(reachable, route.points, max_dist)
-    limit_note = f" (Limit {args.corridor:g} km Streckenabstand)" if args.corridor else ""
-    console.print(f"  {len(repeaters)} Repeater im Netz, "
-                  f"[bold]{len(hits)}[/bold] von der Strecke aus rechnerisch "
-                  f"erreichbar{limit_note}")
-    if not hits:
-        console.print("[red]Kein Relais von der Strecke aus erreichbar.[/red]")
-        return 1
-
-    results = [
-        RepeaterResult(hit=h, profile=_with_local_tg(
-            client.profile(h.device.id),
-            simplex=h.device.tx_mhz == h.device.rx_mhz))
-        for h in track(hits, description="Talkgroup-Profile laden …")
-    ]
-
-    print_table(results, console)
-
-    if coverage.terrain_used:
-        console.print(
-            f"  Abdeckung (Geländemodell): freie Sicht "
-            f"[bold]{coverage.pct(coverage.covered_km):.0f} %[/bold], "
-            f"Grenzbereich {coverage.pct(coverage.marginal_km):.0f} %, "
-            f"Schatten [bold]{coverage.uncovered_pct:.0f} %[/bold] "
-            f"({coverage.uncovered_km:.0f} von {coverage.total_km:.0f} km)")
-    else:
-        console.print(
-            f"  Abdeckungsschätzung: ca. [bold]{coverage.uncovered_pct:.0f} %[/bold] "
-            f"der Strecke ohne DMR ({coverage.uncovered_km:.0f} von "
-            f"{coverage.total_km:.0f} km; Horizontmodell, ohne Gelände)")
-
-    tg_names = client.talkgroup_names()
-    csv_path = out_dir / "relais.csv"
-    html_path = out_dir / "bericht.html"
-    map_path = out_dir / "karte.html"
-    write_csv(results, csv_path)
-    write_html_report(results, route, html_path, tg_names, coverage)
-    with console.status("Karte erzeugen (inkl. Relais-Sichtfelder) …"):
-        write_map(results, route, max_dist, map_path, coverage,
-                  terrain if coverage.terrain_used else None,
-                  route_label="Bahnstrecke", waypoint_icon="train")
     zone = f"{names[0].removesuffix(' Hbf')}-{names[-1].removesuffix(' Hbf')}"
-    write_anytone(results, out_dir / "anytone", zone, tg_names)
-
-    console.print(Panel.fit(
-        f"[green]Fertig.[/green] Ausgaben in [bold]{out_dir}/[/bold]\n"
-        f"  bericht.html   Kanaltabellen für manuelle CPS-Eingabe\n"
-        f"  karte.html     interaktive Streckenkarte\n"
-        f"  relais.csv     Rohdaten (Semikolon-getrennt)\n"
-        f"  anytone/       Channel/TalkGroups/Zone-CSV "
-        f"[yellow](Format vorläufig = D878UV)[/yellow]",
-        border_style="green",
-    ))
-
-    if args.open:
-        webbrowser.open(html_path.resolve().as_uri())
-        webbrowser.open(map_path.resolve().as_uri())
-    return 0
+    return run_pipeline(
+        route, console=console, out_dir=out_dir, corridor_km=args.corridor,
+        no_terrain=args.no_terrain, open_browser=args.open, zone=zone,
+        route_label="Bahnstrecke", waypoint_icon="train")
 
 
 def main() -> int:

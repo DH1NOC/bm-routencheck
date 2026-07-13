@@ -19,6 +19,8 @@ dev = ["pytest>=8.0"]
 [project.scripts]
 bmtools = "bmtools.cli:main"
 bm-rail = "bmtools.rail.cli:main"
+bm-car = "bmtools.road.cli:main_car"
+bm-bike = "bmtools.road.cli:main_bike"
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -23,10 +23,24 @@ def _rail_main() -> int:
     return main()
 
 
+def _car_main() -> int:
+    from .road.cli import main_car
+    return main_car()
+
+
+def _bike_main() -> int:
+    from .road.cli import main_bike
+    return main_bike()
+
+
 # name -> (Kurzbeschreibung, Einstiegsfunktion)
 TOOLS: dict[str, tuple[str, Callable[[], int]]] = {
     "rail": ("DMR-Relais entlang einer Bahnstrecke (Frequenzen, "
              "Talkgroups, Bericht, Karte, Codeplug)", _rail_main),
+    "car": ("DMR-Relais entlang einer Autoroute (Google-Maps-Link "
+            "oder Start/Ziel)", _car_main),
+    "bike": ("DMR-Relais entlang einer Radroute (Google-Maps-/"
+             "Komoot-Link, GPX oder Start/Ziel)", _bike_main),
 }
 
 
