@@ -111,6 +111,27 @@ def test_match_faellt_auf_abfahrtszeit_zurueck():
     assert _match_fixed_leg([linie], leg, warn=None) is linie
 
 
+def test_route_fixed_ueberbrueckt_unaufloesbaren_abschnitt():
+    # Z. B. SEV-Bus, den der Fahrplandatensatz nicht kennt: nur dieser
+    # Abschnitt wird Luftlinie, die Fahrt scheitert nicht komplett
+    from bmtools.rail.route import NoItineraryError, RoutePlanner
+
+    legs = parse_recon(RECON)
+    planner = RoutePlanner()
+
+    def kennt_nur_leg1(frm, to, opts):
+        if frm.name == legs[1].frm.name:
+            return [_option(legs[1].dep, "ICE 514")]
+        raise NoItineraryError("kenn ich nicht")
+
+    planner.segment_options = kennt_nur_leg1
+    warnungen = []
+    route = planner.route_fixed(legs, warn=warnungen.append)
+    assert "Luftlinie" in route.legs[0] and "3285" in route.legs[0]
+    assert "ICE 514" in route.legs[1] and "Luftlinie" not in route.legs[1]
+    assert len(warnungen) == 1 and "überbrücke" in warnungen[0]
+
+
 def test_match_warnt_ohne_zeittreffer_und_nimmt_naechste():
     from datetime import timedelta
 

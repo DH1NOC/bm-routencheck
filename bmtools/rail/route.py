@@ -24,6 +24,9 @@ MODE_SETS = {
     "alle": "RAIL",  # = HIGHSPEED_RAIL,LONG_DISTANCE,NIGHT_RAIL,REGIONAL_RAIL,SUBURBAN,SUBWAY
     "fern": "HIGHSPEED_RAIL,LONG_DISTANCE,NIGHT_RAIL",
     "nah": "REGIONAL_RAIL,SUBURBAN",
+    # Nur intern für bahn.de-Links: feste Verbindungen können Bus-
+    # (SEV/Linie) und Fährabschnitte enthalten, keine Nutzerwahl.
+    "link": "RAIL,BUS,COACH,FERRY",
 }
 
 class NoItineraryError(RuntimeError):
@@ -219,15 +222,28 @@ class RoutePlanner:
                 # Fußweg zum Bahnhof, eine Anfrage exakt zur Abfahrtszeit
                 # schließt genau den gesuchten Zug aus (verifiziert
                 # 2026-07-13). Gematcht wird auf die Zug-Abfahrt (o.dep).
-                opts = PlanOptions(time=leg.dep - timedelta(minutes=15),
+                opts = PlanOptions(modes="link",
+                                   time=leg.dep - timedelta(minutes=15),
                                    direct_only=True)
-                options = self.segment_options(leg.frm, leg.to, opts)
-                chosen = _match_fixed_leg(options, leg, warn)
-                seg_points = chosen.points
+                try:
+                    options = self.segment_options(leg.frm, leg.to, opts)
+                    chosen = _match_fixed_leg(options, leg, warn)
+                    seg_points = chosen.points
+                    labels.extend(chosen.labels)
+                except NoItineraryError:
+                    # Einzelner Abschnitt nicht im Fahrplandatensatz (z. B.
+                    # SEV-Bus): nur diesen überbrücken, nicht alles kippen.
+                    if warn:
+                        warn(f"Abschnitt {leg.frm.name} → {leg.to.name} "
+                             f"({leg.train}, ab {leg.dep:%d.%m. %H:%M}) nicht "
+                             f"auflösbar — überbrücke ihn als Luftlinie.")
+                    seg_points = [(leg.frm.lat, leg.frm.lon),
+                                  (leg.to.lat, leg.to.lon)]
+                    labels.append(f"{leg.train} ({leg.frm.name} -> "
+                                  f"{leg.to.name}, Luftlinie)")
                 if points and seg_points and points[-1] == seg_points[0]:
                     seg_points = seg_points[1:]
                 points.extend(seg_points)
-                labels.extend(chosen.labels)
             if len(points) < 2:
                 raise NoItineraryError(
                     "Verbindung lieferte keine brauchbare Geometrie.")
