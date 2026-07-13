@@ -14,8 +14,8 @@ from pathlib import Path
 import questionary
 from questionary import Choice
 from rich.console import Console
-from rich.panel import Panel
 
+from bmtools import ui
 from bmtools.routelib.pipeline import run_pipeline, slug
 from .route import (ItineraryOption, NoItineraryError, PlanOptions,
                     RoutePlanner, Station)
@@ -59,7 +59,8 @@ def _text_with_default(message: str, default: str, validate=None) -> str:
     als Hinweis daneben und gilt bei leerer Eingabe — nichts wegzulöschen."""
     wrapped = (lambda v: True if not v.strip() else validate(v)) if validate else None
     answer = _q(questionary.text(
-        message, instruction=f"(Enter = {default})", validate=wrapped)).strip()
+        message, instruction=f"(Enter = {default})", validate=wrapped,
+        style=ui.QSTYLE)).strip()
     return answer or default
 
 
@@ -94,7 +95,8 @@ def _resolve_stations(planner: RoutePlanner, names: list[str],
         if interactive and len(candidates) > 1:
             chosen = _q(questionary.select(
                 f"Bahnhof für '{name}':",
-                choices=[Choice(c.label, value=c) for c in candidates]))
+                choices=[Choice(c.label, value=c) for c in candidates],
+                style=ui.QSTYLE, pointer=ui.POINTER))
         else:
             chosen = candidates[0]
         if interactive:
@@ -106,15 +108,14 @@ def _resolve_stations(planner: RoutePlanner, names: list[str],
 def _interactive(console: Console, args: argparse.Namespace,
                  planner: RoutePlanner) -> list[Station]:
     """Fragt Strecke, Verbindungsfilter und Korridor ab."""
-    console.print(Panel.fit(
-        "[bold]bm-rail[/bold] — findet Brandmeister-DMR-Relais entlang "
-        "einer Bahnstrecke\n[dim]Auswahl mit ↑/↓ und Enter; Texteingaben "
-        "mit Enter bestätigen.[/dim]",
-        border_style="cyan",
-    ))
+    console.print()
+    ui.banner(console, "bm-rail — DMR-Relais entlang einer Bahnstrecke",
+              "Zugverbindung wählen — Bericht, Karte, CSV und Codeplug "
+              "für die ganze Fahrt", icon="🚆")
     origin = _text_with_default("Startbahnhof:", "Nürnberg Hbf")
     destination = _text_with_default("Zielbahnhof:", "Berlin Hbf")
-    via_raw = _q(questionary.text("Zwischenhalte (optional, Komma-getrennt):"))
+    via_raw = _q(questionary.text("Zwischenhalte (optional, Komma-getrennt):",
+                                  style=ui.QSTYLE))
     via = [v.strip() for v in via_raw.split(",") if v.strip()]
     stations = _resolve_stations(
         planner, [origin, *via, destination], console, interactive=True)
@@ -125,16 +126,17 @@ def _interactive(console: Console, args: argparse.Namespace,
             Choice("fern  — ICE/IC/EC und Nachtzüge", "fern"),
             Choice("nah   — RE/RB/S-Bahn", "nah"),
         ],
-        default=None))
+        default=None, style=ui.QSTYLE, pointer=ui.POINTER))
     args.direct = _q(questionary.confirm(
-        "Nur Direktverbindungen?", default=args.direct))
+        "Nur Direktverbindungen?", default=args.direct, style=ui.QSTYLE))
     time_raw = _q(questionary.text(
         "Abfahrtszeit (z. B. '2026-07-14 08:00' oder '08:00'; leer = jetzt):",
-        validate=_time_valid))
+        validate=_time_valid, style=ui.QSTYLE))
     if time_raw.strip():
         args.time = _parse_time(time_raw)
         args.arrive = _q(questionary.confirm(
-            "Ist das die Ankunftszeit (statt Abfahrt)?", default=False))
+            "Ist das die Ankunftszeit (statt Abfahrt)?", default=False,
+            style=ui.QSTYLE))
     args.open = True
     return stations
 
@@ -149,7 +151,8 @@ def _make_chooser(console: Console):
             return options[0]
         return _q(questionary.select(
             f"Verbindung {frm.name} → {to.name}:",
-            choices=[Choice(o.summary, value=o) for o in options]))
+            choices=[Choice(o.summary, value=o) for o in options],
+            style=ui.QSTYLE, pointer=ui.POINTER))
     return chooser
 
 

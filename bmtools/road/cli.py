@@ -17,8 +17,8 @@ from urllib.parse import urlsplit
 import questionary
 from questionary import Choice
 from rich.console import Console
-from rich.panel import Panel
 
+from bmtools import ui
 from bmtools.routelib.model import Route, Waypoint
 from bmtools.routelib.pipeline import run_pipeline, slug
 from . import RouteInputError
@@ -33,6 +33,7 @@ PROFILES = {
     "car": ("Auto", "Autoroute", "car"),
     "bike": ("Rad", "Radroute", "bicycle"),
 }
+BANNER_ICON = {"car": "🚗", "bike": "🚴"}
 
 EXAMPLES = """\
 Beispiele:
@@ -76,7 +77,8 @@ def _resolve(names_or_wps, console: Console, interactive: bool) -> list[Waypoint
         if interactive and len(candidates) > 1:
             chosen = _q(questionary.select(
                 f"Ort für '{name}':",
-                choices=[Choice(c.label, value=c) for c in candidates]))
+                choices=[Choice(c.label, value=c) for c in candidates],
+                style=ui.QSTYLE, pointer=ui.POINTER))
         else:
             chosen = candidates[0]
         console.print(f"  [dim]→ {chosen.label}[/dim]")
@@ -102,7 +104,8 @@ def _route_from_gmaps(link: str, args, console: Console, profile: str,
                 f"Der Link ist eine {label}-Route, aufgerufen ist das "
                 f"{tool_label}-Tool. Wonach routen?",
                 choices=[Choice(f"{label} (wie im Link)", mode),
-                         Choice(f"{tool_label} (wie das Tool)", profile)]))
+                         Choice(f"{tool_label} (wie das Tool)", profile)],
+                style=ui.QSTYLE, pointer=ui.POINTER))
         else:
             console.print(f"[yellow]Hinweis: Der Link ist eine {label}-Route "
                           f"— geroutet wird nach dem Link ({label}).[/yellow]")
@@ -111,7 +114,7 @@ def _route_from_gmaps(link: str, args, console: Console, profile: str,
     console.print(f"  [bold]Route ({MODE_LABEL[mode]}):[/bold] "
                   + " → ".join(w.name for w in waypoints))
     if interactive and not _q(questionary.confirm(
-            "Route so berechnen?", default=True)):
+            "Route so berechnen?", default=True, style=ui.QSTYLE)):
         raise KeyboardInterrupt
     route = route_waypoints(waypoints, mode, warn=_warn(console))
     zone = f"{_short_name(waypoints[0].name)}-{_short_name(waypoints[-1].name)}"
@@ -126,7 +129,7 @@ def _route_from_komoot(link: str, console: Console,
                   f"({sport}, {tour.distance_km:.1f} km, "
                   f"{len(tour.points)} Punkte)")
     if interactive and not _q(questionary.confirm(
-            "Diese Tour verwenden?", default=True)):
+            "Diese Tour verwenden?", default=True, style=ui.QSTYLE)):
         raise KeyboardInterrupt
     route = route_from_track(
         tour.points, f"Komoot-Tour „{tour.name}“ ({sport}, "
@@ -144,25 +147,27 @@ def _route_from_gpx(path: Path, console: Console) -> tuple[Route, str]:
 
 def _interactive(console: Console, args, label: str) -> None:
     """Fragt Link (Google/Komoot) oder Start/Ziel/Via ab."""
-    console.print(Panel.fit(
-        f"[bold]bm-{args.profile}[/bold] — findet Brandmeister-DMR-Relais "
-        f"entlang einer {label}route\n"
-        f"[dim]Link von Google Maps oder Komoot einfügen — oder leer "
-        f"lassen und Start/Ziel eintippen.[/dim]",
-        border_style="cyan",
-    ))
+    console.print()
+    ui.banner(
+        console,
+        f"bm-{args.profile} — DMR-Relais entlang einer {label}route",
+        "Link von Google Maps oder Komoot einfügen — oder leer lassen "
+        "und Start/Ziel eintippen",
+        icon=BANNER_ICON.get(args.profile, "📡"))
     link = _q(questionary.text(
-        "Routen-Link (Google Maps oder Komoot; leer = manuelle Eingabe):"
-    )).strip()
+        "Routen-Link (Google Maps oder Komoot; leer = manuelle Eingabe):",
+        style=ui.QSTYLE)).strip()
     if link:
         args.link = link
     else:
         args.origin = _q(questionary.text(
-            "Start (Ort oder Adresse):", validate=_nonempty)).strip()
+            "Start (Ort oder Adresse):", validate=_nonempty,
+            style=ui.QSTYLE)).strip()
         args.destination = _q(questionary.text(
-            "Ziel (Ort oder Adresse):", validate=_nonempty)).strip()
+            "Ziel (Ort oder Adresse):", validate=_nonempty,
+            style=ui.QSTYLE)).strip()
         via_raw = _q(questionary.text(
-            "Zwischenpunkte (optional, Komma-getrennt):"))
+            "Zwischenpunkte (optional, Komma-getrennt):", style=ui.QSTYLE))
         args.via = [v.strip() for v in via_raw.split(",") if v.strip()]
     args.open = True
 

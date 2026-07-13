@@ -13,9 +13,10 @@ import sys
 from typing import Callable
 
 import questionary
-from questionary import Choice
+from questionary import Choice, Separator
 from rich.console import Console
-from rich.panel import Panel
+
+from . import ui
 
 
 def _rail_main() -> int:
@@ -33,24 +34,27 @@ def _bike_main() -> int:
     return main_bike()
 
 
-# name -> (Kurzbeschreibung, Einstiegsfunktion)
-TOOLS: dict[str, tuple[str, Callable[[], int]]] = {
-    "rail": ("DMR-Relais entlang einer Bahnstrecke (Frequenzen, "
-             "Talkgroups, Bericht, Karte, Codeplug)", _rail_main),
-    "car": ("DMR-Relais entlang einer Autoroute (Google-Maps-Link "
-            "oder Start/Ziel)", _car_main),
-    "bike": ("DMR-Relais entlang einer Radroute (Google-Maps-/"
-             "Komoot-Link, GPX oder Start/Ziel)", _bike_main),
+# name -> (Icon, Kurzbeschreibung, Einstiegsfunktion)
+TOOLS: dict[str, tuple[str, str, Callable[[], int]]] = {
+    "rail": ("🚆", "Bahnstrecke — Zugverbindung wählen, Relais entlang "
+                   "der Fahrt", _rail_main),
+    "car": ("🚗", "Autoroute — Google-Maps-Link einfügen oder "
+                  "Start/Ziel eingeben", _car_main),
+    "bike": ("🚴", "Radroute — Google-Maps-/Komoot-Link, GPX-Datei oder "
+                   "Start/Ziel", _bike_main),
 }
 
 
 def _usage(console: Console) -> None:
-    console.print("Aufruf: [bold]bmtools <tool> [Optionen][/bold] "
-                  "oder [bold]bmtools[/bold] für das Menü\n")
+    console.print("Aufruf: [bold]bmtools <tool> \\[Optionen][/bold] "
+                  "oder [bold]bmtools[/bold] für das Menü\n",
+                  highlight=False)
     console.print("Verfügbare Tools:")
-    for name, (desc, _) in TOOLS.items():
-        console.print(f"  [cyan]{name:8}[/cyan] {desc}")
-    console.print("\nHilfe je Tool: [bold]bmtools <tool> --help[/bold]")
+    for name, (icon, desc, _) in TOOLS.items():
+        console.print(f"  {icon} [{ui.LIGHT_BLUE} bold]{name:<5}[/] {desc}",
+                      highlight=False)
+    console.print("\nHilfe je Tool: [bold]bmtools <tool> --help[/bold]",
+                  highlight=False)
 
 
 def main() -> int:
@@ -67,28 +71,31 @@ def main() -> int:
             return 2
         # Argumente ans Tool durchreichen (argv[0] für dessen --help-Anzeige)
         sys.argv = [f"bmtools {tool}", *sys.argv[2:]]
-        return TOOLS[tool][1]()
+        return TOOLS[tool][2]()
 
     if not sys.stdin.isatty():
         _usage(console)
         return 2
 
-    console.print(Panel.fit(
-        "[bold]bmtools[/bold] — Werkzeuge rund um das Brandmeister-Netzwerk\n"
-        "[dim]Auswahl mit ↑/↓ und Enter.[/dim]",
-        border_style="cyan",
-    ))
+    console.print()
+    ui.banner(console, "BrandmeisterTools",
+              "Welche DMR-Relais erreichst du unterwegs? — Bericht, "
+              "Karte, CSV und Codeplug je Route")
+    choices = [
+        Choice(f"{icon}  {name:<5} {desc}", value=name)
+        for name, (icon, desc, _) in TOOLS.items()
+    ]
+    choices += [Separator(), Choice("🚪  Beenden", value=None)]
     tool = questionary.select(
-        "Welches Tool?",
-        choices=[Choice(f"{name} — {desc}", name)
-                 for name, (desc, _) in TOOLS.items()],
+        "Welches Tool?", choices=choices,
+        style=ui.QSTYLE, pointer=ui.POINTER, qmark="",
     ).ask()
     if tool is None:
-        console.print("[dim]Abgebrochen.[/dim]")
-        return 130
+        console.print("[dim]Bis zum nächsten Mal — 73![/dim]")
+        return 0
     console.print()
     sys.argv = [f"bmtools {tool}"]
-    return TOOLS[tool][1]()
+    return TOOLS[tool][2]()
 
 
 if __name__ == "__main__":
