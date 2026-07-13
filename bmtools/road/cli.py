@@ -28,20 +28,23 @@ from .gpx import read_gpx
 from .komoot import SPORT_LABEL, fetch_tour, is_komoot_url, parse_komoot_url
 from .routing import MODE_LABEL, route_from_track, route_waypoints
 
-# profil -> (Tool-Label, Routen-Label für Karte/Texte, folium-Icon)
+# profil -> (Tool-Label, Routen-Label für Karte/Texte, folium-Icon, Kommando)
 PROFILES = {
-    "car": ("Auto", "Autoroute", "car"),
-    "bike": ("Rad", "Radroute", "bicycle"),
+    "car": ("Auto", "Autoroute", "car", "bm-auto"),
+    "bike": ("Rad", "Radroute", "bicycle", "bm-rad"),
 }
 BANNER_ICON = {"car": "🚗", "bike": "🚴"}
 
 EXAMPLES = """\
 Beispiele:
-  bm-{p}                                          interaktiver Assistent
-  bm-{p} "https://maps.app.goo.gl/…"              Google-Maps-Route
-  bm-{p} "https://www.komoot.com/tour/…"          Komoot-Tour (Teilen-Link)
-  bm-{p} --gpx tour.gpx                           GPX-Datei (z. B. Komoot-Export)
-  bm-{p} --from "Koblenz" --to "Nürnberg Zollhaus"
+  {p}                                          interaktiver Assistent
+  {p} "https://maps.app.goo.gl/…"              Google-Maps-Route
+  {p} "https://www.komoot.com/tour/…"          Komoot-Tour (Teilen-Link)
+  {p} --gpx tour.gpx                           GPX-Datei (z. B. Komoot-Export)
+  {p} --von "Koblenz" --nach "Nürnberg Zollhaus"
+
+Die englischen Namen (bm-car/bm-bike, --from, --to, …) bleiben als
+Aliasse gültig.
 """
 
 
@@ -145,12 +148,12 @@ def _route_from_gpx(path: Path, console: Console) -> tuple[Route, str]:
     return route, track.name
 
 
-def _interactive(console: Console, args, label: str) -> None:
+def _interactive(console: Console, args, label: str, cmd: str) -> None:
     """Fragt Link (Google/Komoot) oder Start/Ziel/Via ab."""
     console.print()
     ui.banner(
         console,
-        f"bm-{args.profile} — DMR-Relais entlang einer {label}route",
+        f"{cmd} — DMR-Relais entlang einer {label}route",
         "Link von Google Maps oder Komoot einfügen — oder leer lassen "
         "und Start/Ziel eintippen",
         icon=BANNER_ICON.get(args.profile, "📡"))
@@ -173,12 +176,13 @@ def _interactive(console: Console, args, label: str) -> None:
 
 
 def main(profile: str) -> int:
-    label, route_label, icon = PROFILES[profile]
+    ui.argparse_deutsch()
+    label, route_label, icon, cmd = PROFILES[profile]
     ap = argparse.ArgumentParser(
         description=f"Findet Brandmeister-DMR-Relais entlang einer "
                     f"{route_label} (Rufzeichen, Frequenzen, Talkgroups "
                     f"TS1/TS2 inkl. Zeitschaltung und Cluster).",
-        epilog=EXAMPLES.format(p=profile),
+        epilog=EXAMPLES.format(p=cmd),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     ap.add_argument("link", nargs="?", metavar="LINK",
@@ -186,24 +190,29 @@ def main(profile: str) -> int:
                          "Komoot-Tour-Link")
     ap.add_argument("--gpx", type=Path, default=None, metavar="DATEI",
                     help="GPX-Datei statt Link (z. B. Komoot-Export)")
-    ap.add_argument("--from", dest="origin", metavar="ORT",
+    ap.add_argument("--von", "--from", dest="origin", metavar="ORT",
                     help="Start (Ort/Adresse), Alternative zum Link")
-    ap.add_argument("--to", dest="destination", metavar="ORT", help="Ziel")
+    ap.add_argument("--nach", "--to", dest="destination", metavar="ORT",
+                    help="Ziel")
     ap.add_argument("--via", action="append", default=[], metavar="ORT",
                     help="Zwischenpunkt (mehrfach möglich)")
-    ap.add_argument("--corridor", type=float, default=None, metavar="KM",
+    ap.add_argument("--korridor", "--corridor", dest="corridor", type=float,
+                    default=None, metavar="KM",
                     help="Optionales Limit: maximaler Streckenabstand in km. "
                          "Ohne Angabe zählt allein die rechnerische "
                          "Erreichbarkeit des Relais von der Strecke")
-    ap.add_argument("--no-terrain", action="store_true",
+    ap.add_argument("--ohne-gelaende", "--no-terrain", dest="no_terrain",
+                    action="store_true",
                     help="Abdeckungsschätzung ohne Geländemodell "
                          "(kein Höhenkachel-Download)")
-    ap.add_argument("--refresh", action="store_true",
+    ap.add_argument("--aktualisieren", "--refresh", dest="refresh",
+                    action="store_true",
                     help="Brandmeister-Daten frisch laden statt aus dem "
                          "Cache (Geräteliste hält sonst 1 Tag, Profile 12 h)")
-    ap.add_argument("--open", action="store_true",
+    ap.add_argument("--oeffnen", "--open", dest="open", action="store_true",
                     help="Bericht und Karte danach im Browser öffnen")
-    ap.add_argument("--out", type=Path, default=None, metavar="DIR",
+    ap.add_argument("--ausgabe", "--out", dest="out", type=Path, default=None,
+                    metavar="ORDNER",
                     help="Ausgabeverzeichnis (Default: out/<route>)")
     args = ap.parse_args()
     args.profile = profile
@@ -214,10 +223,10 @@ def main(profile: str) -> int:
         if not (args.link or args.gpx or (args.origin and args.destination)):
             if sys.stdin.isatty():
                 interactive = True
-                _interactive(console, args, label)
+                _interactive(console, args, label, cmd)
             else:
                 ap.error("Entweder LINK angeben, oder --gpx DATEI, oder "
-                         "--from und --to, oder ohne Argumente interaktiv "
+                         "--von und --nach, oder ohne Argumente interaktiv "
                          "starten.")
 
         if args.gpx:

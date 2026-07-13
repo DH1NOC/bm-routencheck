@@ -2,7 +2,7 @@
 
 Python-Tools rund um das Brandmeister-DMR-Netzwerk.
 
-## bm-rail — DMR-Relais entlang einer Bahnstrecke
+## bm-bahn — DMR-Relais entlang einer Bahnstrecke
 
 Findet alle Brandmeister-Relais im Korridor einer Bahnverbindung und liefert
 Rufzeichen, Frequenzen, Colorcode und die Talkgroups in TS1/TS2 — statisch,
@@ -14,29 +14,32 @@ pip install -e .
 
 # Gemeinsamer Einstieg für alle Tools (Menü bzw. Subcommands):
 bmtools            # Menü
-bmtools rail       # = bm-rail; Argumente werden durchgereicht
+bmtools bahn       # = bm-bahn; Argumente werden durchgereicht
 
 # Am einfachsten: ohne Argumente starten -> interaktiver Assistent.
 # Auswahllisten (Zuggattung, mehrdeutige Bahnhöfe, Verbindungen) werden
 # mit den Pfeiltasten (↑/↓, alternativ j/k) navigiert und mit Enter
 # bestätigt; am Ende öffnen sich Bericht + Karte im Browser.
-bm-rail
+bm-bahn
 
 # Oder direkt mit Flags (für Skripte/Wiederholläufe):
-bm-rail --from "Koblenz Hbf" --to "Nürnberg Hbf" --open
-bm-rail --from Hamburg --to München --modes fern --direct
-bm-rail --from Koblenz --to Nürnberg --time "2026-07-14 08:00"
-bm-rail --from Koblenz --to Nürnberg --time "2026-07-14 17:30" --arrive
-bm-rail --stations "Koblenz Hbf, Mainz Hbf, Würzburg Hbf" --straight-line
+bm-bahn --von "Koblenz Hbf" --nach "Nürnberg Hbf" --oeffnen
+bm-bahn --von Hamburg --nach München --zuggattung fern --direkt
+bm-bahn --von Koblenz --nach Nürnberg --zeit "2026-07-14 08:00"
+bm-bahn --von Koblenz --nach Nürnberg --zeit "2026-07-14 17:30" --ankunft
+bm-bahn --bahnhoefe "Koblenz Hbf, Mainz Hbf, Würzburg Hbf" --luftlinie
 ```
+
+Die englischen Kommandos und Flags (`bm-rail`, `bmtools rail`, `--from`,
+`--to`, …) bleiben als Aliasse gültig.
 
 Die Zuggattung beeinflusst die Route real: Hamburg–München fährt der
 Fernverkehr z. B. via Berlin–Erfurt oder via Würzburg, der Nahverkehr eine
 ganz andere Kette — entsprechend ändern sich die gefundenen Relais.
 Im nicht-interaktiven Modus wird die erste passende Verbindung genommen.
 
-Im PyCharm-Terminal ist die venv aktiv, dort genügt `bm-rail`; außerhalb:
-`.venv/bin/bm-rail`.
+Im PyCharm-Terminal ist die venv aktiv, dort genügt `bm-bahn`; außerhalb:
+`.venv/bin/bm-bahn`.
 
 Ausgaben in `out/<start>-<ziel>/`:
 
@@ -67,32 +70,32 @@ Streckengeometrie.
 **Caching:** Alle Brandmeister-Antworten liegen im lokalen Disk-Cache —
 Geräteliste 1 Tag, Talkgroup-Profile 12 h (ändern sich am ehesten),
 TG-Namen 7 Tage, Höhenkacheln unbegrenzt. Wiederholte Läufe (gleiche oder andere Strecke)
-laufen damit in Sekunden und ohne API-Zugriffe. `--refresh` (bei allen
-Tools) erzwingt frische Brandmeister-Daten.
+laufen damit in Sekunden und ohne API-Zugriffe. `--aktualisieren` (bei
+allen Tools) erzwingt frische Brandmeister-Daten.
 
-## bm-car & bm-bike — DMR-Relais entlang einer Auto- oder Radroute
+## bm-auto & bm-rad — DMR-Relais entlang einer Auto- oder Radroute
 
-Gleiche Auswertung und gleiche Ausgaben wie bm-rail, aber für Straße und
+Gleiche Auswertung und gleiche Ausgaben wie bm-bahn, aber für Straße und
 Rad. Der einfachste Weg: Route in Google Maps oder Komoot planen, Link
 kopieren, ins Tool einfügen.
 
 ```bash
 # Interaktiver Assistent (fragt nach Link oder Start/Ziel):
-bm-car
-bm-bike
+bm-auto
+bm-rad
 
 # Google-Maps-Link (Kurzlink vom Teilen-Button genügt):
-bm-car "https://maps.app.goo.gl/…"
+bm-auto "https://maps.app.goo.gl/…"
 
 # Komoot-Tour (bei privaten Touren den „Mit Link teilen“-Link nehmen,
 # er enthält den nötigen share_token):
-bm-bike "https://www.komoot.com/tour/…?share_token=…"
+bm-rad "https://www.komoot.com/tour/…?share_token=…"
 
 # GPX-Datei (z. B. Komoot-Export — funktioniert immer):
-bm-bike --gpx tour.gpx
+bm-rad --gpx tour.gpx
 
 # Oder klassisch mit Orts-/Adressangaben (hausnummerngenau):
-bm-car --from "Winkelhaider Str. 4a, Feucht" --to "Bendorf" --open
+bm-auto --von "Winkelhaider Str. 4a, Feucht" --nach "Bendorf" --oeffnen
 ```
 
 Was dabei zu wissen ist (klare Ansagen):
@@ -106,11 +109,11 @@ Was dabei zu wissen ist (klare Ansagen):
   gespeicherte Tour, deren exakte Geometrie übernommen wird — kein
   Nachrouten. Private Touren brauchen den Teilen-Link; klappt der Abruf
   nicht, ist der GPX-Export der Tour der garantierte Weg (`--gpx`).
-- ÖPNV-Links lehnt das Tool ab und verweist auf `bm-rail`.
+- ÖPNV-Links lehnt das Tool ab und verweist auf `bm-bahn`.
 - Widerspricht das Verkehrsmittel im Link dem Tool (Rad-Link in
-  `bm-car`), wird interaktiv nachgefragt; in Skripten gewinnt der Link.
+  `bm-auto`), wird interaktiv nachgefragt; in Skripten gewinnt der Link.
 
-Ausgaben wie bei bm-rail in `out/<route>/`: `bericht.html`, `relais.csv`,
+Ausgaben wie bei bm-bahn in `out/<route>/`: `bericht.html`, `relais.csv`,
 `karte.html`, `anytone/*.CSV`.
 
 ## Projektstruktur
@@ -118,7 +121,7 @@ Ausgaben wie bei bm-rail in `out/<route>/`: `bericht.html`, `relais.csv`,
 - `bmtools/bm_api/` — wiederverwendbarer Brandmeister-API-Client (Cache, Modelle)
 - `bmtools/routelib/` — gemeinsamer Kern: Erreichbarkeit (Geländemodell),
   Berichte, Karte, Codeplug-Export, Pipeline
-- `bmtools/rail/` — bm-rail (Bahnverbindungen via Transitous)
-- `bmtools/road/` — bm-car/bm-bike (Google-Maps-/Komoot-Link, GPX,
+- `bmtools/rail/` — bm-bahn (Bahnverbindungen via Transitous)
+- `bmtools/road/` — bm-auto/bm-rad (Google-Maps-/Komoot-Link, GPX,
   OSRM-Routing, Geocoding)
 - `PROJEKTPLAN.md` — Plan, Entscheidungen, offene Punkte

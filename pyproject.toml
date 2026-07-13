@@ -18,6 +18,10 @@ dev = ["pytest>=8.0"]
 
 [project.scripts]
 bmtools = "bmtools.cli:main"
+bm-bahn = "bmtools.rail.cli:main"
+bm-auto = "bmtools.road.cli:main_car"
+bm-rad = "bmtools.road.cli:main_bike"
+# Englische Aliasse (Kompatibilität)
 bm-rail = "bmtools.rail.cli:main"
 bm-car = "bmtools.road.cli:main_car"
 bm-bike = "bmtools.road.cli:main_bike"

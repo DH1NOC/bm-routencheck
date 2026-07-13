@@ -36,13 +36,16 @@ def _bike_main() -> int:
 
 # name -> (Icon, Kurzbeschreibung, Einstiegsfunktion)
 TOOLS: dict[str, tuple[str, str, Callable[[], int]]] = {
-    "rail": ("🚆", "Bahnstrecke — Zugverbindung wählen, Relais entlang "
+    "bahn": ("🚆", "Bahnstrecke — Zugverbindung wählen, Relais entlang "
                    "der Fahrt", _rail_main),
-    "car": ("🚗", "Autoroute — Google-Maps-Link einfügen oder "
-                  "Start/Ziel eingeben", _car_main),
-    "bike": ("🚴", "Radroute — Google-Maps-/Komoot-Link, GPX-Datei oder "
-                   "Start/Ziel", _bike_main),
+    "auto": ("🚗", "Autoroute — Google-Maps-Link einfügen oder "
+                   "Start/Ziel eingeben", _car_main),
+    "rad": ("🚴", "Radroute — Google-Maps-/Komoot-Link, GPX-Datei oder "
+                  "Start/Ziel", _bike_main),
 }
+
+# Englische Namen bleiben als stille Aliasse gültig (Skript-Kompatibilität)
+ALIASES = {"rail": "bahn", "car": "auto", "bike": "rad"}
 
 
 def _usage(console: Console) -> None:
@@ -61,7 +64,7 @@ def main() -> int:
     console = Console()
 
     if len(sys.argv) > 1:
-        tool = sys.argv[1]
+        tool = ALIASES.get(sys.argv[1], sys.argv[1])
         if tool in ("-h", "--help"):
             _usage(console)
             return 0
