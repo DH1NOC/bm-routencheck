@@ -16,14 +16,21 @@ from .models import Device, DeviceProfile
 BASE_URL = "https://api.brandmeister.network/v2"
 USER_AGENT = "bmtools/0.1 (Amateurfunk-Tool; Kontakt: cnohl@gmx.de)"
 
-DEVICE_LIST_TTL = 30 * 60         # Geräteliste: 30 min
+# Der Relais-Bestand ändert sich selten — ein Datenstand von 1–2 Tagen
+# reicht (Nutzerentscheidung 2026-07-13). TG-Profile ändern sich am
+# ehesten und bleiben bewusst bei 12 h (Nutzerentscheidung ebenfalls
+# 2026-07-13); --refresh erzwingt bei Bedarf frische Daten.
+DEVICE_LIST_TTL = 24 * 3600       # Geräteliste: 1 Tag
 PROFILE_TTL = 12 * 3600           # Talkgroup-Profile: 12 h
 TALKGROUP_TTL = 7 * 24 * 3600     # TG-Namensliste: 7 Tage
 REQUEST_DELAY = 0.25              # Pause zwischen echten API-Requests
 
 
 class BrandmeisterClient:
-    def __init__(self):
+    def __init__(self, refresh: bool = False):
+        """refresh=True ignoriert vorhandene Cache-Einträge (schreibt
+        aber neue) — für einen erzwungenen Datenrefresh."""
+        self._refresh = refresh
         self._http = httpx.Client(
             base_url=BASE_URL,
             timeout=60,
@@ -34,7 +41,7 @@ class BrandmeisterClient:
         self._misc_cache = Cache(TALKGROUP_TTL, "bmtools/misc")
 
     def _fetch_json(self, path: str, cache: Cache, key: str):
-        cached = cache.get(key)
+        cached = None if self._refresh else cache.get(key)
         if cached is not None:
             return cached
         last_error: Exception | None = None

@@ -61,8 +61,14 @@ Arbeitsannahme; die Anpassung auf das AT-D890UV steht aus (siehe
 `PROJEKTPLAN.md`, M5).
 
 Datenquellen: [Brandmeister-API](https://api.brandmeister.network/v2/) (ohne
-Key, nur Lesezugriff, Antworten werden lokal gecacht) und
-[Transitous](https://transitous.org) für die Streckengeometrie.
+Key, nur Lesezugriff) und [Transitous](https://transitous.org) für die
+Streckengeometrie.
+
+**Caching:** Alle Brandmeister-Antworten liegen im lokalen Disk-Cache —
+Geräteliste 1 Tag, Talkgroup-Profile 12 h (ändern sich am ehesten),
+TG-Namen 7 Tage, Höhenkacheln unbegrenzt. Wiederholte Läufe (gleiche oder andere Strecke)
+laufen damit in Sekunden und ohne API-Zugriffe. `--refresh` (bei allen
+Tools) erzwingt frische Brandmeister-Daten.
 
 ## bm-car & bm-bike — DMR-Relais entlang einer Auto- oder Radroute
 

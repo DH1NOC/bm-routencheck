@@ -170,7 +170,8 @@ def _run(stations: list[Station], args: argparse.Namespace, console: Console,
     return run_pipeline(
         route, console=console, out_dir=out_dir, corridor_km=args.corridor,
         no_terrain=args.no_terrain, open_browser=args.open, zone=zone,
-        route_label="Bahnstrecke", waypoint_icon="train")
+        route_label="Bahnstrecke", waypoint_icon="train",
+        refresh=args.refresh)
 
 
 def main() -> int:
@@ -208,6 +209,9 @@ def main() -> int:
     ap.add_argument("--no-terrain", action="store_true",
                     help="Abdeckungsschätzung ohne Geländemodell "
                          "(kein Höhenkachel-Download)")
+    ap.add_argument("--refresh", action="store_true",
+                    help="Brandmeister-Daten frisch laden statt aus dem "
+                         "Cache (Geräteliste hält sonst 1 Tag, Profile 12 h)")
     ap.add_argument("--open", action="store_true",
                     help="Bericht und Karte danach im Browser öffnen")
     ap.add_argument("--out", type=Path, default=None, metavar="DIR",

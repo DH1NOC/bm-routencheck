@@ -45,11 +45,13 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
                  corridor_km: float | None, no_terrain: bool,
                  open_browser: bool, zone: str,
                  route_label: str = "Strecke",
-                 waypoint_icon: str = "flag") -> int:
+                 waypoint_icon: str = "flag",
+                 refresh: bool = False) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    client = BrandmeisterClient()
-    console.print("[bold]Lade Brandmeister-Geräteliste …[/bold]")
+    client = BrandmeisterClient(refresh=refresh)
+    console.print("[bold]Lade Brandmeister-Geräteliste …[/bold]"
+                  + (" [dim](Cache wird ignoriert)[/dim]" if refresh else ""))
     repeaters = client.repeaters()
 
     # Auswahlkriterium ist die rechnerische Erreichbarkeit von der Strecke
