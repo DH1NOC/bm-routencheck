@@ -219,9 +219,11 @@ def _run_link(link: str, args: argparse.Namespace, console: Console,
     if interactive and not _q(questionary.confirm(
             "Diese Verbindung verwenden?", default=True, style=ui.QSTYLE)):
         raise KeyboardInterrupt
-    route = planner.route_fixed(
-        verbindung.legs,
-        warn=lambda msg: console.print(f"[yellow]{msg}[/yellow]"))
+    with console.status("Strecke auflösen …") as status:
+        route = planner.route_fixed(
+            verbindung.legs,
+            warn=lambda msg: console.print(f"[yellow]{msg}[/yellow]"),
+            progress=status.update)
     console.print(f"  Übernommene Fahrt: {', '.join(route.legs) or 'Luftlinie'}")
     return _pipeline(route, args, console)
 

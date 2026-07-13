@@ -209,15 +209,20 @@ class RoutePlanner:
         return Route(points=points, stations=stations, legs=legs)
 
     def route_fixed(self, legs: list[BahnLeg],
-                    warn: Callable[[str], None] | None = None) -> Route:
+                    warn: Callable[[str], None] | None = None,
+                    progress: Callable[[str], None] | None = None) -> Route:
         """Geometrie zu einer bereits feststehenden Verbindung (bahn.de-
         Link): je Abschnitt die Transitous-Fahrt mit exakt passender
-        Abfahrtszeit übernehmen — ohne Rückfragen."""
+        Abfahrtszeit übernehmen — ohne Rückfragen. progress bekommt vor
+        jedem Abschnitt eine Statuszeile (eine Anfrage je Abschnitt)."""
         stations = [legs[0].frm] + [leg.to for leg in legs]
         try:
             points: list[Point] = []
             labels: list[str] = []
-            for leg in legs:
+            for i, leg in enumerate(legs, 1):
+                if progress:
+                    progress(f"Strecke auflösen — Abschnitt {i}/{len(legs)}: "
+                             f"{leg.frm.name} → {leg.to.name} ({leg.train}) …")
                 # Mit Vorlauf anfragen: MOTIS plant ab Koordinaten inkl.
                 # Fußweg zum Bahnhof, eine Anfrage exakt zur Abfahrtszeit
                 # schließt genau den gesuchten Zug aus (verifiziert
