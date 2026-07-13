@@ -27,30 +27,57 @@ MIN_RANGE_KM = 2.0  # kürzere Relais-Abschnitte werden mit dem Vorgänger versc
 def _contact_ranges(coverage: CoverageEstimate):
     """Strecke in Abschnitte gleicher erreichbarer Relais gliedern.
 
+    Im Stadtgebiet wechselt die sichtbare Relais-Menge fast an jedem
+    Abtastpunkt (Abtastrauschen im Geländemodell) — deshalb wird je
+    Relais zuerst jede Mikro-Lücke < MIN_RANGE_KM in seiner
+    Erreichbarkeit überbrückt. Verbleibende Mikro-Abschnitte werden per
+    VEREINIGUNG in den Vorgänger gefaltet, nicht verworfen: Das alte
+    Verwerfen ließ z. B. DM0RBB auf den letzten 35 km einer Route nach
+    Berlin aus der Tabelle verschwinden (gemeldet 2026-07-13).
+
     Liefert (start_km, end_km, los, marginal): Rufzeichen mit Sicht-
     kontakt bzw. (nur wenn keine Sicht besteht) im Grenzbereich.
     """
-    raw = []
-    for s in coverage.samples:
-        los = tuple(sorted(set(s.los)))
-        marginal = tuple(sorted(set(s.marginal))) if not los else ()
-        raw.append((s.km, los, marginal))
+    samples = coverage.samples
+    if not samples:
+        return []
+    kms = [s.km for s in samples]
+    ends = kms[1:] + [coverage.total_km]
+
+    def smooth(present: list[bool]) -> list[bool]:
+        out = present[:]
+        prev_true = None
+        for i, p in enumerate(present):
+            if p:
+                if (prev_true is not None and i - prev_true > 1
+                        and kms[i] - ends[prev_true] < MIN_RANGE_KM):
+                    for j in range(prev_true + 1, i):
+                        out[j] = True
+                prev_true = i
+        return out
+
+    calls = sorted({c for s in samples for c in s.los + s.marginal})
+    los_p = {c: smooth([c in s.los for s in samples]) for c in calls}
+    marg_p = {c: smooth([c in s.marginal for s in samples]) for c in calls}
 
     ranges = []
-    for i, (km, los, marginal) in enumerate(raw):
-        end = raw[i + 1][0] if i + 1 < len(raw) else coverage.total_km
+    for i in range(len(samples)):
+        los = tuple(c for c in calls if los_p[c][i])
+        marginal = (() if los
+                    else tuple(c for c in calls if marg_p[c][i]))
         if ranges and ranges[-1][2:] == (los, marginal):
-            ranges[-1] = (ranges[-1][0], end, los, marginal)
+            ranges[-1] = (ranges[-1][0], ends[i], los, marginal)
         else:
-            ranges.append((km, end, los, marginal))
+            ranges.append((kms[i], ends[i], los, marginal))
 
-    # Mikro-Abschnitte in den Vorgänger falten, danach gleiche Nachbarn
-    # erneut verschmelzen (das Falten kann identische Mengen trennen)
     merged = []
     for r in ranges:
         if merged and r[1] - r[0] < MIN_RANGE_KM:
             prev = merged[-1]
-            merged[-1] = (prev[0], r[1], prev[2], prev[3])
+            los = tuple(sorted(set(prev[2]) | set(r[2])))
+            marginal = (() if los
+                        else tuple(sorted(set(prev[3]) | set(r[3]))))
+            merged[-1] = (prev[0], r[1], los, marginal)
         else:
             merged.append(r)
     final = []
@@ -161,6 +188,8 @@ gemeldeten Repeater der Umgebung, auch außerhalb des Suchkorridors.</p>
 
 {% if ranges %}
 <h2>Erreichbare Relais je Streckenabschnitt</h2>
+<p class="meta">Unterbrechungen kürzer als {{ min_range_km }} km sind
+überbrückt (Abtastrauschen, v. a. im Stadtgebiet).</p>
 <div class="tablewrap"><table>
 <tr><th class="num">von km</th><th class="num">bis km</th>
 <th>Relais (potenziell erreichbar)</th></tr>
@@ -261,12 +290,9 @@ def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
     repeaters = []
     for r in results:
         d = r.device
-        # Slot 0 heißt "keine Slot-Angabe": bei Simplex-Repeatern (RX=TX)
-        # ist das der Normalfall; auf Duplex-Relais kommt es ebenfalls vor
-        # (verifiziert 2026-07-13 an DB0TU, TG 26231) — dort wäre
-        # "Simplex" falsch, angezeigt wird die TS1-Annahme mit Herkunft.
-        simplex = d.tx_mhz == d.rx_mhz
-        slot0_label = "1 (Simplex)" if simplex else "1 (BM: ohne Slot)"
+        # Slot 0 kommt nach der Profil-Bereinigung (Pipeline) nur noch
+        # bei Simplex-Repeatern vor — auf Duplex ist es Miskonfiguration
+        # und wird verworfen.
         repeaters.append({
             "id": d.id, "callsign": d.callsign, "city": d.city,
             "km": f"{r.hit.chainage_km:.0f}",
@@ -280,7 +306,7 @@ def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
                 "css": s.kind if s.kind in ("timed", "cluster") else "",
                 "rx": _fmt_mhz(d.tx_mhz), "tx": _fmt_mhz(d.rx_mhz),
                 "cc": d.colorcode or "",
-                "slot": s.slot if s.slot in (1, 2) else slot0_label,
+                "slot": s.slot if s.slot in (1, 2) else "1 (Simplex)",
                 "tg": s.talkgroup, "tg_name": tg_names.get(s.talkgroup, ""),
                 "art": _art(s),
             } for s in r.profile.subscriptions],
@@ -292,6 +318,7 @@ def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
         created=f"{datetime.now():%d.%m.%Y %H:%M}",
         legs=", ".join(route.legs) or "Luftlinie",
         interpolated=route.is_interpolated,
+        min_range_km=f"{MIN_RANGE_KM:.0f}",
         overview=overview, cov=cov, ranges=ranges, repeaters=repeaters,
     )
     path.write_text(html, encoding="utf-8")

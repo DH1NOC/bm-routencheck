@@ -33,7 +33,15 @@ def slug(text: str) -> str:
 
 def _with_local_tg(profile: DeviceProfile, simplex: bool) -> DeviceProfile:
     """TG9 'Lokal' ist auf jedem Relais implizit verfügbar, fehlt aber in
-    der API — hier als Standard-Eintrag ergänzen (TS2; Simplex: Slot 0)."""
+    der API — hier als Standard-Eintrag ergänzen (TS2; Simplex: Slot 0).
+
+    Slot-0-Einträge auf Duplex-Relais werden verworfen: BM nutzt Slot 0
+    nur für Geräte ohne Timeslots; auf einem Duplex-Relais ist das eine
+    Miskonfiguration des Sysops (Nutzerentscheidung 2026-07-13, Beispiel
+    DB0TU TG 26231)."""
+    if not simplex:
+        profile.subscriptions = [s for s in profile.subscriptions
+                                 if s.slot != 0]
     if not any(s.talkgroup == 9 for s in profile.subscriptions):
         profile.subscriptions.append(
             TalkgroupSub(9, 0 if simplex else 2, "implicit", "Lokal"))
