@@ -6,13 +6,15 @@ Interpolation zwischen den Bahnhöfen.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Callable
 
 import httpx
 
 from bmtools.routelib.model import Point, Route, Station, decode_polyline
+from .bahn_link import BahnLeg
 
 TRANSITOUS = "https://api.transitous.org/api/v1"
 USER_AGENT = "bmtools/0.1 (Amateurfunk-Tool; Kontakt: cnohl@gmx.de)"
@@ -39,12 +41,13 @@ class PlanOptions:
 
 @dataclass
 class ItineraryOption:
-    start: datetime                  # Lokalzeit
+    start: datetime                  # Lokalzeit, inkl. Fußweg zum Bahnhof
     end: datetime
     transfers: int
     trains: list[str]                # z. B. ["ICE 1185"]
     labels: list[str]                # Leg-Beschreibungen
     points: list[Point]
+    dep: datetime | None = None      # Abfahrt des ersten Zugs (ohne Fußweg)
 
     @property
     def summary(self) -> str:
@@ -57,6 +60,26 @@ class ItineraryOption:
 
 # Wählt aus mehreren gefundenen Verbindungen eine aus (interaktiv o. ä.)
 Chooser = Callable[[list[ItineraryOption], Station, Station], ItineraryOption]
+
+
+def _match_fixed_leg(options: list[ItineraryOption], leg: BahnLeg,
+                     warn: Callable[[str], None] | None) -> ItineraryOption:
+    """Kandidat zum bahn.de-Abschnitt: exakte Zug-Abfahrtszeit schlägt
+    Zugnummer — GTFS führt oft 'RE7 (3285)' oder nur die Liniennummer,
+    wo bahn.de '3285' sagt. Die Nummer entscheidet nur bei Gleichstand."""
+    exact = [o for o in options if o.dep == leg.dep]
+    number = (re.findall(r"\d+", leg.train) or [""])[-1]
+    for o in exact:
+        if number and any(number in re.findall(r"\d+", t) for t in o.trains):
+            return o
+    if exact:
+        return exact[0]
+    closest = min(options, key=lambda o: abs((o.dep or o.start) - leg.dep))
+    if warn:
+        warn(f"Abschnitt {leg.frm.name} → {leg.to.name}: Zug {leg.train} "
+             f"(ab {leg.dep:%d.%m. %H:%M}) nicht im Fahrplandatensatz — "
+             f"nehme stattdessen: {closest.summary}")
+    return closest
 
 
 def _local(iso: str) -> datetime:
@@ -113,9 +136,12 @@ class RoutePlanner:
             points: list[Point] = []
             trains: list[str] = []
             labels: list[str] = []
+            dep: datetime | None = None
             for leg in it["legs"]:
                 if leg.get("mode") == "WALK":
                     continue
+                if dep is None and leg.get("startTime"):
+                    dep = _local(leg["startTime"])
                 geometry = leg.get("legGeometry") or {}
                 decoded = decode_polyline(
                     geometry.get("points") or "", int(geometry.get("precision") or 7)
@@ -133,7 +159,7 @@ class RoutePlanner:
             options.append(ItineraryOption(
                 start=_local(it["startTime"]), end=_local(it["endTime"]),
                 transfers=int(it.get("transfers") or 0),
-                trains=trains, labels=labels, points=points,
+                trains=trains, labels=labels, points=points, dep=dep,
             ))
 
         all_options = options
@@ -178,6 +204,39 @@ class RoutePlanner:
         if len(points) < 2:
             raise NoItineraryError("Verbindung lieferte keine brauchbare Geometrie.")
         return Route(points=points, stations=stations, legs=legs)
+
+    def route_fixed(self, legs: list[BahnLeg],
+                    warn: Callable[[str], None] | None = None) -> Route:
+        """Geometrie zu einer bereits feststehenden Verbindung (bahn.de-
+        Link): je Abschnitt die Transitous-Fahrt mit exakt passender
+        Abfahrtszeit übernehmen — ohne Rückfragen."""
+        stations = [legs[0].frm] + [leg.to for leg in legs]
+        try:
+            points: list[Point] = []
+            labels: list[str] = []
+            for leg in legs:
+                # Mit Vorlauf anfragen: MOTIS plant ab Koordinaten inkl.
+                # Fußweg zum Bahnhof, eine Anfrage exakt zur Abfahrtszeit
+                # schließt genau den gesuchten Zug aus (verifiziert
+                # 2026-07-13). Gematcht wird auf die Zug-Abfahrt (o.dep).
+                opts = PlanOptions(time=leg.dep - timedelta(minutes=15),
+                                   direct_only=True)
+                options = self.segment_options(leg.frm, leg.to, opts)
+                chosen = _match_fixed_leg(options, leg, warn)
+                seg_points = chosen.points
+                if points and seg_points and points[-1] == seg_points[0]:
+                    seg_points = seg_points[1:]
+                points.extend(seg_points)
+                labels.extend(chosen.labels)
+            if len(points) < 2:
+                raise NoItineraryError(
+                    "Verbindung lieferte keine brauchbare Geometrie.")
+            return Route(points=points, stations=stations, legs=labels)
+        except httpx.HTTPError as e:
+            (warn or print)(
+                f"WARNUNG: Verbindungssuche fehlgeschlagen ({e}); "
+                f"nutze Luftlinien-Fallback zwischen den Bahnhöfen.")
+            return self.route_interpolated(stations)
 
     def route_interpolated(self, stations: list[Station]) -> Route:
         """Fallback: Luftlinie zwischen den angegebenen Bahnhöfen."""

@@ -2,7 +2,8 @@
 
 Ohne Argumente startet ein interaktiver Assistent (inkl. Auswahl der
 konkreten Zugverbindung); alle Angaben lassen sich auch als Flags
-übergeben (für Skripte/Wiederholläufe).
+übergeben (für Skripte/Wiederholläufe). Alternativ übernimmt ein
+bahn.de-Verbindungslink (…?vbid=…) die dort gewählte Verbindung direkt.
 """
 from __future__ import annotations
 
@@ -16,13 +17,16 @@ from questionary import Choice
 from rich.console import Console
 
 from bmtools import ui
+from bmtools.routelib.model import Route
 from bmtools.routelib.pipeline import run_pipeline, slug
+from .bahn_link import BahnLinkError, extract_vbid, fetch_verbindung
 from .route import (ItineraryOption, NoItineraryError, PlanOptions,
                     RoutePlanner, Station)
 
 EXAMPLES = """\
 Beispiele:
   bm-bahn                                          interaktiver Assistent
+  bm-bahn "https://www.bahn.de/buchung/start?vbid=…"   Verbindung aus bahn.de-Link
   bm-bahn --von "Koblenz Hbf" --nach "Nürnberg Hbf"
   bm-bahn --von Hamburg --nach München --zuggattung fern --direkt
   bm-bahn --von Koblenz --nach Nürnberg --zeit "2026-07-14 08:00"
@@ -84,6 +88,16 @@ def _float_valid(raw: str):
         return "Bitte eine Zahl eingeben"
 
 
+def _link_valid(raw: str):
+    if not raw.strip():
+        return True
+    try:
+        extract_vbid(raw)
+        return True
+    except BahnLinkError:
+        return "Kein bahn.de-Verbindungslink (es fehlt …?vbid=…)"
+
+
 def _resolve_stations(planner: RoutePlanner, names: list[str],
                       console: Console, interactive: bool) -> list[Station]:
     """Bahnhofsnamen auflösen.
@@ -109,11 +123,20 @@ def _resolve_stations(planner: RoutePlanner, names: list[str],
 
 def _interactive(console: Console, args: argparse.Namespace,
                  planner: RoutePlanner) -> list[Station]:
-    """Fragt Strecke, Verbindungsfilter und Korridor ab."""
+    """Fragt Strecke, Verbindungsfilter und Korridor ab. Wird ein
+    bahn.de-Link eingefügt, landet er in args.link und die Liste
+    bleibt leer — die Verbindung steht dann schon fest."""
     console.print()
     ui.banner(console, "bm-bahn — DMR-Relais entlang einer Bahnstrecke",
               "Zugverbindung wählen — Bericht, Karte, CSV und Codeplug "
               "für die ganze Fahrt", icon="🚆")
+    link = _q(questionary.text(
+        "bahn.de-Verbindungslink (…?vbid=…; leer = Verbindung hier suchen):",
+        validate=_link_valid, style=ui.QSTYLE)).strip()
+    if link:
+        args.link = link
+        args.open = True
+        return []
     origin = _text_with_default("Startbahnhof:", "Nürnberg Hbf")
     destination = _text_with_default("Zielbahnhof:", "Berlin Hbf")
     via_raw = _q(questionary.text("Zwischenhalte (optional, Komma-getrennt):",
@@ -158,11 +181,19 @@ def _make_chooser(console: Console):
     return chooser
 
 
+def _pipeline(route: Route, args: argparse.Namespace, console: Console) -> int:
+    names = [s.name for s in route.stations]
+    out_dir = args.out or Path("out") / f"{slug(names[0])}-{slug(names[-1])}"
+    zone = f"{names[0].removesuffix(' Hbf')}-{names[-1].removesuffix(' Hbf')}"
+    return run_pipeline(
+        route, console=console, out_dir=out_dir, corridor_km=args.corridor,
+        no_terrain=args.no_terrain, open_browser=args.open, zone=zone,
+        route_label="Bahnstrecke", waypoint_icon="train",
+        refresh=args.refresh)
+
+
 def _run(stations: list[Station], args: argparse.Namespace, console: Console,
          planner: RoutePlanner, interactive: bool) -> int:
-    names = [s.name for s in stations]
-    out_dir = args.out or Path("out") / f"{slug(names[0])}-{slug(names[-1])}"
-
     opts = PlanOptions(modes=args.modes, time=args.time,
                        arrive_by=args.arrive, direct_only=args.direct)
     console.print(f"\n[bold]Route:[/bold] {' → '.join(s.label for s in stations)}")
@@ -170,13 +201,29 @@ def _run(stations: list[Station], args: argparse.Namespace, console: Console,
     route = (planner.route_interpolated(stations) if args.straight_line
              else planner.route(stations, opts, chooser))
     console.print(f"  Gewählte Verbindung: {', '.join(route.legs) or 'Luftlinie'}")
+    return _pipeline(route, args, console)
 
-    zone = f"{names[0].removesuffix(' Hbf')}-{names[-1].removesuffix(' Hbf')}"
-    return run_pipeline(
-        route, console=console, out_dir=out_dir, corridor_km=args.corridor,
-        no_terrain=args.no_terrain, open_browser=args.open, zone=zone,
-        route_label="Bahnstrecke", waypoint_icon="train",
-        refresh=args.refresh)
+
+def _run_link(link: str, args: argparse.Namespace, console: Console,
+              planner: RoutePlanner, interactive: bool) -> int:
+    """Verbindung aus bahn.de-Link übernehmen statt selbst zu suchen."""
+    verbindung = fetch_verbindung(extract_vbid(link))
+    console.print(f"\n[bold]Verbindung laut bahn.de[/bold] "
+                  f"({verbindung.datum:%d.%m.%Y}): "
+                  f"{verbindung.start_ort} → {verbindung.ziel_ort}")
+    for leg in verbindung.legs:
+        plus = " (+1)" if leg.arr.date() != leg.dep.date() else ""
+        console.print(f"  {leg.dep:%H:%M} {leg.frm.name} → "
+                      f"{leg.arr:%H:%M}{plus} {leg.to.name}  "
+                      f"[dim]{leg.train}[/dim]")
+    if interactive and not _q(questionary.confirm(
+            "Diese Verbindung verwenden?", default=True, style=ui.QSTYLE)):
+        raise KeyboardInterrupt
+    route = planner.route_fixed(
+        verbindung.legs,
+        warn=lambda msg: console.print(f"[yellow]{msg}[/yellow]"))
+    console.print(f"  Übernommene Fahrt: {', '.join(route.legs) or 'Luftlinie'}")
+    return _pipeline(route, args, console)
 
 
 def main() -> int:
@@ -188,6 +235,10 @@ def main() -> int:
         epilog=EXAMPLES,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    ap.add_argument("link", nargs="?", metavar="LINK",
+                    help="bahn.de-Verbindungslink (…?vbid=…) — die dort "
+                         "gewählte Verbindung wird direkt übernommen, "
+                         "Zeit-/Zugfilter entfallen")
     ap.add_argument("--von", "--from", dest="origin", metavar="BAHNHOF",
                     help="Startbahnhof, z. B. 'Koblenz Hbf'")
     ap.add_argument("--nach", "--to", dest="destination", metavar="BAHNHOF",
@@ -238,6 +289,9 @@ def main() -> int:
     interactive = False
     planner = RoutePlanner()
     try:
+        if args.link:
+            return _run_link(args.link, args, console, planner,
+                             interactive=False)
         if args.stations:
             names = [s.strip() for s in args.stations.split(",") if s.strip()]
             stations = _resolve_stations(planner, names, console, interactive=False)
@@ -247,14 +301,20 @@ def main() -> int:
         elif sys.stdin.isatty() and not (args.origin or args.destination):
             interactive = True
             stations = _interactive(console, args, planner)
+            if args.link:  # Assistent bekam einen bahn.de-Link
+                return _run_link(args.link, args, console, planner,
+                                 interactive=True)
         else:
-            ap.error("Entweder --von UND --nach angeben, oder --bahnhoefe, "
-                     "oder ohne Argumente interaktiv starten.")
+            ap.error("Entweder LINK (bahn.de) angeben, --von UND --nach, "
+                     "--bahnhoefe, oder ohne Argumente interaktiv starten.")
 
         return _run(stations, args, console, planner, interactive)
     except (KeyboardInterrupt, EOFError):
         console.print("\n[dim]Abgebrochen.[/dim]")
         return 130
+    except BahnLinkError as e:
+        console.print(f"[red]{e}[/red]")
+        return 1
     except NoItineraryError as e:
         console.print(f"[red]{e}[/red]\n"
                       "Tipp: Filter lockern (--modes alle, ohne --direct) "

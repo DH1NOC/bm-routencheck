@@ -10,7 +10,7 @@ Drei Tools, ein gemeinsamer Kern:
 
 | Kommando | Route aus |
 |---|---|
-| `bm-bahn` | Zugverbindung (Start-/Zielbahnhof, via [Transitous](https://transitous.org)) |
+| `bm-bahn` | Zugverbindung (bahn.de-Link oder Start-/Zielbahnhof, via [Transitous](https://transitous.org)) |
 | `bm-auto` | Google-Maps-Link oder Start-/Zieladresse (OSRM-Routing) |
 | `bm-rad` | Komoot-Tour, Google-Maps-Link, GPX-Datei oder Start/Ziel |
 
@@ -176,13 +176,20 @@ Die Zuggattung beeinflusst die Route real: Hamburg–München fährt der
 Fernverkehr z. B. via Erfurt oder via Würzburg, der Nahverkehr eine ganz
 andere Kette — entsprechend ändern sich die gefundenen Relais.
 
-**Streckenwahl** — entweder `--von`/`--nach` oder `--bahnhoefe`:
+**Streckenwahl** — bahn.de-Link, `--von`/`--nach` oder `--bahnhoefe`:
 
 | Parameter | Bedeutung |
 |---|---|
+| `LINK` | bahn.de-Verbindungslink (`…?vbid=…`, der Teilen-Link einer gesuchten/gebuchten Verbindung) — übernimmt genau die dort gewählten Züge, die Verbindungsfilter unten entfallen |
 | `--von BAHNHOF --nach BAHNHOF` | Start- und Zielbahnhof, z. B. `"Koblenz Hbf"` |
 | `--via BAHNHOF` | Zwischenhalt zu `--von`/`--nach`; mehrfach angebbar (`--via Mainz --via Würzburg`) |
 | `--bahnhoefe "A, B, C"` | Alternativ: kommagetrennte Bahnhofsliste statt `--von`/`--nach` |
+
+Der bahn.de-Link wird über einen inoffiziellen bahn.de-Endpunkt in die
+einzelnen Fahrtabschnitte aufgelöst; die Streckengeometrie liefert danach
+wie üblich Transitous (Abschnitte werden über die exakte Abfahrtszeit dem
+Fahrplandatensatz zugeordnet). Solche Links laufen serverseitig nach
+einiger Zeit ab — dann auf bahn.de neu suchen und frisch teilen.
 
 **Verbindungsauswahl:**
 
@@ -200,6 +207,7 @@ unter mehreren gefundenen Verbindungen ausgewählt. Nicht-interaktiv nimmt
 das Tool jeweils den ersten Treffer bzw. die erste passende Verbindung.
 
 ```bash
+bm-bahn "https://www.bahn.de/buchung/start?vbid=…" --oeffnen
 bm-bahn --von "Koblenz Hbf" --nach "Nürnberg Hbf" --oeffnen
 bm-bahn --von Hamburg --nach München --zuggattung fern --direkt
 bm-bahn --von Koblenz --nach Nürnberg --zeit "2026-07-14 17:30" --ankunft
