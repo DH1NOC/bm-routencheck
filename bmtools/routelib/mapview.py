@@ -197,7 +197,17 @@ def write_map(results: list[RepeaterResult], route: Route,
               waypoint_icon: str = "flag") -> None:
     lats = [p[0] for p in route.points]
     lons = [p[1] for p in route.points]
-    m = folium.Map()
+    # tile.openstreetmap.de statt tile.openstreetmap.org: Die OSMF-Server
+    # verlangen einen Referer (osm.wiki/Blocked) — eine verschickte, per
+    # file:// geöffnete HTML-Datei sendet aber nie einen (Referer ist ein
+    # forbidden header, Leaflets referrerPolicy hilft nur auf gehosteten
+    # Seiten), Empfänger sahen "Access Blocked"-Kacheln (2026-07-13).
+    # Der FOSSGIS-Server liefert die klassische OSM-Optik ohne
+    # Referer-Pflicht; Carto-CDN als umschaltbare Ausweich-Ebene.
+    m = folium.Map(tiles=None)
+    folium.TileLayer("OpenStreetMap.DE", name="OpenStreetMap").add_to(m)
+    folium.TileLayer("cartodbvoyager", name="Carto (Ausweichkarte)",
+                     show=False).add_to(m)
     m.fit_bounds([(min(lats), min(lons)), (max(lats), max(lons))])
 
     if terrain is not None and results:
@@ -206,7 +216,8 @@ def write_map(results: list[RepeaterResult], route: Route,
             image=image_uri, bounds=bounds, opacity=0.8,
             name="Relais-Sichtfelder (rechnerisch)",
         ).add_to(m)
-        folium.LayerControl().add_to(m)
+    # Vor den Markern einhängen, sonst listet das Control jeden Marker
+    folium.LayerControl().add_to(m)
 
     if coverage is not None and coverage.samples:
         listed = {r.device.callsign for r in results}
