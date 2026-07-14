@@ -17,7 +17,7 @@ class Waypoint:
     name: str
     lat: float
     lon: float
-    region: str = ""  # z. B. "Deutschland, Bayern, Mittelfranken"
+    region: str = ""  # z. B. "90537 Feucht, Bayern, Deutschland"
 
     @property
     def label(self) -> str:

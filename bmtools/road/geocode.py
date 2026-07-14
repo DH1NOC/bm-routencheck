@@ -7,6 +7,8 @@ Gleiche API wie bm-rail — keine zusätzliche Abhängigkeit.
 """
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
 
 from bmtools.routelib.model import Waypoint
@@ -15,6 +17,28 @@ from . import RouteInputError
 
 TRANSITOUS_GEOCODE = "https://api.transitous.org/api/v1/geocode"
 USER_AGENT = "bmtools/0.1 (Amateurfunk-Tool; Kontakt: cnohl@gmx.de)"
+
+
+def _region(hit: dict[str, Any]) -> str:
+    """Ortsangabe für die Trefferauswahl: 'PLZ Ort, Bundesland, Land'.
+
+    Die areas-Liste kommt von grob nach fein (Land, Bundesland,
+    Bezirk, …, Gemeinde); der eigentliche Ort ist der default-Eintrag
+    (Fallback: der letzte, also feinste). Bundesland ist adminLevel 4,
+    Land adminLevel 2.
+    """
+    areas = hit.get("areas") or []
+    if not areas:
+        return ""
+    city = next((a["name"] for a in areas if a.get("default")),
+                areas[-1]["name"])
+    place = f"{hit.get('zip', '')} {city}".strip()
+    levels = {int(a.get("adminLevel", 0)): a["name"] for a in areas}
+    parts: list[str] = []
+    for part in (place, levels.get(4), levels.get(2)):
+        if part and part not in parts:  # Stadtstaaten: Berlin, Berlin, …
+            parts.append(part)
+    return ", ".join(parts)
 
 
 def geocode_candidates(query: str, http: httpx.Client | None = None,
@@ -30,11 +54,13 @@ def geocode_candidates(query: str, http: httpx.Client | None = None,
         if not results:
             raise RouteInputError(f"Ort nicht gefunden: {query!r}")
         candidates = []
+        seen: set[str] = set()  # API liefert teils label-gleiche Treffer
         for best in results[:limit]:
-            region = ", ".join(
-                a.get("name", "") for a in (best.get("areas") or [])[:3])
-            candidates.append(Waypoint(name=best["name"], lat=best["lat"],
-                                       lon=best["lon"], region=region))
+            wp = Waypoint(name=best["name"], lat=best["lat"],
+                          lon=best["lon"], region=_region(best))
+            if wp.label not in seen:
+                seen.add(wp.label)
+                candidates.append(wp)
         return candidates
     finally:
         if own_client:
