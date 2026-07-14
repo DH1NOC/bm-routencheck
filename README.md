@@ -18,6 +18,13 @@ Jeder Lauf erzeugt in `out/<route>/` einen HTML-Bericht mit Kanaltabellen je
 Relais (Rufzeichen, Frequenzen, Colorcode, Talkgroups in TS1/TS2), eine
 interaktive Karte, eine CSV-Datei und einen AnyTone-Codeplug-Export.
 
+![Interaktive Karte eines Laufs: Route mit Relais-Markern und geschätzten Sichtfeldern](docs/beispielkarte.png)
+
+*Die interaktive Karte (`karte.html`) eines `bm-auto`-Laufs: Die Strecke ist
+nach Erreichbarkeit gezeichnet (durchgezogen = Sicht, gestrichelt =
+Grenzbereich, gepunktet = Schatten), die blauen Flächen sind die berechneten
+Sichtfelder der erreichbaren Relais — je dunkler, desto mehr Relais.*
+
 Paketdefinition und Entry Points stehen in [`pyproject.toml`](pyproject.toml);
 offene Punkte, verbindliche Festlegungen und die Eigenheiten der externen
 Datenquellen in [`PROJEKTPLAN.md`](PROJEKTPLAN.md).
