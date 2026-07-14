@@ -1,7 +1,7 @@
 [project]
-name = "brandmeister-tools"
+name = "bm-routencheck"
 version = "0.1.0"
-description = "Tools rund um das Brandmeister DMR/Tetra-Netzwerk"
+description = "Erreichbare Brandmeister-DMR-Relais entlang einer Route (Bahn, Auto, Rad)"
 requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.27",

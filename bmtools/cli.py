@@ -1,4 +1,4 @@
-"""bmtools: gemeinsamer CLI-Einstieg für alle Brandmeister-Tools.
+"""bmtools: gemeinsamer CLI-Einstieg für den BM-Routencheck.
 
 Aufruf:
     bmtools              Menü der verfügbaren Tools
@@ -81,7 +81,7 @@ def main() -> int:
         return 2
 
     console.print()
-    ui.banner(console, "BrandmeisterTools",
+    ui.banner(console, "BM-Routencheck",
               "Welche DMR-Relais erreichst du unterwegs? — Bericht, "
               "Karte, CSV und Codeplug je Route")
     choices = [

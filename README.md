@@ -1,4 +1,4 @@
-# BrandmeisterTools
+# BM-Routencheck
 
 Kommandozeilen-Tools, die ermitteln, welche DMR-Relais des
 [Brandmeister-Netzwerks](https://brandmeister.network) entlang einer Route
@@ -86,8 +86,8 @@ winget install Python.Python.3.12
 ### Installation
 
 ```bash
-git clone https://github.com/DH1NOC/BrandmeisterTools.git
-cd BrandmeisterTools
+git clone https://github.com/DH1NOC/bm-routencheck.git
+cd bm-routencheck
 
 # Virtuelle Umgebung anlegen
 python3 -m venv .venv            # Windows: py -m venv .venv
@@ -310,7 +310,7 @@ sie nicht listet.
 ## Projektstruktur
 
 ```text
-BrandmeisterTools/
+bm-routencheck/
 ├── bmtools/              # Python-Paket mit allen Tools
 │   ├── bm_api/           # Brandmeister-API-Client (HTTP, Disk-Cache, Datenmodelle)
 │   ├── routelib/         # Gemeinsamer Kern: Geländemodell/Erreichbarkeit,
