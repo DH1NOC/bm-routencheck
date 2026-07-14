@@ -5,6 +5,7 @@ echten /plan- und /geocode-Strukturen (Stand 2026-07).
 """
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -88,7 +89,10 @@ def test_segment_options_parst_motis_antwort():
     assert direkt.transfers == 0
     assert direkt.trains == ["RE7 (3285)"]         # WALK-Leg übersprungen
     assert direkt.dep is not None
-    assert f"{direkt.dep:%H:%M}" == "06:57"        # UTC -> Lokalzeit (CEST)
+    # 'Z'-Suffix korrekt geparst; aware -> Anzeige folgt der Systemzeitzone.
+    # Bewusst Zeitpunkt- statt Formatvergleich: der CI-Runner läuft in UTC.
+    assert direkt.dep == datetime(2026, 8, 17, 4, 57, tzinfo=UTC)
+    assert direkt.dep.tzinfo is not None
     assert direkt.start < direkt.dep               # start inkl. Fußweg
     assert direkt.points[0] == pytest.approx((FRM.lat, FRM.lon))
     assert "Lindau-Insel -> Augsburg Hbf" in direkt.labels[0]
