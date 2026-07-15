@@ -1,15 +1,19 @@
 # BM-Routencheck — Projektplan
 
-Stand: 2026-07-13
+Stand: 2026-07-15
 
 ## 1. Status
 
 Die drei Tools `bm-bahn`, `bm-auto` und `bm-rad` sind fertig und abgenommen
-(gemeinsamer Kern in `bmtools/routelib/`, Nutzung siehe [README](README.md)).
-Dieses Dokument hält nur noch fest, was für die Weiterarbeit gebraucht wird:
-offene Punkte, verbindliche Festlegungen und die Eigenheiten der externen
-Datenquellen. Die Abnahmeprotokolle der erledigten Meilensteine (M0–M6,
-R0–R5) sind in der Git-Historie dieses Dokuments nachlesbar.
+(gemeinsamer Kern in `bmtools/routelib/`, Nutzung siehe [README](README.md));
+seit dem FM-Umbau (2026-07-15) werten sie neben Brandmeister-DMR auch
+analoge FM-Relais aus (`--modus`, Default beide; Quelle:
+relaislisten.darc.de). Dieses Dokument hält nur noch fest, was für die
+Weiterarbeit gebraucht wird: offene Punkte, verbindliche Festlegungen und
+die Eigenheiten der externen Datenquellen. Die Abnahmeprotokolle der
+erledigten Meilensteine (M0–M6, R0–R5, FM-Umbau F0–F4) sind in der
+Git-Historie nachlesbar (F0–F3 in der Historie von `FM-UMBAU.md`, mit F4
+aufgelöst).
 
 ## 2. Offene Punkte
 
@@ -19,6 +23,11 @@ R0–R5) sind in der Git-Historie dieses Dokuments nachlesbar.
       dokumentiert. Wartet auf einen Beispiel-Export (Channel/TalkGroups/
       Zone-CSV) aus der Nutzer-CPS — kein Blindformat. Danach Header/Defaults
       anpassen und Importtest in der CPS.
+- [ ] **FM-Umbau, letzte Abnahme:** Import von `anytone/` mit analogen
+      Kanälen in der AnyTone-CPS prüfen (A-Analog-Kanal mit korrektem
+      CTCSS; CC/Slot/DMR-MODE tragen benigne Werte 1/1/0 und sollten
+      ignoriert werden). Der CHIRP-Import ist bereits programmatisch
+      gegen den Upstream-Treiber verifiziert (F3, 2026-07-15).
 - [ ] Google-Link mit per Maus verschobener Route (Drag-Via) an einem echten
       Link verifizieren — Heuristik ist implementiert und unit-getestet,
       ein echter Beispiel-Link steht noch aus.
@@ -47,7 +56,11 @@ Fachliche Regeln (dürfen bei Änderungen nicht regressieren):
 | Regel | Festlegung |
 |---|---|
 | Relais-Auswahl | Rechnerische Erreichbarkeit von der Strecke (Sichtkontakt zu ≥ 1 Streckenpunkt im Geländemodell) statt festem Korridor; `--korridor` nur als optionales Abstands-Limit; kein implizites Distanz-Limit |
-| Frequenz-Sicht | Alle Ausgaben aus Sicht des Funkgeräts (RX = Relais-Ausgabe) |
+| Frequenz-Sicht | Alle Ausgaben aus Sicht des Funkgeräts (RX = Relais-Ausgabe) — gilt für DMR und FM |
+| Modus | `--modus {dmr,fm,beide}`, Default `beide` (Festlegung 2026-07-15; ändert die Ausgaben alter Aufrufe bewusst). Reines DMR sieht aus wie vor dem Umbau: Modus-/CTCSS-Spalten erscheinen nur, wenn FM dabei ist |
+| FM-Regeln | CTCSS ist Encode-Ton (Gerät sendet), Decode default offen (`--ctcss-decode` setzt den Relais-Ton); Ablage stets aus rx−tx berechnen, nie annehmen (NL-70cm nutzt +1,6 MHz); Bandbreite Codeplug default 12,5 kHz, `--bandbreite 25` global (kein Raster in den Daten). TG9/Slot-0/Colorcode-Regeln gelten NICHT für FM |
+| FM-IDs | Synthetisch negativ (CRC32-Hash über Call+QRG, stabil über Läufe) — kollidieren nie mit den 6-stellig positiven BM-IDs; bleiben ein Internum (CSV-Spalte `dmr_id` bleibt bei FM leer) |
+| Marker-Farben | DMR blau, FM **orange** (kein Grün — Farbwelt ohne Rot/Grün, CVD-sicher, s. `ui.py`), Grenzbereich grau |
 | TG9 Lokal | Wird immer ergänzt (TS2, bei Simplex TS1) — die API listet sie nie |
 | Slot 0 | = „keine Slot-Angabe": bei Simplex-Repeatern (RX=TX) Anzeige „1 (Simplex)", Codeplug Slot 1 + DMR MODE 0. Auf Duplex-Relais ist Slot 0 eine Sysop-Miskonfiguration und wird komplett verworfen |
 | Relais ohne TGs | Bleiben in allen Ausgaben sichtbar (vollständiges Lagebild), mit TG9 als Minimum |
@@ -77,6 +90,48 @@ beachten:
   2026-07-11 am Frankenrundspruch; offizielle Doku existiert nicht).
 - MQTT/Live-Events werden von den Routen-Tools nicht benötigt (relevant
   erst für Lastheard-Monitor o. Ä.).
+
+**DL3EL-Relaisliste** (`relaislisten.darc.de/cgi-bin/relais.pl`, keyless
+CGI, Hobby-Projekt ohne SLA — analoge FM-Relais; alles verifiziert
+2026-07-15, FM-Umbau F0):
+
+- **Nur Umkreissuche, kein Volldump:** zurück kommen die `maxgateways`
+  nächsten Relais um einen Punkt, nach Entfernung sortiert. Der Client
+  rastert die Route deshalb alle 50 km (plus Ziel) und fragt je Stützpunkt
+  mit `maxgateways=200` ab — Dichte-Check Ruhrgebiet: Eintrag Nr. 100 liegt
+  dort schon bei 75 km, Nr. 200 bei 129 km; 100 wäre zu knapp für die
+  60-km-Coverage-BBox plus halbe Schrittweite.
+- **`type` ist Mehrfachauswahl; unsere Kombination: `type=DL3EL&type=fr`.**
+  Die DL3EL-Basisliste allein ist unvollständig (um Nürnberg fehlten fünf
+  echte FM-Relais, die nur in der `fr`-Liste stehen); Echolink/IRLP (`el`/
+  `il`) liefern fast nur Dubletten ohne Input-QRG und bleiben draußen.
+- Die Listen überlappen sich, der Server dedupliziert **nicht** →
+  Client-Dedupe über (Rufzeichen, Ausgabefrequenz gerundet); bei Dubletten
+  ersetzt ein Eintrag **mit** CTCSS einen tonlosen (DB0THM trägt den Ton
+  nur im `fr`-Eintrag), bei widersprüchlichen Tönen gewinnt der erste
+  (DB0CJ: 71,9 vs. 100,0 Hz — Quelldaten uneins).
+- **Schmutzige Formate:** ISO-8859-1, Zeilen enden auf `<br>`,
+  HTML-Entities auch ohne Schluss-Semikolon (`F&#252rth`), Dezimalkomma.
+  Entities **vor** dem Spalten-Split dekodieren — `&deg;` enthält selbst
+  ein `;`. CSV-Koordinaten sind nur bogenminutengenau; die dezimalen
+  Koordinaten liefert ein zweiter GPX-Abruf derselben Query (HTML-Präambel
+  und `<br>`-Präfixe → Regex statt XML-Parser), gemergt über (Call, QRG).
+- Einzelne Zeilen sind unbrauchbar und werden verworfen (Input leer,
+  `#WERT!`, `Simplex`, `0,0000`; auch mal eine deutsche Ausgabe-QRG `00`) —
+  um Nürnberg 0/100, um Aachen 7/300. Auslandsdaten (`dxcc=all`,
+  Festlegung 2026-07-15) sind brauchbar: Koordinaten und CTCSS vorhanden,
+  aber **Ablagen abweichend** (NL-70cm +1,6 MHz).
+- Keine Antennenhöhe in den Daten → `DEFAULT_AGL_M = 15 m` greift; die
+  Abdeckungsschätzung ist für FM konservativer als für BM.
+- Inaktive Relais unterdrückt der Default (kein `showall=all`) — Analogie
+  zur BM-24h-Regel. Cache: Rohantworten 24 h, Key = auf 0,1° gerasteter
+  Stützpunkt (abgefragt wird der Rasterpunkt selbst, damit ähnliche Routen
+  Treffer teilen); Drosselung 1 s Grundpause. Negative Koordinaten
+  (`South`/`West`-Formularwörter) live verifiziert.
+- DL3ELs eigene CHIRP-Ausgabe (`printas=chirp`) dient als Referenz für die
+  Feldkonventionen unseres `chirp.csv` (Fixture
+  `tests/fixtures/dl3el_nuernberg.chirp`); sie liefert keine Koordinaten
+  und schreibt bei Simplex-Einträgen uneinheitliche Duplex-/Offset-Reste.
 
 **Transitous** (`api.transitous.org`, MOTIS, keyless, Community ohne SLA):
 

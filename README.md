@@ -1,10 +1,12 @@
 # BM-Routencheck
 
-Kommandozeilen-Tools, die ermitteln, welche DMR-Relais des
-[Brandmeister-Netzwerks](https://brandmeister.network) entlang einer Route
-erreichbar sind — per Bahn, Auto oder Fahrrad. Die Erreichbarkeit wird pro
-Streckenpunkt über ein Sichtlinien-Geländemodell berechnet, nicht über einen
-bloßen Entfernungsradius.
+Kommandozeilen-Tools, die ermitteln, welche Amateurfunk-Relais entlang einer
+Route erreichbar sind — per Bahn, Auto oder Fahrrad: DMR-Relais des
+[Brandmeister-Netzwerks](https://brandmeister.network) und analoge FM-Relais
+aus der [DL3EL-Relaisliste](https://relaislisten.darc.de) (umschaltbar per
+`--modus`, Default: beide). Die Erreichbarkeit wird pro Streckenpunkt über
+ein Sichtlinien-Geländemodell berechnet, nicht über einen bloßen
+Entfernungsradius.
 
 Drei Tools, ein gemeinsamer Kern:
 
@@ -15,8 +17,10 @@ Drei Tools, ein gemeinsamer Kern:
 | `bm-rad` | Komoot-Tour, Google-Maps-Link, GPX-Datei oder Start/Ziel |
 
 Jeder Lauf erzeugt in `out/<route>/` einen HTML-Bericht mit Kanaltabellen je
-Relais (Rufzeichen, Frequenzen, Colorcode, Talkgroups in TS1/TS2), eine
-interaktive Karte, eine CSV-Datei und einen AnyTone-Codeplug-Export.
+Relais (Rufzeichen, Frequenzen; bei DMR Colorcode und Talkgroups in TS1/TS2,
+bei FM CTCSS und Ablage), eine interaktive Karte, eine CSV-Datei, einen
+AnyTone-Codeplug-Export mit gemischter Zone und — sobald FM-Relais dabei
+sind — ein CHIRP-CSV der analogen Kanäle.
 
 ![Interaktive Karte eines Laufs: Route mit Relais-Markern und geschätzten Sichtfeldern](docs/beispielkarte.png)
 
@@ -135,16 +139,17 @@ Ergebnis pro Lauf in `out/<start>-<ziel>/`:
 | Datei | Inhalt |
 |---|---|
 | `bericht.html` | Bericht mit fertigen Kanaltabellen je Relais (für manuelle CPS-Eingabe) |
-| `relais.csv` | Alle Daten maschinenlesbar (Semikolon-getrennt) |
-| `karte.html` | Interaktive Karte: Strecke + erreichbare Relais |
-| `anytone/*.CSV` | Channel/TalkGroups/Zone für den AnyTone-CPS-Import |
+| `relais.csv` | Alle Daten maschinenlesbar (Semikolon-getrennt; Spalten `modus`, `ctcss_hz` für FM) |
+| `karte.html` | Interaktive Karte: Strecke + erreichbare Relais (blau = DMR, orange = FM) |
+| `anytone/*.CSV` | Channel/TalkGroups/Zone für den AnyTone-CPS-Import — digitale und analoge Kanäle in einer Zone |
+| `chirp.csv` | Nur die FM-Kanäle im generischen [CHIRP](https://chirpmyradio.com)-CSV-Format — in CHIRP öffnen und auf jedes unterstützte Gerät laden (entfällt bei `--modus dmr`) |
 
 Der AnyTone-Export nutzt derzeit das D878UV-Spaltenlayout (siehe
 [`PROJEKTPLAN.md`](PROJEKTPLAN.md), M5).
 
 Alle API-Antworten und Höhenkacheln landen in einem lokalen Disk-Cache;
 Wiederholläufe brauchen dadurch nur Sekunden. `--aktualisieren` erzwingt
-frische Brandmeister-Daten.
+frische Relais-Daten.
 
 ### Qualitätssicherung (Entwicklung)
 
@@ -276,15 +281,18 @@ bm-auto --von "Winkelhaider Str. 4a, Feucht" --nach "Bendorf" --oeffnen
 
 | Parameter | Bedeutung |
 |---|---|
+| `--modus {dmr,fm,beide}` | Welche Relais ausgewertet werden: `dmr` = nur Brandmeister-DMR, `fm` = nur analoge FM-Relais, `beide` = gemeinsam in Bericht/Karte/CSV (Default: `beide`) |
+| `--bandbreite {12.5,25}` | Bandbreite analoger FM-Kanäle im Codeplug in kHz (Default: `12.5`; das Kanalraster steht nicht in den DL3EL-Daten, daher keine Automatik) |
+| `--ctcss-decode` | CTCSS auch als Empfangston setzen (Squelch öffnet nur beim Relais-Ton). Default: Empfang offen, der Ton wird nur gesendet |
 | `--korridor KM` | Optionales Limit: maximaler Abstand zur Strecke in km. Ohne Angabe zählt allein die rechnerische Erreichbarkeit — auch weit entfernte, aber sichtbare Relais werden aufgenommen |
 | `--ohne-gelaende` | Abdeckungsschätzung ohne Geländemodell; spart den Höhenkachel-Download, ist aber ungenauer |
-| `--aktualisieren` | Brandmeister-Daten frisch laden statt aus dem Cache (Geräteliste hält sonst 1 Tag, Talkgroup-Profile 12 h) |
+| `--aktualisieren` | Relais-Daten frisch laden statt aus dem Cache (BM-Geräteliste und FM-Liste halten sonst 1 Tag, Talkgroup-Profile 12 h) |
 | `--oeffnen` | Bericht und Karte nach dem Lauf im Browser öffnen (interaktiv automatisch aktiv) |
 | `--ausgabe ORDNER` | Ausgabeverzeichnis (Default: `out/<start>-<ziel>`) |
 
 Frequenzangaben in allen Ausgaben sind aus Sicht des Funkgeräts
-(RX = Relais-Ausgabe). TG9 „Lokal" wird immer ergänzt, auch wenn die API
-sie nicht listet.
+(RX = Relais-Ausgabe) — auch bei FM. TG9 „Lokal" wird immer ergänzt, auch
+wenn die API sie nicht listet.
 
 ## Technische Highlights & Externe Technologien
 
@@ -304,8 +312,10 @@ sie nicht listet.
 
 **Externe Dienste** (alle ohne API-Key nutzbar):
 
-- [Brandmeister-API v2](https://api.brandmeister.network/v2/) — Relaisliste,
+- [Brandmeister-API v2](https://api.brandmeister.network/v2/) — DMR-Relais,
   Frequenzen, Talkgroup-Profile
+- [DL3EL-Relaisliste](https://relaislisten.darc.de) — analoge FM-Relais
+  (Frequenzen, CTCSS) per Umkreissuche entlang der Route
 - [Transitous](https://transitous.org) — Bahnverbindungen inklusive
   Streckengeometrie
 - [OSRM auf FOSSGIS-Servern](https://routing.openstreetmap.de) — Auto- und
@@ -320,6 +330,8 @@ sie nicht listet.
 bm-routencheck/
 ├── bmtools/              # Python-Paket mit allen Tools
 │   ├── bm_api/           # Brandmeister-API-Client (HTTP, Disk-Cache, Datenmodelle)
+│   ├── fm_api/           # DL3EL-Client für analoge FM-Relais (Umkreissuche,
+│   │                     #   defensiver CSV/GPX-Parser, Disk-Cache)
 │   ├── routelib/         # Gemeinsamer Kern: Geländemodell/Erreichbarkeit,
 │   │                     #   Bericht, Karte, CSV, Codeplug-Export, Pipeline
 │   ├── rail/             # bm-bahn (Bahnverbindungen via Transitous)
@@ -335,6 +347,9 @@ bm-routencheck/
 
 - **`bmtools/bm_api/`** — wiederverwendbarer, gecachter Client für die
   Brandmeister-API; unabhängig von den Routen-Tools nutzbar.
+- **`bmtools/fm_api/`** — Gegenstück für relaislisten.darc.de (DL3EL):
+  Umkreisabfragen je Streckenraster, Parser für die „schmutzigen"
+  CSV/GPX-Antworten, Dedupe über (Rufzeichen, Frequenz).
 - **`bmtools/routelib/`** — die gesamte Auswertung von der Routen-Geometrie
   bis zu den Ausgabedateien; die Tools in `rail/` und `road/` liefern nur die
   Route an diese Pipeline.
