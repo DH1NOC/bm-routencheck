@@ -7,7 +7,6 @@ from pathlib import Path
 import httpx
 import pytest
 
-from bmtools.fm_api import client as fm_client
 from bmtools.fm_api.client import DL3ELClient, query_points
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -101,5 +100,5 @@ def test_repeaters_along_dedupliziert_ueber_stuetzpunkte(tmp_path, monkeypatch):
 
 def test_fehler_nach_retries(tmp_path, monkeypatch):
     c = _client(lambda r: httpx.Response(500), tmp_path, monkeypatch)
-    with pytest.raises(RuntimeError, match="relaislisten.darc.de"):
+    with pytest.raises(RuntimeError, match=r"relaislisten\.darc\.de"):
         c.repeaters_near(49.5, 11.0)

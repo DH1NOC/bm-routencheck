@@ -4,8 +4,7 @@ from pathlib import Path
 from bmtools.bm_api.models import TalkgroupSub
 from bmtools.routelib.mapview import write_map
 from bmtools.routelib.model import Route, Station
-from tests.conftest import (
-    make_device, make_fm_repeater, make_fm_result, make_result)
+from tests.conftest import make_device, make_fm_repeater, make_fm_result, make_result
 
 
 def test_karte_gemischt_faerbt_fm_orange(tmp_path: Path):

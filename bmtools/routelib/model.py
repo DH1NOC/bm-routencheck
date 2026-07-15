@@ -14,17 +14,37 @@ Point = tuple[float, float]  # (lat, lon)
 
 
 class RepeaterLike(Protocol):
-    """Was Erreichbarkeit (coverage) und Korridor (corridor) von einem
-    Relais brauchen — mehr nicht. bm_api.Device erfüllt es unverändert,
-    fm_api.FmRepeater über seine agl-Property (immer None → Default).
+    """Die gemeinsamen Relais-Attribute beider Welten: was Erreichbarkeit
+    (coverage), Korridor (corridor) und die Berichte von jedem Relais
+    brauchen. bm_api.Device erfüllt es unverändert, fm_api.FmRepeater
+    über seine agl-Property (immer None → Default). Modus-Spezifisches
+    (colorcode, ctcss_hz, …) liegt hinter den typisierten Accessoren von
+    report.RepeaterResult (r.dmr / r.fm).
 
     IDs müssen über beide Welten eindeutig sein: BM-Repeater sind
-    6-stellig positiv, FM-Relais bekommen synthetische negative IDs."""
-    id: int
-    callsign: str
-    lat: float | None
-    lng: float | None
-    agl: float | None
+    6-stellig positiv, FM-Relais bekommen synthetische negative IDs.
+
+    Als Read-only-Properties deklariert, damit sowohl Dataclass-Felder
+    als auch Properties (Device.callsign, FmRepeater.agl) sie erfüllen.
+    """
+    @property
+    def id(self) -> int: ...
+    @property
+    def callsign(self) -> str: ...
+    @property
+    def lat(self) -> float | None: ...
+    @property
+    def lng(self) -> float | None: ...
+    @property
+    def agl(self) -> float | None: ...
+    @property
+    def tx_mhz(self) -> float | None:
+        """Relais-Ausgabe (= RX des Funkgeräts)."""
+    @property
+    def rx_mhz(self) -> float | None:
+        """Relais-Eingabe (= TX des Funkgeräts)."""
+    @property
+    def city(self) -> str: ...
 
 
 @dataclass

@@ -28,6 +28,9 @@ from .parser import dedupe, merge_gpx_coords, parse_csv, parse_gpx_coords
 BASE_URL = "https://relaislisten.darc.de/cgi-bin/relais.pl"
 USER_AGENT = "bmtools/0.1 (Amateurfunk-Tool; Kontakt: cnohl@gmx.de)"
 
+# httpx erwartet für params diesen Werttyp (list ist invariant)
+QueryParams = list[tuple[str, "str | int | float | bool | None"]]
+
 FM_LIST_TTL = 24 * 3600   # wie BM-Geräteliste: 1 Tag reicht
 REQUEST_DELAY = 1.0       # Grundpause; Hobby-CGI, bewusst > BM-API
 MAX_GATEWAYS = 200        # F0-Dichte-Check: 100 reicht im Ballungsraum nicht
@@ -51,7 +54,7 @@ def query_points(points: list[Point]) -> list[tuple[float, float]]:
     return grid
 
 
-def _latlon_params(lat: float, lng: float) -> list[tuple[str, str]]:
+def _latlon_params(lat: float, lng: float) -> QueryParams:
     """Dezimalgrad → Formularfelder (Grad/Minuten, Halbkugel-Wörter).
 
     Auf dem GRID_DEG-Raster sind die Minuten ganzzahlig (0,1° = 6')."""
@@ -80,7 +83,7 @@ class DL3ELClient:
         self._cache = Cache(FM_LIST_TTL, "bmtools/fm")
         self._delay = REQUEST_DELAY
 
-    def _fetch_text(self, params: list[tuple[str, str]]) -> str:
+    def _fetch_text(self, params: QueryParams) -> str:
         """Wie bm_api._fetch_json, nur Text- statt JSON-Antwort und ohne
         Retry-After-Logik (das CGI kennt kein Rate-Limit)."""
         last_error: Exception | None = None
@@ -110,8 +113,8 @@ class DL3ELClient:
         raw = None if self._refresh else self._cache.get(key)
         if raw is None:
             params = _latlon_params(glat, glng)
-            raw = {"csv": self._fetch_text(params + [("printas", "csv")]),
-                   "gpx": self._fetch_text(params + [("printas", "gpx")])}
+            raw = {"csv": self._fetch_text([*params, ("printas", "csv")]),
+                   "gpx": self._fetch_text([*params, ("printas", "gpx")])}
             self._cache.set(key, raw)
         repeaters = parse_csv(raw["csv"])
         return merge_gpx_coords(repeaters, parse_gpx_coords(raw["gpx"]))

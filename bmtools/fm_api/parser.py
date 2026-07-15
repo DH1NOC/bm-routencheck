@@ -80,7 +80,7 @@ def parse_csv(text: str) -> list[FmRepeater]:
             continue  # Kopfzeile, Copy&Paste-Hinweis am Ende
         if len(parts) > _CSV_COLUMNS:
             # Info-Spalte enthielt Semikolons → Mitte wieder zusammenfassen
-            parts = parts[:4] + [";".join(parts[4:len(parts) - 5])] + parts[-5:]
+            parts = [*parts[:4], ";".join(parts[4:len(parts) - 5]), *parts[-5:]]
         call, qrg, inp, locator, info, breite, laenge, ctcss, _mode, _dist = parts
         tx = _freq_mhz(qrg)
         rx = _freq_mhz(inp)

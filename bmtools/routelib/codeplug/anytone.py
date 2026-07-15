@@ -124,12 +124,13 @@ def write_anytone(
         if not d.tx_mhz or not d.rx_mhz:
             continue
         if r.modus == "fm":
-            ton = f"{d.ctcss_hz:g}" if d.ctcss_hz else None
+            fm = r.fm
+            ton = f"{fm.ctcss_hz:g}" if fm.ctcss_hz else None
             channels.append({
                 "Channel Name": _unique_name(
-                    f"{d.callsign} {band_label(d.tx_mhz)}", used_names),
-                "Receive Frequency": f"{d.tx_mhz:.5f}",   # Relais-Ausgabe
-                "Transmit Frequency": f"{d.rx_mhz:.5f}",  # Relais-Eingabe
+                    f"{fm.callsign} {band_label(fm.tx_mhz)}", used_names),
+                "Receive Frequency": f"{fm.tx_mhz:.5f}",   # Relais-Ausgabe
+                "Transmit Frequency": f"{fm.rx_mhz:.5f}",  # Relais-Eingabe
                 "Channel Type": "A-Analog",
                 "Band Width": "25K" if bandbreite == "25" else "12.5K",
                 # CTCSS: Encode aus den Daten, Decode default offen
@@ -144,7 +145,7 @@ def write_anytone(
             })
             continue
         seen: set[tuple[int, int]] = set()
-        for s in r.profile.subscriptions:
+        for s in r.tg_profile.subscriptions:
             if (s.talkgroup, s.slot) in seen:
                 continue
             seen.add((s.talkgroup, s.slot))
@@ -159,7 +160,7 @@ def write_anytone(
                 "Transmit Frequency": f"{d.rx_mhz:.5f}",  # Relais-Eingabe
                 "Contact": _tg_name(s.talkgroup, tg_names),
                 "Contact TG/DMR ID": str(s.talkgroup),
-                "Color Code": str(d.colorcode or 1),
+                "Color Code": str(r.dmr.colorcode or 1),
                 # Slot 0 = Simplex-Repeater ohne TDMA -> Slot 1, DMR MODE 0
                 "Slot": str(s.slot if s.slot in (1, 2) else 1),
                 "DMR MODE": "1" if d.tx_mhz != d.rx_mhz else "0",

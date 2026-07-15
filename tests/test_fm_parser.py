@@ -11,8 +11,12 @@ from pathlib import Path
 import pytest
 
 from bmtools.fm_api import (
-    FmRepeater, dedupe, fm_repeater_id, merge_gpx_coords,
-    parse_csv, parse_gpx_coords,
+    FmRepeater,
+    dedupe,
+    fm_repeater_id,
+    merge_gpx_coords,
+    parse_csv,
+    parse_gpx_coords,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"

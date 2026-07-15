@@ -7,8 +7,7 @@ from bmtools.bm_api.models import TalkgroupSub
 from bmtools.routelib.coverage import estimate_coverage
 from bmtools.routelib.model import Route, Station
 from bmtools.routelib.report_html import write_html_report
-from tests.conftest import (
-    make_device, make_fm_repeater, make_fm_result, make_result)
+from tests.conftest import make_device, make_fm_repeater, make_fm_result, make_result
 from tests.test_coverage import _route
 
 

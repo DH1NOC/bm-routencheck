@@ -9,8 +9,7 @@ from pathlib import Path
 from bmtools.bm_api.models import TalkgroupSub
 from bmtools.fm_api import dedupe, parse_csv
 from bmtools.routelib.codeplug.chirp import CHIRP_COLUMNS, write_chirp
-from tests.conftest import (
-    make_device, make_fm_repeater, make_fm_result, make_result)
+from tests.conftest import make_device, make_fm_repeater, make_fm_result, make_result
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -32,6 +31,7 @@ def test_nur_fm_kanaele_mit_duplex_und_ton(tmp_path: Path):
             ctcss_hz=None)),
     ]
     out = write_chirp(results, tmp_path / "chirp.csv")
+    assert out is not None
     rows = _read(out)
 
     assert list(rows[0].keys()) == CHIRP_COLUMNS
@@ -51,6 +51,7 @@ def test_flags_tsql_und_fm_bei_25khz(tmp_path: Path):
     results = [make_fm_result(make_fm_repeater(ctcss_hz=88.5))]
     out = write_chirp(results, tmp_path / "chirp.csv",
                       bandbreite="25", ctcss_decode=True)
+    assert out is not None
     row = _read(out)[0]
     assert row["Tone"] == "TSQL"
     assert row["Mode"] == "FM"
@@ -66,7 +67,9 @@ def test_namen_band_nur_bei_mehrband(tmp_path: Path):
         make_fm_result(make_fm_repeater(          # gleiches Band doppelt
             callsign="DB0ZWEI", tx_mhz=439.225, rx_mhz=431.625)),
     ]
-    names = [r["Name"] for r in _read(write_chirp(results, tmp_path / "c.csv"))]
+    out = write_chirp(results, tmp_path / "c.csv")
+    assert out is not None
+    names = [r["Name"] for r in _read(out)]
     assert names == ["DB0EIN", "DB0ZWEI 2m", "DB0ZWEI 70cm", "DB0ZWEI 439.225"]
 
 
@@ -97,7 +100,9 @@ def test_querpruefung_gegen_dl3el_referenz(tmp_path: Path):
     repeaters = dedupe(parse_csv(
         (FIXTURES / "dl3el_nuernberg.csv").read_text(encoding="iso-8859-1")))
     results = [make_fm_result(r) for r in repeaters]
-    rows = _read(write_chirp(results, tmp_path / "chirp.csv"))
+    out = write_chirp(results, tmp_path / "chirp.csv")
+    assert out is not None
+    rows = _read(out)
 
     def passt(row: dict[str, str], ref: dict[str, str]) -> bool:
         if row["Duplex"] == "":

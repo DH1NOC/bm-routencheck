@@ -271,26 +271,27 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
                          "Strecke, Empfang per Beugung möglich<br>"
                          if r.marginal_only else "")
         if r.modus == "fm":
-            offset = d.rx_mhz - d.tx_mhz
+            fm = r.fm
+            offset = fm.rx_mhz - fm.tx_mhz
             ablage = ("Simplex" if abs(offset) < 1e-9
                       else f"Ablage {offset:+g} MHz")
-            ctcss = (f", CTCSS {d.ctcss_hz:g} Hz" if d.ctcss_hz else "")
+            ctcss = (f", CTCSS {fm.ctcss_hz:g} Hz" if fm.ctcss_hz else "")
             popup = (
-                f"<b>{e(d.callsign)}</b> — {e(d.city)}<br>{marginal_note}"
-                f"FM ({band_label(d.tx_mhz)})<br>"
-                f"RX <code>{d.tx_mhz:.5f}</code> / "
-                f"TX <code>{d.rx_mhz:.5f}</code> MHz, "
+                f"<b>{e(fm.callsign)}</b> — {e(fm.city)}<br>{marginal_note}"
+                f"FM ({band_label(fm.tx_mhz)})<br>"
+                f"RX <code>{fm.tx_mhz:.5f}</code> / "
+                f"TX <code>{fm.rx_mhz:.5f}</code> MHz, "
                 f"{ablage}{ctcss}<br>"
                 f"<small>km {r.hit.chainage_km:.0f}, Abstand "
-                f"{r.hit.distance_km:.1f} km, Locator {e(d.locator)}</small>"
+                f"{r.hit.distance_km:.1f} km, Locator {e(fm.locator)}</small>"
             )
         else:
             popup = (
                 f"<b>{e(d.callsign)}</b> — {e(d.city)}<br>{marginal_note}"
                 f"RX <code>{d.tx_mhz:.5f}</code> / TX <code>{d.rx_mhz:.5f}</code> MHz, "
-                f"CC{d.colorcode}<br>"
-                f"TS1: {e(_fmt_subs(r.profile.for_slot(1)) or '–')}<br>"
-                f"TS2: {e(_fmt_subs(r.profile.for_slot(2)) or '–')}<br>"
+                f"CC{r.dmr.colorcode}<br>"
+                f"TS1: {e(_fmt_subs(r.tg_profile.for_slot(1)) or '–')}<br>"
+                f"TS2: {e(_fmt_subs(r.tg_profile.for_slot(2)) or '–')}<br>"
                 f"<small>km {r.hit.chainage_km:.0f}, Abstand "
                 f"{r.hit.distance_km:.1f} km, DMR-ID {d.id}</small>"
             )

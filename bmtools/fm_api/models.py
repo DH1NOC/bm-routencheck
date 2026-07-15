@@ -4,7 +4,6 @@ from __future__ import annotations
 import zlib
 from dataclasses import dataclass
 
-
 # Amateurfunkbänder mit FM-Relaisbetrieb (großzügige Grenzen)
 _BANDS = [(28.0, 30.0, "10m"), (50.0, 54.0, "6m"), (144.0, 148.0, "2m"),
           (420.0, 450.0, "70cm"), (1240.0, 1325.0, "23cm")]

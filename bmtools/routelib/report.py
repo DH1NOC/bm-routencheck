@@ -8,7 +8,8 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
-from bmtools.bm_api.models import DeviceProfile, TalkgroupSub
+from bmtools.bm_api.models import Device, DeviceProfile, TalkgroupSub
+from bmtools.fm_api.models import FmRepeater
 
 from .corridor import CorridorHit
 from .model import RepeaterLike
@@ -35,6 +36,23 @@ class RepeaterResult:
     @property
     def device(self) -> RepeaterLike:
         return self.hit.device
+
+    # Typisierte Sichten für modus-spezifische Attribute (colorcode,
+    # ctcss_hz, …) — Aufrufer verzweigen vorher über self.modus.
+    @property
+    def dmr(self) -> Device:
+        assert isinstance(self.hit.device, Device)
+        return self.hit.device
+
+    @property
+    def fm(self) -> FmRepeater:
+        assert isinstance(self.hit.device, FmRepeater)
+        return self.hit.device
+
+    @property
+    def tg_profile(self) -> DeviceProfile:
+        assert self.profile is not None  # nur DMR-Results haben Profile
+        return self.profile
 
 
 def _fmt_subs(subs: list[TalkgroupSub]) -> str:
@@ -103,11 +121,11 @@ def print_table(results: list[RepeaterResult], console: Console | None = None) -
             f"{d.rx_mhz:.5f}",   # Relais-RX = dein TX
         ]
         if has_dmr:
-            row += ["" if fm else str(d.colorcode or ""),
-                    "" if fm else _fmt_subs(r.profile.for_slot(1)),
-                    "" if fm else _fmt_subs(r.profile.for_slot(2))]
+            row += ["" if fm else str(r.dmr.colorcode or ""),
+                    "" if fm else _fmt_subs(r.tg_profile.for_slot(1)),
+                    "" if fm else _fmt_subs(r.tg_profile.for_slot(2))]
         if has_fm:
-            row.append(_fmt_ctcss(d.ctcss_hz) if fm else "")
+            row.append(_fmt_ctcss(r.fm.ctcss_hz) if fm else "")
         table.add_row(*row, style="dim" if r.marginal_only else None)
     console.print(table)
 
@@ -137,7 +155,7 @@ def write_csv(results: list[RepeaterResult], path: Path) -> None:
         w.writeheader()
         for r in results:
             d = r.device
-            row = {
+            row: dict[str, str | int | float] = {
                 "strecken_km": f"{r.hit.chainage_km:.1f}",
                 "rufzeichen": d.callsign,
                 "standort": d.city,
@@ -151,21 +169,23 @@ def write_csv(results: list[RepeaterResult], path: Path) -> None:
                 # TG-/CC-Spalten bleiben leer; die DL3EL-Daten haben weder
                 # Antennenhöhe noch Leistung, die synthetische ID bleibt
                 # ein Internum
-                row["ctcss_hz"] = _fmt_ctcss(d.ctcss_hz)
+                row["ctcss_hz"] = _fmt_ctcss(r.fm.ctcss_hz)
             else:
+                profile = r.tg_profile
                 row.update({
-                    "colorcode": d.colorcode or "",
-                    "ts1_statisch": _tgs(r.profile, 1, "static"),
-                    "ts1_zeitgeschaltet": _tgs(r.profile, 1, "timed"),
-                    "ts2_statisch": _tgs(r.profile, 2, "static"),
-                    "ts2_zeitgeschaltet": _tgs(r.profile, 2, "timed"),
+                    "colorcode": r.dmr.colorcode or "",
+                    "ts1_statisch": _tgs(profile, 1, "static"),
+                    "ts1_zeitgeschaltet": _tgs(profile, 1, "timed"),
+                    "ts2_statisch": _tgs(profile, 2, "static"),
+                    "ts2_zeitgeschaltet": _tgs(profile, 2, "timed"),
                     "cluster": ", ".join(
-                        f"TS{s.slot} {s.talkgroup}->{s.note.removeprefix('Cluster-TG ')}"
-                        for s in r.profile.subscriptions if s.kind == "cluster"
+                        f"TS{s.slot} {s.talkgroup}->"
+                        f"{s.note.removeprefix('Cluster-TG ')}"
+                        for s in profile.subscriptions if s.kind == "cluster"
                     ),
                     "antenne_agl_m": d.agl or "",
-                    "leistung_w": d.pep or "",
+                    "leistung_w": r.dmr.pep or "",
                     "dmr_id": d.id,
-                    "last_seen": d.last_seen,
+                    "last_seen": r.dmr.last_seen,
                 })
             w.writerow(row)

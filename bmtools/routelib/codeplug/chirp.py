@@ -39,7 +39,7 @@ def _names(results: list[RepeaterResult]) -> dict[int, str]:
     names: dict[int, str] = {}
     used: set[str] = set()
     for r in fm:
-        d = r.device
+        d = r.fm
         name = (d.callsign if per_call[d.callsign] == 1
                 else f"{d.callsign} {band_label(d.tx_mhz)}")
         if name in used:  # zwei Kanäle desselben Bands (z. B. DB0BGK 70cm)
@@ -57,11 +57,11 @@ def write_chirp(
 ) -> Path | None:
     """Schreibt chirp.csv; None, wenn kein FM-Kanal dabei ist."""
     names = _names(results)
-    rows = []
+    rows: list[list[str]] = []
     for r in results:
         if r.modus != "fm":
             continue
-        d = r.device
+        d = r.fm
         offset = d.rx_mhz - d.tx_mhz  # Relais-Eingabe − Ausgabe
         ton = d.ctcss_hz
         tone_mode = ("" if not ton else "TSQL" if ctcss_decode else "Tone")

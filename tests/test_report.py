@@ -8,8 +8,7 @@ from rich.console import Console
 
 from bmtools.bm_api.models import TalkgroupSub
 from bmtools.routelib.report import _fmt_subs, print_table, write_csv
-from tests.conftest import (
-    make_device, make_fm_repeater, make_fm_result, make_result)
+from tests.conftest import make_device, make_fm_repeater, make_fm_result, make_result
 
 
 def test_talkgroup_formatierung():

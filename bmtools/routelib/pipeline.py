@@ -121,12 +121,15 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
     # Talkgroup-Profile sind ein reines DMR-Konzept — FM-Relais bekommen
     # profile=None und überspringen die (gedrosselten) Profilabfragen.
     dmr_hits = [h for h in hits if not isinstance(h.device, FmRepeater)]
-    profiles: dict[int, DeviceProfile] = {
-        h.device.id: _with_local_tg(
-            client.profile(h.device.id),
-            simplex=h.device.tx_mhz == h.device.rx_mhz)
-        for h in track(dmr_hits, description="Talkgroup-Profile laden …")
-    } if dmr_hits else {}
+    profiles: dict[int, DeviceProfile] = {}
+    if dmr_hits:
+        assert client is not None  # DMR-Treffer gibt es nur mit BM-Client
+        profiles = {
+            h.device.id: _with_local_tg(
+                client.profile(h.device.id),
+                simplex=h.device.tx_mhz == h.device.rx_mhz)
+            for h in track(dmr_hits, description="Talkgroup-Profile laden …")
+        }
     results = [
         RepeaterResult(
             hit=h,

@@ -18,7 +18,7 @@ from pathlib import Path
 import jinja2
 
 from bmtools.bm_api.models import TalkgroupSub
-from bmtools.fm_api.models import band_label
+from bmtools.fm_api.models import FmRepeater, band_label
 
 from .coverage import MIN_GAP_KM, CoverageEstimate
 from .model import Route
@@ -290,9 +290,9 @@ def _art(sub: TalkgroupSub) -> str:
     return _KIND_LABEL[sub.kind]
 
 
-def _fmt_ablage(r) -> str:
+def _fmt_ablage(rep: FmRepeater) -> str:
     """Ablage aus Gerätesicht: TX − RX (= Relais-Eingabe − Ausgabe)."""
-    offset = r.rx_mhz - r.tx_mhz
+    offset = rep.rx_mhz - rep.tx_mhz
     return "Simplex" if abs(offset) < 1e-9 else f"{offset:+g} MHz"
 
 
@@ -310,9 +310,9 @@ def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
         "dist": f"{r.hit.distance_km:.1f}", "marginal": r.marginal_only,
         "modus": MODUS_LABEL[r.modus],
         "rx": _fmt_mhz(r.device.tx_mhz), "tx": _fmt_mhz(r.device.rx_mhz),
-        "cc": ("" if r.modus == "fm" else r.device.colorcode or ""),
-        "ctcss": (f"{r.device.ctcss_hz:g}"
-                  if r.modus == "fm" and r.device.ctcss_hz else ""),
+        "cc": ("" if r.modus == "fm" else r.dmr.colorcode or ""),
+        "ctcss": (f"{r.fm.ctcss_hz:g}"
+                  if r.modus == "fm" and r.fm.ctcss_hz else ""),
     } for r in results]
 
     cov = None
@@ -346,36 +346,38 @@ def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
             "fm": r.modus == "fm",
         }
         if r.modus == "fm":
+            fm = r.fm
             repeaters.append({
                 **common,
-                "locator": d.locator or "?",
+                "locator": fm.locator or "?",
                 "only_implicit": False,
                 "channels": [{
-                    "name": f"{d.callsign} {band_label(d.tx_mhz)}"[:16],
-                    "rx": _fmt_mhz(d.tx_mhz), "tx": _fmt_mhz(d.rx_mhz),
-                    "ablage": _fmt_ablage(d),
-                    "ctcss": f"{d.ctcss_hz:g}" if d.ctcss_hz else "—",
+                    "name": f"{fm.callsign} {band_label(fm.tx_mhz)}"[:16],
+                    "rx": _fmt_mhz(fm.tx_mhz), "tx": _fmt_mhz(fm.rx_mhz),
+                    "ablage": _fmt_ablage(fm),
+                    "ctcss": f"{fm.ctcss_hz:g}" if fm.ctcss_hz else "—",
                 }],
             })
             continue
         # Slot 0 kommt nach der Profil-Bereinigung (Pipeline) nur noch
         # bei Simplex-Repeatern vor — auf Duplex ist es Miskonfiguration
         # und wird verworfen.
+        profile = r.tg_profile
         repeaters.append({
             **common,
-            "agl": d.agl or "?", "pep": d.pep or "?",
-            "last_seen": d.last_seen,
+            "agl": d.agl or "?", "pep": r.dmr.pep or "?",
+            "last_seen": r.dmr.last_seen,
             "only_implicit": all(s.kind == "implicit"
-                                 for s in r.profile.subscriptions),
+                                 for s in profile.subscriptions),
             "channels": [{
                 "name": f"{d.callsign} {s.talkgroup}"[:16],
                 "css": s.kind if s.kind in ("timed", "cluster") else "",
                 "rx": _fmt_mhz(d.tx_mhz), "tx": _fmt_mhz(d.rx_mhz),
-                "cc": d.colorcode or "",
+                "cc": r.dmr.colorcode or "",
                 "slot": s.slot if s.slot in (1, 2) else "1 (Simplex)",
                 "tg": s.talkgroup, "tg_name": tg_names.get(s.talkgroup, ""),
                 "art": _art(s),
-            } for s in r.profile.subscriptions],
+            } for s in profile.subscriptions],
         })
 
     methodik = {

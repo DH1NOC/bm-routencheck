@@ -8,8 +8,7 @@ from bmtools.routelib.codeplug.anytone import (
     NAME_MAX,
     write_anytone,
 )
-from tests.conftest import (
-    make_device, make_fm_repeater, make_fm_result, make_result)
+from tests.conftest import make_device, make_fm_repeater, make_fm_result, make_result
 
 
 def _read(path: Path) -> list[dict[str, str]]:
