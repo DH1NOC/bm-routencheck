@@ -10,6 +10,8 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
+from bmtools.fm_api.models import band_label
+
 from ..report import RepeaterResult
 
 CHANNEL_COLUMNS = [
@@ -89,21 +91,57 @@ def _tg_name(tg: int, tg_names: dict[int, str]) -> str:
     return tg_names.get(tg, f"TG{tg}")
 
 
+def _unique_name(base: str, used: set[str]) -> str:
+    """Kanalname eindeutig machen (Kollision → ~2, ~3, …)."""
+    name = base[:NAME_MAX]
+    n = 2
+    while name in used:
+        name = base[:NAME_MAX - 2] + f"~{n}"
+        n += 1
+    used.add(name)
+    return name
+
+
 def write_anytone(
     results: list[RepeaterResult],
     out_dir: Path,
     zone_name: str,
     tg_names: dict[int, str],
+    bandbreite: str = "12.5",
+    ctcss_decode: bool = False,
 ) -> list[Path]:
+    """bandbreite ("12.5"/"25") und ctcss_decode betreffen nur die
+    analogen FM-Kanäle (Festlegungen 2026-07-15, FM-UMBAU.md)."""
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Kanäle: ein Kanal je (Relais, Talkgroup, Slot); Cluster über die lokale TG
+    # Kanäle: DMR ein Kanal je (Relais, Talkgroup, Slot), Cluster über die
+    # lokale TG; FM ein Analogkanal je Relais-Eintrag — gemischte Zone
     channels: list[dict[str, str]] = []
     used_names: set[str] = set()
     used_tgs: set[int] = set()
     for r in results:
         d = r.device
         if not d.tx_mhz or not d.rx_mhz:
+            continue
+        if r.modus == "fm":
+            ton = f"{d.ctcss_hz:g}" if d.ctcss_hz else None
+            channels.append({
+                "Channel Name": _unique_name(
+                    f"{d.callsign} {band_label(d.tx_mhz)}", used_names),
+                "Receive Frequency": f"{d.tx_mhz:.5f}",   # Relais-Ausgabe
+                "Transmit Frequency": f"{d.rx_mhz:.5f}",  # Relais-Eingabe
+                "Channel Type": "A-Analog",
+                "Band Width": "25K" if bandbreite == "25" else "12.5K",
+                # CTCSS: Encode aus den Daten, Decode default offen
+                # (Gerät hört alles); --ctcss-decode setzt den Relais-Ton
+                "CTCSS/DCS Encode": ton or "Off",
+                "CTCSS/DCS Decode": ton if ctcss_decode and ton else "Off",
+                # CC/Slot/DMR MODE: benigne Werte — die CPS ignoriert sie
+                # für Analogkanäle (am Import zu verifizieren, F3)
+                "Color Code": "1",
+                "Slot": "1",
+                "DMR MODE": "0",
+            })
             continue
         seen: set[tuple[int, int]] = set()
         for s in r.profile.subscriptions:
@@ -114,11 +152,7 @@ def write_anytone(
             name = f"{d.callsign} {s.talkgroup}"[:NAME_MAX]
             if name in used_names:  # gleiche TG auf beiden Slots
                 name = f"{d.callsign} {s.talkgroup} S{s.slot}"[:NAME_MAX]
-            n = 2
-            while name in used_names:
-                name = f"{d.callsign} {s.talkgroup}"[:NAME_MAX - 2] + f"~{n}"
-                n += 1
-            used_names.add(name)
+            name = _unique_name(name, used_names)
             channels.append({
                 "Channel Name": name,
                 "Receive Frequency": f"{d.tx_mhz:.5f}",   # Relais-Ausgabe

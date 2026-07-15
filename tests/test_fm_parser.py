@@ -78,10 +78,14 @@ def test_merge_ohne_gpx_treffer_behaelt_grobe_koordinaten(nuernberg):
 
 def test_dedupe_ueber_call_und_qrg(nuernberg):
     # DL3EL- und fr-Liste überlappen: DB0THM steht als 438,51250 und
-    # 438,5125 in der Antwort — nach Dedupe genau einmal
+    # 438,5125 in der Antwort — nach Dedupe genau einmal, und zwar mit
+    # dem CTCSS des vollständigeren fr-Eintrags (der DL3EL-Eintrag
+    # kommt zuerst, ist aber tonlos)
     unique = dedupe(nuernberg)
     assert len(unique) == 95
-    assert sum(1 for r in unique if r.callsign == "DB0THM") == 1
+    thm = [r for r in unique if r.callsign == "DB0THM"]
+    assert len(thm) == 1
+    assert thm[0].ctcss_hz == 88.5
 
 
 def test_aachen_unbrauchbare_zeilen_verworfen(aachen):

@@ -195,7 +195,8 @@ def _pipeline(route: Route, args: argparse.Namespace, console: Console) -> int:
         route, console=console, out_dir=out_dir, corridor_km=args.corridor,
         no_terrain=args.no_terrain, open_browser=args.open, zone=zone,
         route_label="Bahnstrecke", waypoint_icon="train",
-        refresh=args.refresh, modus=args.modus)
+        refresh=args.refresh, modus=args.modus,
+        bandbreite=args.bandbreite, ctcss_decode=args.ctcss_decode)
 
 
 def _run(stations: list[Station], args: argparse.Namespace, console: Console,
@@ -271,7 +272,7 @@ def main() -> int:
     ap.add_argument("--direkt", "--direct", dest="direct",
                     action="store_true",
                     help="Nur Direktverbindungen (ohne Umstieg)")
-    ui.add_modus_argument(ap)
+    ui.add_fm_arguments(ap)
     ap.add_argument("--korridor", "--corridor", dest="corridor", type=float,
                     default=None, metavar="KM",
                     help="Optionales Limit: maximaler Streckenabstand in km. "

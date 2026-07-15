@@ -295,12 +295,34 @@ Routen-Treffern exportieren, nicht aus der Roh-Antwort.
       (19 blaue, 44 orange, 6 graue Marker = 69) und Bericht (69
       Abschnitte, 49 FM-Kanaltabellen mit CTCSS und Ablage);
       AnyTone-Export weiter rein digital.
-- [ ] **F3 — Codeplug analog:** AnyTone-Export mit gemischter Zone
-      **und CHIRP-Export** (`chirp.csv`). Abnahme: Import in der
-      AnyTone-CPS (analoger Kanal mit korrektem CTCSS) und Öffnen/Import
-      von `chirp.csv` in CHIRP — Frequenz, Ablage, Ton und NFM/FM-Modus
-      stimmen; Duplex-/Tone-Feldbelegung gegen DL3EL `printas=chirp`
-      quergeprüft.
+- [x] **F3 — Codeplug analog** (umgesetzt 2026-07-15, CPS-Import-Check
+      offen, s. u.): `write_anytone` schreibt FM-Treffer als
+      `A-Analog`-Kanäle in die gemischte Zone (Kanalname
+      `<Call> <Band>`, Band Width je `--bandbreite`, CTCSS Encode aus
+      den Daten, Decode per `--ctcss-decode`; CC/Slot/DMR MODE bekommen
+      benigne Werte 1/1/0 statt Leerfeldern — minimiert Importfehler,
+      die CPS ignoriert sie für Analogkanäle); `TalkGroups.CSV` bleibt
+      rein DMR. Neu `codeplug/chirp.py`: generisches CHIRP-CSV, nur
+      FM-Kanäle, Name = Call (+ Band nur bei Mehrband, + QRG bei
+      Banddoppelung), Duplex/Offset aus rx−tx, `Tone`/`TSQL` je
+      `--ctcss-decode`, NFM/FM je `--bandbreite`. Flags in beiden CLIs
+      (geteilt über `ui.add_fm_arguments`).
+      Befunde aus der Querprüfung gegen DL3EL `printas=chirp`:
+      - Dedupe verbessert: bei Dubletten ersetzt ein Eintrag **mit**
+        CTCSS einen tonlosen (DB0THM trägt den Ton nur im fr-Eintrag) —
+        sonst hätte der Codeplug den Ton verloren.
+      - Die Quelle enthält vereinzelt widersprüchliche CTCSS-Angaben je
+        Liste (DB0CJ: 71,9 vs. 100,0 Hz) und uneinheitliche
+        Simplex-Reste in der eigenen CHIRP-Ausgabe — unsere Schreibweise
+        (Duplex leer, Offset 0) ist die saubere CHIRP-Semantik.
+      Abnahme: Lauf Koblenz→Nürnberg `--modus beide` → 184 Kanäle
+      (135 digital + 49 analog) in einer Zone, `chirp.csv` mit 49
+      FM-Kanälen. `chirp.csv` mit dem **echten CHIRP-Treiber**
+      (Upstream `generic_csv`) fehlerfrei geladen: Frequenzen, Ablagen,
+      Töne, NFM korrekt; TSQL- (`--ctcss-decode`) und FM-Variante
+      (`--bandbreite 25`) ebenfalls verifiziert. **Noch offen (Nutzer):**
+      Import von `anytone/` in der AnyTone-CPS — analoger Kanal mit
+      korrektem CTCSS (D890UV-Vorbehalt aus M5 gilt unverändert).
 - [ ] **F4 — Doku:** README (Modus-Flag, neue Quelle, `chirp.csv` in
       der Ausgaben-Tabelle), PROJEKTPLAN (Eigenheiten DL3EL nach
       Abschnitt „Datenquellen" übernehmen, diese Datei danach auflösen).

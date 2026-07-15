@@ -33,13 +33,24 @@ POINTER = "❯"
 KEYS_HINT = "↑/↓ wählen · Enter bestätigen · Strg-C abbrechen"
 
 
-def add_modus_argument(ap: argparse.ArgumentParser) -> None:
-    """Gemeinsames --modus-Flag aller Tools (FM-Umbau, Default: beide)."""
+def add_fm_arguments(ap: argparse.ArgumentParser) -> None:
+    """Gemeinsame FM-Umbau-Flags aller Tools: --modus plus die beiden
+    Codeplug-Festlegungen (FM-UMBAU.md, 2026-07-15)."""
     ap.add_argument("--modus", "--mode", dest="modus",
                     choices=["dmr", "fm", "beide"], default="beide",
                     help="dmr = nur Brandmeister-DMR, fm = nur analoge "
                          "FM-Relais (relaislisten.darc.de), beide = "
                          "gemeinsam in Bericht/Karte/CSV (Default: beide)")
+    ap.add_argument("--bandbreite", "--bandwidth", dest="bandbreite",
+                    choices=["12.5", "25"], default="12.5", metavar="KHZ",
+                    help="Bandbreite analoger FM-Kanäle im Codeplug: 12.5 "
+                         "oder 25 kHz (Default: 12.5 — das Kanalraster "
+                         "steht nicht in den DL3EL-Daten)")
+    ap.add_argument("--ctcss-decode", dest="ctcss_decode",
+                    action="store_true",
+                    help="CTCSS auch als Empfangston setzen (Squelch öffnet "
+                         "nur beim Relais-Ton); Default: Empfang offen, "
+                         "Ton wird nur gesendet")
 
 
 def modus_frage(default: str = "beide") -> questionary.Question:

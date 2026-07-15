@@ -19,6 +19,7 @@ from bmtools.bm_api import BrandmeisterClient, DeviceProfile, TalkgroupSub
 from bmtools.fm_api import DL3ELClient, FmRepeater
 
 from .codeplug.anytone import write_anytone
+from .codeplug.chirp import write_chirp
 from .corridor import find_in_corridor
 from .coverage import estimate_coverage
 from .mapview import write_map
@@ -60,7 +61,9 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
                  route_label: str = "Strecke",
                  waypoint_icon: str = "flag",
                  refresh: bool = False,
-                 modus: str = "beide") -> int:
+                 modus: str = "beide",
+                 bandbreite: str = "12.5",
+                 ctcss_decode: bool = False) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     cache_note = " [dim](Cache wird ignoriert)[/dim]" if refresh else ""
@@ -160,22 +163,23 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
         write_map(results, route, map_path, coverage,
                   terrain if coverage.terrain_used else None,
                   route_label=route_label, waypoint_icon=waypoint_icon)
-    # Codeplug: vorerst nur die DMR-Kanäle — analoge Kanäle und
-    # CHIRP-Export folgen mit F3 des FM-Umbaus (FM-UMBAU.md)
-    dmr_results = [r for r in results if r.modus == "dmr"]
-    if dmr_results:
-        write_anytone(dmr_results, out_dir / "anytone", zone, tg_names)
+    # Codeplug: digitale und analoge Kanäle in derselben Zone; die
+    # FM-Kanäle zusätzlich als generisches CHIRP-CSV
+    write_anytone(results, out_dir / "anytone", zone, tg_names,
+                  bandbreite=bandbreite, ctcss_decode=ctcss_decode)
+    chirp_path = write_chirp(results, out_dir / "chirp.csv",
+                             bandbreite=bandbreite, ctcss_decode=ctcss_decode)
 
     lines = [
         f"[green]Fertig.[/green] Ausgaben in [bold]{out_dir}/[/bold]",
         "  bericht.html   Kanaltabellen für manuelle CPS-Eingabe",
         "  karte.html     interaktive Streckenkarte",
         "  relais.csv     Rohdaten (Semikolon-getrennt)",
+        "  anytone/       Channel/TalkGroups/Zone-CSV "
+        "[yellow](Format vorläufig = D878UV)[/yellow]",
     ]
-    if dmr_results:
-        fm_note = "; nur DMR-Kanäle" if len(dmr_results) < len(results) else ""
-        lines.append(f"  anytone/       Channel/TalkGroups/Zone-CSV "
-                     f"[yellow](Format vorläufig = D878UV{fm_note})[/yellow]")
+    if chirp_path:
+        lines.append("  chirp.csv      CHIRP-Import (nur die FM-Kanäle)")
     console.print(Panel.fit("\n".join(lines), border_style="green"))
 
     if open_browser:

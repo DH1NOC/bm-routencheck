@@ -128,13 +128,20 @@ def merge_gpx_coords(
 
 
 def dedupe(repeaters: list[FmRepeater]) -> list[FmRepeater]:
-    """Dubletten über (Rufzeichen, Ausgabefrequenz) entfernen; der erste
-    Treffer gewinnt (Antworten sind nach Entfernung sortiert)."""
-    seen: set[tuple[str, float]] = set()
-    unique = []
+    """Dubletten über (Rufzeichen, Ausgabefrequenz) entfernen.
+
+    Es bleibt die Position des ersten Treffers (Antworten sind nach
+    Entfernung sortiert), aber ein späterer Eintrag MIT CTCSS ersetzt
+    einen tonlosen: DL3EL- und fr-Liste beschreiben dasselbe Relais
+    unterschiedlich vollständig (Beispiel DB0THM — nur der fr-Eintrag
+    trägt den 88,5-Hz-Ton)."""
+    index: dict[tuple[str, float], int] = {}
+    unique: list[FmRepeater] = []
     for r in repeaters:
         key = _freq_key(r.callsign, r.tx_mhz)
-        if key not in seen:
-            seen.add(key)
+        if key not in index:
+            index[key] = len(unique)
             unique.append(r)
+        elif unique[index[key]].ctcss_hz is None and r.ctcss_hz is not None:
+            unique[index[key]] = r
     return unique

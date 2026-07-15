@@ -211,7 +211,7 @@ def main(profile: str) -> int:
                     help="Ziel")
     ap.add_argument("--via", action="append", default=[], metavar="ORT",
                     help="Zwischenpunkt (mehrfach möglich)")
-    ui.add_modus_argument(ap)
+    ui.add_fm_arguments(ap)
     ap.add_argument("--korridor", "--corridor", dest="corridor", type=float,
                     default=None, metavar="KM",
                     help="Optionales Limit: maximaler Streckenabstand in km. "
@@ -269,7 +269,8 @@ def main(profile: str) -> int:
             corridor_km=args.corridor, no_terrain=args.no_terrain,
             open_browser=args.open, zone=zone,
             route_label=route_label, waypoint_icon=icon,
-            refresh=args.refresh, modus=args.modus)
+            refresh=args.refresh, modus=args.modus,
+            bandbreite=args.bandbreite, ctcss_decode=args.ctcss_decode)
     except (KeyboardInterrupt, EOFError):
         console.print("\n[dim]Abgebrochen.[/dim]")
         return 130
