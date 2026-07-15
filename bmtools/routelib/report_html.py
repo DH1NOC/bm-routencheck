@@ -248,13 +248,14 @@ dynamische Nutzung (per PTT-Anmeldung).</i></p>
 <div class="tablewrap"><table>
 <tr><th>Kanalname</th><th class="num">RX [MHz]</th>
 <th class="num">TX [MHz]</th><th class="num">Ablage</th>
-<th class="num">CTCSS [Hz]</th></tr>
+<th class="num">CTCSS [Hz]</th><th>Öffnen mit</th></tr>
 {% for c in rep.channels %}
 <tr><td class="mono">{{ c.name }}</td>
 <td class="num mono">{{ c.rx }}</td>
 <td class="num mono">{{ c.tx }}</td>
 <td class="num mono">{{ c.ablage }}</td>
-<td class="num">{{ c.ctcss }}</td></tr>
+<td class="num">{{ c.ctcss }}</td>
+<td>{{ c.oeffnen }}</td></tr>
 {% endfor %}
 </table></div>
 {% else %}
@@ -362,6 +363,10 @@ def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
                     "rx": _fmt_mhz(fm.tx_mhz), "tx": _fmt_mhz(fm.rx_mhz),
                     "ablage": _fmt_ablage(fm),
                     "ctcss": f"{fm.ctcss_hz:g}" if fm.ctcss_hz else "—",
+                    # Die Quelle kennt kein Tonruf-Feld — ohne CTCSS-Angabe
+                    # bleibt Träger vs. 1750-Hz-Tonruf offen (ehrlich sagen)
+                    "oeffnen": ("CTCSS (wird gesendet)" if fm.ctcss_hz else
+                                "Träger oder 1750-Hz-Tonruf"),
                 }],
             })
             continue

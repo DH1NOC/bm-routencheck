@@ -56,6 +56,8 @@ def test_bericht_beide_modi_mit_fm_kanaltabelle(tmp_path: Path):
     # Pilotton-Hinweis: Ton wird gesendet, Relais ohne Angabe ggf. Tonruf
     assert "CTCSS-Pilotton" in html
     assert "1750-Hz-Tonruf" in html
+    assert "Öffnen mit" in html                 # Spalte je FM-Kanal
+    assert "CTCSS (wird gesendet)" in html      # Ton bekannt
     assert "Locator JO40AA" in html
     assert html.count("<html") == 1
 
@@ -74,5 +76,7 @@ def test_bericht_nur_fm_ohne_tg_bloecke(tmp_path: Path):
     assert "FM-Relais entlang der Strecke" in html
     assert "DB0FX 2m" in html
     assert "-0.6 MHz" in html
+    # kein CTCSS gelistet → Öffnungsmechanismus ehrlich als offen markiert
+    assert "Träger oder 1750-Hz-Tonruf" in html
     assert "Talkgroup" not in html              # keine TG-Blöcke bei FM
     assert "Brandmeister" not in html           # Quelle: nur DL3EL

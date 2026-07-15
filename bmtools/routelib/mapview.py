@@ -275,7 +275,11 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
             offset = fm.rx_mhz - fm.tx_mhz
             ablage = ("Simplex" if abs(offset) < 1e-9
                       else f"Ablage {offset:+g} MHz")
-            ctcss = (f", CTCSS {fm.ctcss_hz:g} Hz" if fm.ctcss_hz else "")
+            # Quelle kennt kein Tonruf-Feld: ohne CTCSS bleibt offen, ob
+            # Träger reicht oder der 1750-Hz-Tonruf nötig ist
+            ctcss = (f", CTCSS {fm.ctcss_hz:g} Hz (wird gesendet)"
+                     if fm.ctcss_hz
+                     else ", Öffnen: Träger oder Tonruf 1750 Hz")
             popup = (
                 f"<b>{e(fm.callsign)}</b> — {e(fm.city)}<br>{marginal_note}"
                 f"FM ({band_label(fm.tx_mhz)})<br>"

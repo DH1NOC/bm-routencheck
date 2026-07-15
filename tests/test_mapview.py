@@ -17,13 +17,17 @@ def test_karte_gemischt_faerbt_fm_orange(tmp_path: Path):
         make_fm_result(make_fm_repeater(
             callsign="DB0FX", tx_mhz=439.125, rx_mhz=431.525,
             ctcss_hz=88.5, locator="JO40AA")),
+        make_fm_result(make_fm_repeater(
+            callsign="DB0OT", tx_mhz=145.6, rx_mhz=145.0, ctcss_hz=None)),
     ]
     out = tmp_path / "karte.html"
     write_map(results, route, out)
     html = out.read_text(encoding="utf-8")
 
     assert "orange" in html                    # FM-Marker (kein Grün: CVD)
-    assert "CTCSS 88.5 Hz" in html
+    assert "CTCSS 88.5 Hz (wird gesendet)" in html
+    # ohne CTCSS-Angabe: Öffnungsweg ehrlich offen lassen
+    assert "Träger oder Tonruf 1750 Hz" in html
     assert "Ablage -7.6 MHz" in html
     assert "Locator JO40AA" in html
     assert "DB0FX (5.0 km) — FM" in html        # Tooltip mit Modus-Zusatz
