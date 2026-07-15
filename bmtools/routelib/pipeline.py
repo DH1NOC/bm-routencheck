@@ -16,13 +16,14 @@ from rich.panel import Panel
 from rich.progress import track
 
 from bmtools.bm_api import BrandmeisterClient, DeviceProfile, TalkgroupSub
+from bmtools.fm_api import DL3ELClient, FmRepeater
 
 from .codeplug.anytone import write_anytone
 from .corridor import find_in_corridor
 from .coverage import estimate_coverage
 from .mapview import write_map
-from .model import Route
-from .report import RepeaterResult, print_table, write_csv
+from .model import RepeaterLike, Route
+from .report import FUNK_LABEL, RepeaterResult, print_table, write_csv
 from .report_html import write_html_report
 from .terrain import TerrainError, TerrainModel
 
@@ -58,13 +59,28 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
                  open_browser: bool, zone: str,
                  route_label: str = "Strecke",
                  waypoint_icon: str = "flag",
-                 refresh: bool = False) -> int:
+                 refresh: bool = False,
+                 modus: str = "beide") -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    client = BrandmeisterClient(refresh=refresh)
-    console.print("[bold]Lade Brandmeister-Geräteliste …[/bold]"
-                  + (" [dim](Cache wird ignoriert)[/dim]" if refresh else ""))
-    repeaters = client.repeaters()
+    cache_note = " [dim](Cache wird ignoriert)[/dim]" if refresh else ""
+    client: BrandmeisterClient | None = None
+    repeaters: list[RepeaterLike] = []
+    quellen_note = []
+    if modus != "fm":
+        client = BrandmeisterClient(refresh=refresh)
+        console.print(f"[bold]Lade Brandmeister-Geräteliste …[/bold]{cache_note}")
+        repeaters += client.repeaters()
+        quellen_note.append(f"{len(repeaters)} DMR-Repeater im Netz")
+    if modus != "dmr":
+        console.print("[bold]Lade FM-Relais entlang der Route "
+                      f"(relaislisten.darc.de) …[/bold]{cache_note}")
+        with console.status("Stützpunkte alle 50 km abfragen "
+                            "(gedrosselt, Antworten werden gecacht) …"):
+            fm_relais = DL3ELClient(refresh=refresh).repeaters_along(
+                route.points)
+        repeaters += fm_relais
+        quellen_note.append(f"{len(fm_relais)} FM-Relais im Routenumfeld")
 
     # Auswahlkriterium ist die rechnerische Erreichbarkeit von der Strecke
     # (Sichtkontakt zu >=1 Streckenpunkt), nicht ein fester Abstand.
@@ -92,19 +108,29 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
     limit_note = f" (Limit {corridor_km:g} km Streckenabstand)" if corridor_km else ""
     marginal_note = (f", davon {marginal_count} nur im Grenzbereich"
                      if marginal_count else "")
-    console.print(f"  {len(repeaters)} Repeater im Netz, "
+    console.print(f"  {', '.join(quellen_note)}, "
                   f"[bold]{len(hits)}[/bold] von der Strecke aus rechnerisch "
                   f"erreichbar{limit_note}{marginal_note}")
     if not hits:
         console.print("[red]Kein Relais von der Strecke aus erreichbar.[/red]")
         return 1
 
-    results = [
-        RepeaterResult(hit=h, profile=_with_local_tg(
+    # Talkgroup-Profile sind ein reines DMR-Konzept — FM-Relais bekommen
+    # profile=None und überspringen die (gedrosselten) Profilabfragen.
+    dmr_hits = [h for h in hits if not isinstance(h.device, FmRepeater)]
+    profiles: dict[int, DeviceProfile] = {
+        h.device.id: _with_local_tg(
             client.profile(h.device.id),
-            simplex=h.device.tx_mhz == h.device.rx_mhz),
-            marginal_only=h.device.id not in coverage.reachable_ids)
-        for h in track(hits, description="Talkgroup-Profile laden …")
+            simplex=h.device.tx_mhz == h.device.rx_mhz)
+        for h in track(dmr_hits, description="Talkgroup-Profile laden …")
+    } if dmr_hits else {}
+    results = [
+        RepeaterResult(
+            hit=h,
+            profile=profiles.get(h.device.id),
+            marginal_only=h.device.id not in coverage.reachable_ids,
+            modus="fm" if isinstance(h.device, FmRepeater) else "dmr")
+        for h in hits
     ]
 
     print_table(results, console)
@@ -119,30 +145,38 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
     else:
         console.print(
             f"  Abdeckungsschätzung: ca. [bold]{coverage.uncovered_pct:.0f} %[/bold] "
-            f"der Strecke ohne DMR ({coverage.uncovered_km:.0f} von "
+            f"der Strecke ohne {FUNK_LABEL[modus]} "
+            f"({coverage.uncovered_km:.0f} von "
             f"{coverage.total_km:.0f} km; Horizontmodell, ohne Gelände)")
 
-    tg_names = client.talkgroup_names()
+    tg_names = client.talkgroup_names() if client else {}
     csv_path = out_dir / "relais.csv"
     html_path = out_dir / "bericht.html"
     map_path = out_dir / "karte.html"
     write_csv(results, csv_path)
-    write_html_report(results, route, html_path, tg_names, coverage)
+    write_html_report(results, route, html_path, tg_names, coverage,
+                      modus=modus)
     with console.status("Karte erzeugen (inkl. Relais-Sichtfelder) …"):
         write_map(results, route, map_path, coverage,
                   terrain if coverage.terrain_used else None,
                   route_label=route_label, waypoint_icon=waypoint_icon)
-    write_anytone(results, out_dir / "anytone", zone, tg_names)
+    # Codeplug: vorerst nur die DMR-Kanäle — analoge Kanäle und
+    # CHIRP-Export folgen mit F3 des FM-Umbaus (FM-UMBAU.md)
+    dmr_results = [r for r in results if r.modus == "dmr"]
+    if dmr_results:
+        write_anytone(dmr_results, out_dir / "anytone", zone, tg_names)
 
-    console.print(Panel.fit(
-        f"[green]Fertig.[/green] Ausgaben in [bold]{out_dir}/[/bold]\n"
-        f"  bericht.html   Kanaltabellen für manuelle CPS-Eingabe\n"
-        f"  karte.html     interaktive Streckenkarte\n"
-        f"  relais.csv     Rohdaten (Semikolon-getrennt)\n"
-        f"  anytone/       Channel/TalkGroups/Zone-CSV "
-        f"[yellow](Format vorläufig = D878UV)[/yellow]",
-        border_style="green",
-    ))
+    lines = [
+        f"[green]Fertig.[/green] Ausgaben in [bold]{out_dir}/[/bold]",
+        "  bericht.html   Kanaltabellen für manuelle CPS-Eingabe",
+        "  karte.html     interaktive Streckenkarte",
+        "  relais.csv     Rohdaten (Semikolon-getrennt)",
+    ]
+    if dmr_results:
+        fm_note = "; nur DMR-Kanäle" if len(dmr_results) < len(results) else ""
+        lines.append(f"  anytone/       Channel/TalkGroups/Zone-CSV "
+                     f"[yellow](Format vorläufig = D878UV{fm_note})[/yellow]")
+    console.print(Panel.fit("\n".join(lines), border_style="green"))
 
     if open_browser:
         webbrowser.open(html_path.resolve().as_uri())

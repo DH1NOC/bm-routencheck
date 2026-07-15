@@ -131,7 +131,7 @@ def _interactive(console: Console, args: argparse.Namespace,
     bahn.de-Link eingefügt, landet er in args.link und die Liste
     bleibt leer — die Verbindung steht dann schon fest."""
     console.print()
-    ui.banner(console, "bm-bahn — DMR-Relais entlang einer Bahnstrecke",
+    ui.banner(console, "bm-bahn — DMR- und FM-Relais entlang einer Bahnstrecke",
               "Zugverbindung wählen — Bericht, Karte, CSV und Codeplug "
               "für die ganze Fahrt", icon="🚆")
     link = _q(questionary.text(
@@ -139,6 +139,7 @@ def _interactive(console: Console, args: argparse.Namespace,
         validate=_link_valid, style=ui.QSTYLE)).strip()
     if link:
         args.link = link
+        args.modus = _q(ui.modus_frage(args.modus))
         args.open = True
         return []
     origin = _text_with_default("Startbahnhof:", "Nürnberg Hbf")
@@ -148,6 +149,7 @@ def _interactive(console: Console, args: argparse.Namespace,
     via = [v.strip() for v in via_raw.split(",") if v.strip()]
     stations = _resolve_stations(
         planner, [origin, *via, destination], console, interactive=True)
+    args.modus = _q(ui.modus_frage(args.modus))
     args.modes = _q(questionary.select(
         "Zuggattung:",
         choices=[
@@ -193,7 +195,7 @@ def _pipeline(route: Route, args: argparse.Namespace, console: Console) -> int:
         route, console=console, out_dir=out_dir, corridor_km=args.corridor,
         no_terrain=args.no_terrain, open_browser=args.open, zone=zone,
         route_label="Bahnstrecke", waypoint_icon="train",
-        refresh=args.refresh)
+        refresh=args.refresh, modus=args.modus)
 
 
 def _run(stations: list[Station], args: argparse.Namespace, console: Console,
@@ -235,9 +237,10 @@ def _run_link(link: str, args: argparse.Namespace, console: Console,
 def main() -> int:
     ui.argparse_deutsch()
     ap = argparse.ArgumentParser(
-        description="Findet Brandmeister-DMR-Relais entlang einer Bahnstrecke "
-                    "(Rufzeichen, Frequenzen, Talkgroups TS1/TS2 inkl. "
-                    "Zeitschaltung und Cluster).",
+        description="Findet DMR-Relais (Brandmeister) und analoge FM-Relais "
+                    "(relaislisten.darc.de) entlang einer Bahnstrecke — "
+                    "Rufzeichen, Frequenzen, Talkgroups TS1/TS2 inkl. "
+                    "Zeitschaltung und Cluster, CTCSS.",
         epilog=EXAMPLES,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -268,6 +271,7 @@ def main() -> int:
     ap.add_argument("--direkt", "--direct", dest="direct",
                     action="store_true",
                     help="Nur Direktverbindungen (ohne Umstieg)")
+    ui.add_modus_argument(ap)
     ap.add_argument("--korridor", "--corridor", dest="corridor", type=float,
                     default=None, metavar="KM",
                     help="Optionales Limit: maximaler Streckenabstand in km. "
@@ -282,8 +286,9 @@ def main() -> int:
                          "(kein Höhenkachel-Download)")
     ap.add_argument("--aktualisieren", "--refresh", dest="refresh",
                     action="store_true",
-                    help="Brandmeister-Daten frisch laden statt aus dem "
-                         "Cache (Geräteliste hält sonst 1 Tag, Profile 12 h)")
+                    help="Relais-Daten frisch laden statt aus dem Cache "
+                         "(BM-Geräteliste und FM-Liste halten sonst 1 Tag, "
+                         "Profile 12 h)")
     ap.add_argument("--oeffnen", "--open", dest="open", action="store_true",
                     help="Bericht und Karte danach im Browser öffnen")
     ap.add_argument("--ausgabe", "--out", dest="out", type=Path, default=None,

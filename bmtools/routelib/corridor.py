@@ -10,7 +10,7 @@ import math
 from dataclasses import dataclass
 from itertools import pairwise
 
-from bmtools.bm_api.models import Device
+from .model import RepeaterLike
 
 EARTH_RADIUS_KM = 6371.0
 
@@ -61,13 +61,13 @@ def bounding_box(points: list[Point],
 
 @dataclass
 class CorridorHit:
-    device: Device
+    device: RepeaterLike
     distance_km: float   # Abstand des Relais zur Strecke
     chainage_km: float   # Streckenkilometer ab Startbahnhof
 
 
 def find_in_corridor(
-    devices: list[Device], points: list[Point], corridor_km: float | None
+    devices: list[RepeaterLike], points: list[Point], corridor_km: float | None
 ) -> list[CorridorHit]:
     """Alle Geräte mit Abstand <= corridor_km, sortiert nach Streckenkilometer.
 

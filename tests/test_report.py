@@ -8,7 +8,8 @@ from rich.console import Console
 
 from bmtools.bm_api.models import TalkgroupSub
 from bmtools.routelib.report import _fmt_subs, print_table, write_csv
-from tests.conftest import make_device, make_result
+from tests.conftest import (
+    make_device, make_fm_repeater, make_fm_result, make_result)
 
 
 def test_talkgroup_formatierung():
@@ -51,3 +52,45 @@ def test_tabelle_rendert_rufzeichen_und_frequenz():
     text = console.export_text()
     assert "DB0XX" in text
     assert "439.57500" in text
+    assert "CTCSS" not in text     # reines DMR: keine FM-Spalten
+    assert "Modus" not in text
+
+
+def test_tabelle_gemischt_zeigt_modus_und_ctcss():
+    console = Console(record=True, width=250)
+    results = [make_result(make_device(), [TalkgroupSub(262, 1, "static")]),
+               make_fm_result(make_fm_repeater(callsign="DB0FX"))]
+    print_table(results, console)
+    text = console.export_text()
+    assert "DMR- und FM-Relais" in text
+    assert "Modus" in text and "CTCSS" in text
+    assert "DB0FX" in text and "88.5" in text
+
+
+def test_tabelle_nur_fm_ohne_dmr_spalten():
+    console = Console(record=True, width=250)
+    print_table([make_fm_result(make_fm_repeater())], console)
+    text = console.export_text()
+    assert "FM-Relais entlang der Strecke" in text
+    assert "CTCSS" in text
+    assert "TS1" not in text and "CC" not in text
+    assert "zeitgeschaltet" not in text  # DMR-Legende entfällt
+
+
+def test_csv_fm_zeile_mit_ctcss_und_leeren_tg_spalten(tmp_path: Path):
+    results = [make_result(make_device(), [TalkgroupSub(262, 1, "static")]),
+               make_fm_result(make_fm_repeater(tx_mhz=145.6375,
+                                               rx_mhz=145.0375))]
+    out = tmp_path / "relais.csv"
+    write_csv(results, out)
+    rows = list(csv.DictReader(out.open(encoding="utf-8"), delimiter=";"))
+
+    assert rows[0]["modus"] == "DMR"
+    assert rows[0]["ctcss_hz"] == ""
+    fm = rows[1]
+    assert fm["modus"] == "FM"
+    assert fm["rx_mhz"] == "145.63750"     # Relais-Ausgabe = Geräte-RX
+    assert fm["tx_mhz"] == "145.03750"
+    assert fm["ctcss_hz"] == "88.5"
+    assert fm["colorcode"] == "" and fm["ts1_statisch"] == ""
+    assert fm["dmr_id"] == ""              # synthetische ID bleibt intern

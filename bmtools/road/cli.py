@@ -166,7 +166,7 @@ def _interactive(console: Console, args: argparse.Namespace,
     console.print()
     ui.banner(
         console,
-        f"{cmd} — DMR-Relais entlang einer {label}route",
+        f"{cmd} — DMR- und FM-Relais entlang einer {label}route",
         "Link von Google Maps oder Komoot einfügen — oder leer lassen "
         "und Start/Ziel eintippen",
         icon=BANNER_ICON.get(args.profile, "📡"))
@@ -185,6 +185,7 @@ def _interactive(console: Console, args: argparse.Namespace,
         via_raw = _q(questionary.text(
             "Zwischenpunkte (optional, Komma-getrennt):", style=ui.QSTYLE))
         args.via = [v.strip() for v in via_raw.split(",") if v.strip()]
+    args.modus = _q(ui.modus_frage(args.modus))
     args.open = True
 
 
@@ -192,9 +193,10 @@ def main(profile: str) -> int:
     ui.argparse_deutsch()
     label, route_label, icon, cmd = PROFILES[profile]
     ap = argparse.ArgumentParser(
-        description=f"Findet Brandmeister-DMR-Relais entlang einer "
-                    f"{route_label} (Rufzeichen, Frequenzen, Talkgroups "
-                    f"TS1/TS2 inkl. Zeitschaltung und Cluster).",
+        description=f"Findet DMR-Relais (Brandmeister) und analoge "
+                    f"FM-Relais (relaislisten.darc.de) entlang einer "
+                    f"{route_label} — Rufzeichen, Frequenzen, Talkgroups "
+                    f"TS1/TS2 inkl. Zeitschaltung und Cluster, CTCSS.",
         epilog=EXAMPLES.format(p=cmd),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -209,6 +211,7 @@ def main(profile: str) -> int:
                     help="Ziel")
     ap.add_argument("--via", action="append", default=[], metavar="ORT",
                     help="Zwischenpunkt (mehrfach möglich)")
+    ui.add_modus_argument(ap)
     ap.add_argument("--korridor", "--corridor", dest="corridor", type=float,
                     default=None, metavar="KM",
                     help="Optionales Limit: maximaler Streckenabstand in km. "
@@ -220,8 +223,9 @@ def main(profile: str) -> int:
                          "(kein Höhenkachel-Download)")
     ap.add_argument("--aktualisieren", "--refresh", dest="refresh",
                     action="store_true",
-                    help="Brandmeister-Daten frisch laden statt aus dem "
-                         "Cache (Geräteliste hält sonst 1 Tag, Profile 12 h)")
+                    help="Relais-Daten frisch laden statt aus dem Cache "
+                         "(BM-Geräteliste und FM-Liste halten sonst 1 Tag, "
+                         "Profile 12 h)")
     ap.add_argument("--oeffnen", "--open", dest="open", action="store_true",
                     help="Bericht und Karte danach im Browser öffnen")
     ap.add_argument("--ausgabe", "--out", dest="out", type=Path, default=None,
@@ -265,7 +269,7 @@ def main(profile: str) -> int:
             corridor_km=args.corridor, no_terrain=args.no_terrain,
             open_browser=args.open, zone=zone,
             route_label=route_label, waypoint_icon=icon,
-            refresh=args.refresh)
+            refresh=args.refresh, modus=args.modus)
     except (KeyboardInterrupt, EOFError):
         console.print("\n[dim]Abgebrochen.[/dim]")
         return 130

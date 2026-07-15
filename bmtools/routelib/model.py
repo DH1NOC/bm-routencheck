@@ -8,8 +8,23 @@ Codeplug) unerheblich.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Protocol
 
 Point = tuple[float, float]  # (lat, lon)
+
+
+class RepeaterLike(Protocol):
+    """Was Erreichbarkeit (coverage) und Korridor (corridor) von einem
+    Relais brauchen — mehr nicht. bm_api.Device erfüllt es unverändert,
+    fm_api.FmRepeater über seine agl-Property (immer None → Default).
+
+    IDs müssen über beide Welten eindeutig sein: BM-Repeater sind
+    6-stellig positiv, FM-Relais bekommen synthetische negative IDs."""
+    id: int
+    callsign: str
+    lat: float | None
+    lng: float | None
+    agl: float | None
 
 
 @dataclass

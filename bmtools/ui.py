@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import argparse
 
-from questionary import Style
+import questionary
+from questionary import Choice, Style
 from rich.console import Console
 from rich.panel import Panel
 
@@ -30,6 +31,27 @@ QSTYLE = Style([
 
 POINTER = "❯"
 KEYS_HINT = "↑/↓ wählen · Enter bestätigen · Strg-C abbrechen"
+
+
+def add_modus_argument(ap: argparse.ArgumentParser) -> None:
+    """Gemeinsames --modus-Flag aller Tools (FM-Umbau, Default: beide)."""
+    ap.add_argument("--modus", "--mode", dest="modus",
+                    choices=["dmr", "fm", "beide"], default="beide",
+                    help="dmr = nur Brandmeister-DMR, fm = nur analoge "
+                         "FM-Relais (relaislisten.darc.de), beide = "
+                         "gemeinsam in Bericht/Karte/CSV (Default: beide)")
+
+
+def modus_frage(default: str = "beide") -> questionary.Question:
+    """Interaktive Modus-Auswahl (Aufrufer wickelt Abbruch via _q ab)."""
+    return questionary.select(
+        "Welche Relais?",
+        choices=[
+            Choice("beide — DMR und analoge FM-Relais", "beide"),
+            Choice("dmr   — nur Brandmeister-DMR", "dmr"),
+            Choice("fm    — nur analoge FM-Relais", "fm"),
+        ],
+        default=default, style=QSTYLE, pointer=POINTER)
 
 
 def banner(console: Console, title: str, subtitle: str,

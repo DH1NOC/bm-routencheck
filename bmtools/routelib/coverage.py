@@ -17,9 +17,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from bmtools.bm_api.models import Device
-
 from .corridor import Point, bounding_box, cumulative_km
+from .model import RepeaterLike
 from .terrain import TerrainModel
 
 MOBILE_HEIGHT_M = 2.0     # Handfunkgerät im Zug
@@ -84,7 +83,7 @@ class CoverageEstimate:
         return self.pct(self.uncovered_km)
 
 
-def estimate_coverage(points: list[Point], repeaters: list[Device],
+def estimate_coverage(points: list[Point], repeaters: list[RepeaterLike],
                       terrain: TerrainModel | None = None) -> CoverageEstimate:
     cum = cumulative_km(points)
     total = cum[-1]

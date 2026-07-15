@@ -5,6 +5,19 @@ import zlib
 from dataclasses import dataclass
 
 
+# Amateurfunkbänder mit FM-Relaisbetrieb (großzügige Grenzen)
+_BANDS = [(28.0, 30.0, "10m"), (50.0, 54.0, "6m"), (144.0, 148.0, "2m"),
+          (420.0, 450.0, "70cm"), (1240.0, 1325.0, "23cm")]
+
+
+def band_label(mhz: float) -> str:
+    """Bandname zur Frequenz ('70cm') — für Kanalnamen wie 'DB0FUE 70cm'."""
+    for lo, hi, label in _BANDS:
+        if lo <= mhz <= hi:
+            return label
+    return f"{mhz:.0f}MHz"
+
+
 def fm_repeater_id(callsign: str, tx_mhz: float) -> int:
     """Stabile synthetische Kennung, immer negativ.
 

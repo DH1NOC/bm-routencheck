@@ -18,10 +18,16 @@ from pathlib import Path
 import jinja2
 
 from bmtools.bm_api.models import TalkgroupSub
+from bmtools.fm_api.models import band_label
 
 from .coverage import MIN_GAP_KM, CoverageEstimate
 from .model import Route
-from .report import RepeaterResult
+from .report import FUNK_LABEL, MODUS_LABEL, RepeaterResult
+
+# Quellenangabe je Modus für die Kopfzeile
+_QUELLE = {"dmr": "Brandmeister-API",
+           "fm": "relaislisten.darc.de (DL3EL)",
+           "beide": "Brandmeister-API + relaislisten.darc.de (DL3EL)"}
 
 MIN_RANGE_KM = 2.0  # kürzere Relais-Abschnitte werden mit dem Vorgänger verschmolzen
 
@@ -120,31 +126,37 @@ _TEMPLATE = jinja2.Environment(autoescape=True).from_string("""\
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DMR-Relais {{ stations }}</title>
+<title>{{ modus_label }}-Relais {{ stations }}</title>
 <style>{{ css }}</style>
 </head>
 <body>
-<h1>DMR-Relais entlang der Strecke {{ stations }}</h1>
-<p class="meta">Erstellt {{ created }} · Quelle: Brandmeister-API ·
+<h1>{{ modus_label }}-Relais entlang der Strecke {{ stations }}</h1>
+<p class="meta">Erstellt {{ created }} · Quelle: {{ quelle }} ·
 Verbindung: {{ legs }}{% if interpolated %} ·
 <b>Achtung: Luftlinien-Interpolation!</b>{% endif %}</p>
 <p><b>Alle Frequenzangaben aus Sicht deines Funkgeräts:</b>
 RX = Relais-Ausgabe (du hörst), TX = Relais-Eingabe (du sendest).
-Uhrzeiten von Zeitschaltungen sind Lokalzeit.</p>
+{% if has_dmr %}Uhrzeiten von Zeitschaltungen sind Lokalzeit.{% endif %}
+{% if has_fm %}CTCSS ist der Ton, den dein Gerät sendet (Encode);
+der Empfang bleibt standardmäßig offen.{% endif %}</p>
 
 <h2>Übersicht</h2>
 <div class="tablewrap"><table>
 <tr><th class="num">km</th><th>Rufzeichen</th><th>Standort</th>
-<th class="num">Abstand</th><th class="num">RX [MHz]</th>
-<th class="num">TX [MHz]</th><th class="num">CC</th></tr>
+<th class="num">Abstand</th>{% if mixed %}<th>Modus</th>{% endif %}
+<th class="num">RX [MHz]</th><th class="num">TX [MHz]</th>
+{% if has_dmr %}<th class="num">CC</th>{% endif %}
+{% if has_fm %}<th class="num">CTCSS</th>{% endif %}</tr>
 {% for r in overview %}
 <tr><td class="num">{{ r.km }}</td>
 <td><a href="#id{{ r.id }}">{{ r.callsign }}</a>{% if r.marginal %}
 <span class="badge">Grenzbereich</span>{% endif %}</td><td>{{ r.city }}</td>
 <td class="num">{{ r.dist }} km</td>
+{% if mixed %}<td>{{ r.modus }}</td>{% endif %}
 <td class="num mono">{{ r.rx }}</td>
 <td class="num mono">{{ r.tx }}</td>
-<td class="num">{{ r.cc }}</td></tr>
+{% if has_dmr %}<td class="num">{{ r.cc }}</td>{% endif %}
+{% if has_fm %}<td class="num">{{ r.ctcss }}</td>{% endif %}</tr>
 {% endfor %}
 </table></div>
 
@@ -152,13 +164,13 @@ Uhrzeiten von Zeitschaltungen sind Lokalzeit.</p>
 <h2>Abdeckungsschätzung</h2>
 {% if cov.terrain %}
 <p>Voraussichtlich <b>ca. {{ cov.uncovered_pct }} %</b> der Strecke ohne
-DMR-Abdeckung (Funkschatten; {{ cov.uncovered_km }} von
+{{ funk }}-Abdeckung (Funkschatten; {{ cov.uncovered_km }} von
 {{ cov.total_km }} km). Dazu {{ cov.marginal_pct }} %
 ({{ cov.marginal_km }} km) im Grenzbereich, wo Empfang durch Beugung
 möglich ist. Freie Sicht zu einem Relais: {{ cov.covered_pct }} %.</p>
 {% else %}
 <p>Voraussichtlich <b>ca. {{ cov.uncovered_pct }} %</b> der Strecke ohne
-DMR-Abdeckung ({{ cov.uncovered_km }} von {{ cov.total_km }} km).</p>
+{{ funk }}-Abdeckung ({{ cov.uncovered_km }} von {{ cov.total_km }} km).</p>
 {% endif %}
 {% if cov.gaps %}
 <p>Größere {{ "Funkschatten-Abschnitte" if cov.terrain else "Lücken" }}
@@ -181,13 +193,13 @@ Mobilantenne 2 m. „Grenzbereich“ = Hindernis bis 30 m über der
 Sichtlinie (Beugungsempfang plausibel). Vegetation/Bebauung und
 Sendeleistung sind nicht modelliert. Die Relais-Auswahl folgt der
 rechnerischen Erreichbarkeit von der Strecke (kein fester Korridor);
-geprüft werden alle aktuell online gemeldeten Repeater der Umgebung.</p>
+geprüft werden {{ methodik_relais }} der Umgebung.</p>
 {% else %}
 <p class="meta">Methodik: Sichtlinien-Funkhorizont je Relais aus der
 Antennenhöhe (d ≈ 4,12·(√h<sub>Antenne</sub> + √2 m) km), ohne
 Geländemodell — in Tälern und Mittelgebirgen optimistisch, der Wert
-ist also eine Untergrenze. Berücksichtigt sind alle aktuell online
-gemeldeten Repeater der Umgebung, auch außerhalb des Suchkorridors.</p>
+ist also eine Untergrenze. Berücksichtigt sind {{ methodik_relais }}
+der Umgebung, auch außerhalb des Suchkorridors.</p>
 {% endif %}
 {% endif %}
 
@@ -210,9 +222,14 @@ gemeldeten Repeater der Umgebung, auch außerhalb des Suchkorridors.</p>
 {% for rep in repeaters %}
 <h2 id="id{{ rep.id }}">{{ rep.callsign }} — {{ rep.city }}{% if rep.marginal %}
 <span class="badge">nur Grenzbereich</span>{% endif %}</h2>
+{% if rep.fm %}
+<p class="meta">FM-Relais (analog) · Streckenkilometer {{ rep.km }} ·
+Abstand zur Strecke {{ rep.dist }} km · Locator {{ rep.locator }}</p>
+{% else %}
 <p class="meta">DMR-ID {{ rep.id }} · Streckenkilometer {{ rep.km }} ·
 Abstand zur Strecke {{ rep.dist }} km · Antenne {{ rep.agl }} m AGL ·
 {{ rep.pep }} W · zuletzt gesehen {{ rep.last_seen }}</p>
+{% endif %}
 {% if rep.marginal %}
 <p><i>Keine freie Sicht zu einem Streckenpunkt — Empfang nur per
 Beugung plausibel (Hindernis ≤ 30 m über der Sichtlinie).</i></p>
@@ -221,6 +238,20 @@ Beugung plausibel (Hindernis ≤ 30 m über der Sichtlinie).</i></p>
 <p><i>Keine statischen Talkgroups konfiguriert — nur TG9 Lokal und
 dynamische Nutzung (per PTT-Anmeldung).</i></p>
 {% endif %}
+{% if rep.fm %}
+<div class="tablewrap"><table>
+<tr><th>Kanalname</th><th class="num">RX [MHz]</th>
+<th class="num">TX [MHz]</th><th class="num">Ablage</th>
+<th class="num">CTCSS [Hz]</th></tr>
+{% for c in rep.channels %}
+<tr><td class="mono">{{ c.name }}</td>
+<td class="num mono">{{ c.rx }}</td>
+<td class="num mono">{{ c.tx }}</td>
+<td class="num mono">{{ c.ablage }}</td>
+<td class="num">{{ c.ctcss }}</td></tr>
+{% endfor %}
+</table></div>
+{% else %}
 <div class="tablewrap"><table>
 <tr><th>Kanalname</th><th class="num">RX [MHz]</th>
 <th class="num">TX [MHz]</th><th class="num">CC</th>
@@ -236,6 +267,7 @@ dynamische Nutzung (per PTT-Anmeldung).</i></p>
 <td>{{ c.tg_name }}</td><td>{{ c.art }}</td></tr>
 {% endfor %}
 </table></div>
+{% endif %}
 {% endfor %}
 </body>
 </html>
@@ -258,17 +290,29 @@ def _art(sub: TalkgroupSub) -> str:
     return _KIND_LABEL[sub.kind]
 
 
+def _fmt_ablage(r) -> str:
+    """Ablage aus Gerätesicht: TX − RX (= Relais-Eingabe − Ausgabe)."""
+    offset = r.rx_mhz - r.tx_mhz
+    return "Simplex" if abs(offset) < 1e-9 else f"{offset:+g} MHz"
+
+
 def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
                       tg_names: dict[int, str] | None = None,
-                      coverage: CoverageEstimate | None = None) -> None:
+                      coverage: CoverageEstimate | None = None,
+                      modus: str = "dmr") -> None:
     tg_names = tg_names or {}
+    has_dmr = any(r.modus == "dmr" for r in results)
+    has_fm = any(r.modus == "fm" for r in results)
 
     overview = [{
         "km": f"{r.hit.chainage_km:.0f}", "id": r.device.id,
         "callsign": r.device.callsign, "city": r.device.city,
         "dist": f"{r.hit.distance_km:.1f}", "marginal": r.marginal_only,
+        "modus": MODUS_LABEL[r.modus],
         "rx": _fmt_mhz(r.device.tx_mhz), "tx": _fmt_mhz(r.device.rx_mhz),
-        "cc": r.device.colorcode or "",
+        "cc": ("" if r.modus == "fm" else r.device.colorcode or ""),
+        "ctcss": (f"{r.device.ctcss_hz:g}"
+                  if r.modus == "fm" and r.device.ctcss_hz else ""),
     } for r in results]
 
     cov = None
@@ -295,13 +339,30 @@ def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
     repeaters = []
     for r in results:
         d = r.device
+        common = {
+            "id": d.id, "callsign": d.callsign, "city": d.city,
+            "km": f"{r.hit.chainage_km:.0f}",
+            "dist": f"{r.hit.distance_km:.1f}", "marginal": r.marginal_only,
+            "fm": r.modus == "fm",
+        }
+        if r.modus == "fm":
+            repeaters.append({
+                **common,
+                "locator": d.locator or "?",
+                "only_implicit": False,
+                "channels": [{
+                    "name": f"{d.callsign} {band_label(d.tx_mhz)}"[:16],
+                    "rx": _fmt_mhz(d.tx_mhz), "tx": _fmt_mhz(d.rx_mhz),
+                    "ablage": _fmt_ablage(d),
+                    "ctcss": f"{d.ctcss_hz:g}" if d.ctcss_hz else "—",
+                }],
+            })
+            continue
         # Slot 0 kommt nach der Profil-Bereinigung (Pipeline) nur noch
         # bei Simplex-Repeatern vor — auf Duplex ist es Miskonfiguration
         # und wird verworfen.
         repeaters.append({
-            "id": d.id, "callsign": d.callsign, "city": d.city,
-            "km": f"{r.hit.chainage_km:.0f}",
-            "dist": f"{r.hit.distance_km:.1f}", "marginal": r.marginal_only,
+            **common,
             "agl": d.agl or "?", "pep": d.pep or "?",
             "last_seen": d.last_seen,
             "only_implicit": all(s.kind == "implicit"
@@ -317,6 +378,12 @@ def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
             } for s in r.profile.subscriptions],
         })
 
+    methodik = {
+        "dmr": "alle aktuell online gemeldeten Repeater",
+        "fm": "alle gelisteten FM-Relais",
+        "beide": "alle online gemeldeten DMR-Repeater und "
+                 "gelisteten FM-Relais",
+    }
     html = _TEMPLATE.render(
         css=_CSS,
         stations=" – ".join(s.name for s in route.stations),
@@ -324,6 +391,9 @@ def write_html_report(results: list[RepeaterResult], route: Route, path: Path,
         legs=", ".join(route.legs) or "Luftlinie",
         interpolated=route.is_interpolated,
         min_range_km=f"{MIN_RANGE_KM:.0f}",
+        modus_label=MODUS_LABEL[modus], quelle=_QUELLE[modus],
+        funk=FUNK_LABEL[modus], methodik_relais=methodik[modus],
+        has_dmr=has_dmr, has_fm=has_fm, mixed=has_dmr and has_fm,
         overview=overview, cov=cov, ranges=ranges, repeaters=repeaters,
     )
     path.write_text(html, encoding="utf-8")

@@ -14,13 +14,13 @@ import folium
 import numpy as np
 from PIL import Image
 
-from bmtools.bm_api.models import Device
+from bmtools.fm_api.models import band_label
 
 from . import viewshed_raster
 from .corridor import bounding_box, cumulative_km
 from .coverage import DEFAULT_AGL_M, LOS, MARGINAL, SHADOW, CoverageEstimate, horizon_km
-from .model import Point, Route
-from .report import RepeaterResult, _fmt_subs
+from .model import Point, RepeaterLike, Route
+from .report import MODUS_LABEL, RepeaterResult, _fmt_subs
 from .terrain import TerrainModel
 
 HEATMAP_PX_KM = 0.25       # Zielauflösung des Rasters
@@ -53,25 +53,26 @@ def _legend_line(color: str, dash: str | None) -> str:
             f'stroke-width="4"{dash_attr}/></svg>')
 
 
-_LEGEND = f"""
+def _legend(modus_label: str, marker_note: str) -> str:
+    return f"""
 <div style="position:fixed; bottom:16px; left:16px; z-index:9999;
      background:#fff; color:#111; padding:8px 12px; border-radius:6px;
      box-shadow:0 1px 4px #0006; font:13px/1.8 sans-serif;">
-<b>Geschätzte DMR-Abdeckung</b><br>
+<b>Geschätzte {modus_label}-Abdeckung</b><br>
 {_legend_line(*STATUS_STYLE[LOS][:2])} Sicht (durchgezogen)<br>
 {_legend_line(*STATUS_STYLE[MARGINAL][:2])} Grenzbereich (gestrichelt)<br>
 {_legend_line(*STATUS_STYLE[SHADOW][:2])} Schatten (gepunktet)<br>
 <span style="display:inline-block;width:30px;height:10px;vertical-align:middle;
 background:linear-gradient(90deg,#A6D6EB,#56B4E9,#0072B2,#03395C)"></span>
 Relais-Sichtfeld (hellste Stufe: nur Beugung, sonst dunkler = mehr Relais)<br>
-Marker: blau = Sicht zur Strecke, grau = nur Grenzbereich (Beugung)
+Marker: {marker_note}
 </div>
 """
 
 
-def _pos(d: Device) -> tuple[float, float]:
-    """Koordinaten als Nicht-None: is_repeater() filtert Positionslose,
-    bevor sie hierher gelangen."""
+def _pos(d: RepeaterLike) -> tuple[float, float]:
+    """Koordinaten als Nicht-None: is_repeater() bzw. der FM-Parser
+    filtern Positionslose, bevor sie hierher gelangen."""
     assert d.lat is not None and d.lng is not None
     return d.lat, d.lng
 
@@ -229,6 +230,8 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
     # Vor den Markern einhängen, sonst listet das Control jeden Marker
     folium.LayerControl().add_to(m)
 
+    has_dmr = any(r.modus == "dmr" for r in results)
+    has_fm = any(r.modus == "fm" for r in results)
     if coverage is not None and coverage.samples:
         listed = {r.device.callsign for r in results}
         for status, pts, start_km, end_km in _coverage_segments(route, coverage):
@@ -239,9 +242,19 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
                     coverage, start_km, end_km, listed, status)
             folium.PolyLine(pts, color=color, weight=5, opacity=0.95,
                             dash_array=dash, tooltip=tooltip).add_to(m)
+        modus_label = MODUS_LABEL["beide" if has_dmr and has_fm
+                                  else "fm" if has_fm else "dmr"]
+        # Orange statt des naheliegenden Grüns für FM: die Farbwelt des
+        # Projekts ist bewusst ohne Rot/Grün (Farbfehlsichtigkeit, ui.py)
+        marker_note = ("blau = DMR, orange = FM, grau = nur Grenzbereich "
+                       "(Beugung)" if has_dmr and has_fm else
+                       "orange = FM-Relais, grau = nur Grenzbereich "
+                       "(Beugung)" if has_fm else
+                       "blau = Sicht zur Strecke, grau = nur Grenzbereich "
+                       "(Beugung)")
         # branca.Element bekommt .html erst zur Laufzeit angehängt
         m.get_root().html.add_child(  # type: ignore[attr-defined]
-            folium.Element(_LEGEND))
+            folium.Element(_legend(modus_label, marker_note)))
     else:
         folium.PolyLine(route.points, color="#c00", weight=3,
                         tooltip=route_label).add_to(m)
@@ -257,24 +270,43 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
         marginal_note = ("<b>Nur Grenzbereich</b> — keine freie Sicht zur "
                          "Strecke, Empfang per Beugung möglich<br>"
                          if r.marginal_only else "")
-        popup = (
-            f"<b>{e(d.callsign)}</b> — {e(d.city)}<br>{marginal_note}"
-            f"RX <code>{d.tx_mhz:.5f}</code> / TX <code>{d.rx_mhz:.5f}</code> MHz, "
-            f"CC{d.colorcode}<br>"
-            f"TS1: {e(_fmt_subs(r.profile.for_slot(1)) or '–')}<br>"
-            f"TS2: {e(_fmt_subs(r.profile.for_slot(2)) or '–')}<br>"
-            f"<small>km {r.hit.chainage_km:.0f}, Abstand "
-            f"{r.hit.distance_km:.1f} km, DMR-ID {d.id}</small>"
-        )
+        if r.modus == "fm":
+            offset = d.rx_mhz - d.tx_mhz
+            ablage = ("Simplex" if abs(offset) < 1e-9
+                      else f"Ablage {offset:+g} MHz")
+            ctcss = (f", CTCSS {d.ctcss_hz:g} Hz" if d.ctcss_hz else "")
+            popup = (
+                f"<b>{e(d.callsign)}</b> — {e(d.city)}<br>{marginal_note}"
+                f"FM ({band_label(d.tx_mhz)})<br>"
+                f"RX <code>{d.tx_mhz:.5f}</code> / "
+                f"TX <code>{d.rx_mhz:.5f}</code> MHz, "
+                f"{ablage}{ctcss}<br>"
+                f"<small>km {r.hit.chainage_km:.0f}, Abstand "
+                f"{r.hit.distance_km:.1f} km, Locator {e(d.locator)}</small>"
+            )
+        else:
+            popup = (
+                f"<b>{e(d.callsign)}</b> — {e(d.city)}<br>{marginal_note}"
+                f"RX <code>{d.tx_mhz:.5f}</code> / TX <code>{d.rx_mhz:.5f}</code> MHz, "
+                f"CC{d.colorcode}<br>"
+                f"TS1: {e(_fmt_subs(r.profile.for_slot(1)) or '–')}<br>"
+                f"TS2: {e(_fmt_subs(r.profile.for_slot(2)) or '–')}<br>"
+                f"<small>km {r.hit.chainage_km:.0f}, Abstand "
+                f"{r.hit.distance_km:.1f} km, DMR-ID {d.id}</small>"
+            )
         tooltip = f"{d.callsign} ({r.hit.distance_km:.1f} km)"
+        if has_dmr and has_fm:
+            tooltip += f" — {MODUS_LABEL[r.modus]}"
         if r.marginal_only:
             tooltip += " — nur Grenzbereich"
+        # Orange für FM (statt Grün): Farbwelt ohne Rot/Grün, s. ui.py
+        color = ("gray" if r.marginal_only
+                 else "orange" if r.modus == "fm" else "blue")
         folium.Marker(
             _pos(d),
             tooltip=tooltip,
             popup=folium.Popup(popup, max_width=340),
-            icon=folium.Icon(color="gray" if r.marginal_only else "blue",
-                             icon="tower-cell", prefix="fa"),
+            icon=folium.Icon(color=color, icon="tower-cell", prefix="fa"),
         ).add_to(m)
 
     m.save(str(path))

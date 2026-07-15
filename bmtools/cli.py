@@ -82,8 +82,8 @@ def main() -> int:
 
     console.print()
     ui.banner(console, "BM-Routencheck",
-              "Welche DMR-Relais erreichst du unterwegs? — Bericht, "
-              "Karte, CSV und Codeplug je Route")
+              "Welche DMR- und FM-Relais erreichst du unterwegs? — "
+              "Bericht, Karte, CSV und Codeplug je Route")
     choices = [
         Choice(f"{icon}  {name:<5} {desc}", value=name)
         for name, (icon, desc, _) in TOOLS.items()

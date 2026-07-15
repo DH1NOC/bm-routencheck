@@ -170,9 +170,15 @@ Da es nur Umkreissuche gibt:
 
 Fachliche Regeln, die **nicht** auf FM übertragen werden: TG9-Ergänzung,
 Slot-0-Behandlung, Colorcode — alles rein DMR. Neue FM-Regel analog zur
-Frequenz-Sicht-Regel: **RX = Relais-Ausgabe**, unverändert aus
-Gerätesicht; CTCSS gilt als Encode-Ton (Gerät sendet Ton), Decode
-standardmäßig offen — Festlegung bei F2 dokumentieren.
+Frequenz-Sicht-Regel (festgelegt und umgesetzt in F2): **RX =
+Relais-Ausgabe**, unverändert aus Gerätesicht; **CTCSS gilt als
+Encode-Ton** (Gerät sendet Ton), Decode standardmäßig offen — steht so
+im Bericht-Kopf; die Ablage wird stets aus rx−tx berechnet (F0-Befund:
+Auslandsablagen weichen ab) und in Bericht/Karte angezeigt.
+
+Abweichung von der Skizze (F2): FM-Marker sind **orange** statt grün —
+die Farbwelt des Projekts ist bewusst ohne Rot/Grün (CVD-sicher,
+s. `ui.py`); Orange ist die etablierte Akzentfarbe.
 
 ## 6. Codeplug-Export (AnyTone)
 
@@ -272,9 +278,23 @@ Routen-Treffern exportieren, nicht aus der Roh-Antwort.
       25-km-Korridor — Verlauf plausibel (DB0ZK Koblenz km 0, Feldberg-
       Relais km 62, DB0WZ Würzburg km 177, DB0FUE/DB0UN/DB0ANN am Ziel),
       korrekt nach Streckenkilometer sortiert.
-- [ ] **F2 — Pipeline/Berichte:** `RepeaterLike`-Protocol, modusfähige
-      Results, Tabelle/CSV/HTML/Karte. Abnahme: `bm-bahn --modus beide`
-      Koblenz→Nürnberg; Karte zeigt beide Modi konsistent.
+- [x] **F2 — Pipeline/Berichte** (erledigt 2026-07-15):
+      `RepeaterLike`-Protocol in `routelib/model.py`, `coverage`/
+      `corridor` auf das Protocol umgestellt. Entscheidung Results:
+      **ein** `RepeaterResult` mit `profile: DeviceProfile | None` und
+      explizitem `modus`-Feld (keine FmResult-Hierarchie — eine Liste,
+      gemeinsame Sortierung). Konsolentabelle/CSV/HTML/Karte modusfähig
+      (Spalten Modus + CTCSS nur wenn nötig; reines DMR sieht aus wie
+      vorher), Pipeline lädt je Modus BM und/oder DL3EL (FM überspringt
+      die TG-Profil-Schleife), CLIs mit `--modus`/`--mode` (Default
+      beide, interaktive Frage in allen Assistenten). Codeplug-Export
+      erhält vorerst nur die DMR-Kanäle (analog + CHIRP: F3); bei
+      `--modus fm` entfällt er. Abnahme: `bm-bahn --modus beide`
+      Koblenz→Nürnberg (355 km, Geländemodell): 69 Relais (20 DMR,
+      49 FM) konsistent in CSV (Spalten modus/ctcss_hz), Karte
+      (19 blaue, 44 orange, 6 graue Marker = 69) und Bericht (69
+      Abschnitte, 49 FM-Kanaltabellen mit CTCSS und Ablage);
+      AnyTone-Export weiter rein digital.
 - [ ] **F3 — Codeplug analog:** AnyTone-Export mit gemischter Zone
       **und CHIRP-Export** (`chirp.csv`). Abnahme: Import in der
       AnyTone-CPS (analoger Kanal mit korrektem CTCSS) und Öffnen/Import
