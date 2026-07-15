@@ -185,7 +185,6 @@ def _interactive(console: Console, args: argparse.Namespace,
         via_raw = _q(questionary.text(
             "Zwischenpunkte (optional, Komma-getrennt):", style=ui.QSTYLE))
         args.via = [v.strip() for v in via_raw.split(",") if v.strip()]
-    args.modus = _q(ui.modus_frage(args.modus))
     args.open = True
 
 
@@ -263,6 +262,11 @@ def main(profile: str) -> int:
                     f"{_short_name(waypoints[-1].name)}")
 
         console.print(f"  {', '.join(route.legs)}")
+        # Letzte Frage des Assistenten, bewusst NACH Routenaufbau samt
+        # Geocoding-Rückfragen und Bestätigung (Nutzerwunsch 2026-07-15:
+        # Modus am Ende, nie mittendrin)
+        if interactive:
+            args.modus = _q(ui.modus_frage(args.modus))
         out_dir = args.out or Path("out") / slug(zone)
         return run_pipeline(
             route, console=console, out_dir=out_dir,

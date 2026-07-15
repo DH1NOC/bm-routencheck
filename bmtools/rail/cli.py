@@ -139,7 +139,6 @@ def _interactive(console: Console, args: argparse.Namespace,
         validate=_link_valid, style=ui.QSTYLE)).strip()
     if link:
         args.link = link
-        args.modus = _q(ui.modus_frage(args.modus))
         args.open = True
         return []
     origin = _text_with_default("Startbahnhof:", "Nürnberg Hbf")
@@ -149,7 +148,6 @@ def _interactive(console: Console, args: argparse.Namespace,
     via = [v.strip() for v in via_raw.split(",") if v.strip()]
     stations = _resolve_stations(
         planner, [origin, *via, destination], console, interactive=True)
-    args.modus = _q(ui.modus_frage(args.modus))
     args.modes = _q(questionary.select(
         "Zuggattung:",
         choices=[
@@ -187,7 +185,12 @@ def _make_chooser(console: Console) -> Chooser:
     return chooser
 
 
-def _pipeline(route: Route, args: argparse.Namespace, console: Console) -> int:
+def _pipeline(route: Route, args: argparse.Namespace, console: Console,
+              interactive: bool = False) -> int:
+    # Letzte Frage des Assistenten, bewusst NACH der kompletten
+    # Streckenwahl (Nutzerwunsch 2026-07-15: Modus am Ende, nie mittendrin)
+    if interactive:
+        args.modus = _q(ui.modus_frage(args.modus))
     names = [s.name for s in route.stations]
     out_dir = args.out or Path("out") / f"{slug(names[0])}-{slug(names[-1])}"
     zone = f"{names[0].removesuffix(' Hbf')}-{names[-1].removesuffix(' Hbf')}"
@@ -208,7 +211,7 @@ def _run(stations: list[Station], args: argparse.Namespace, console: Console,
     route = (planner.route_interpolated(stations) if args.straight_line
              else planner.route(stations, opts, chooser))
     console.print(f"  Gewählte Verbindung: {', '.join(route.legs) or 'Luftlinie'}")
-    return _pipeline(route, args, console)
+    return _pipeline(route, args, console, interactive)
 
 
 def _run_link(link: str, args: argparse.Namespace, console: Console,
@@ -232,7 +235,7 @@ def _run_link(link: str, args: argparse.Namespace, console: Console,
             warn=lambda msg: console.print(f"[yellow]{msg}[/yellow]"),
             progress=status.update)
     console.print(f"  Übernommene Fahrt: {', '.join(route.legs) or 'Luftlinie'}")
-    return _pipeline(route, args, console)
+    return _pipeline(route, args, console, interactive)
 
 
 def main() -> int:
