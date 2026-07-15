@@ -1,0 +1,1127 @@
+<metadata><a href="http://relais.dl3el.de/ge/ge2026-07-15-13-47-10.html">http://relais.dl3el.de/ge/ge2026-07-15-13-47-10.html</a></metadata>
+
+
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<br><gpx xmlns="http://www.topografix.com/GPX/1/1" creator="MapSource 6.11.6" version="1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+<br><metadata>
+<br><link href="http://www.garmin.com">
+<br><text>Garmin International</text>
+<br></link>
+<br><time>2005-08-11T09:35:09Z</time>
+<br><bounds maxlat="60.145801" maxlon="18.216668" minlat="50.138034" minlon="7.186335"/>
+<br></metadata>
+
+
+<br><wpt lat="+49.5000000" lon="+011.0000000">
+ <name>Kartenmitte</name>
+ <cmt>49.5 11</cmt>
+  <desc></desc>
+  <sym>circle_blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.4809000" lon="+010.9570000">
+ <name>DB0FUE</name>
+ <cmt>145,6375 F</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.4809000" lon="+010.9570000">
+ <name>DB0FUE</name>
+ <cmt>438,625 F</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.4579220" lon="+011.0808656">
+ <name>DB0UN</name>
+ <cmt>145,650 NUERNBERG-STADT</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.5625000" lon="+011.0417000">
+ <name>DB0GJ</name>
+ <cmt>439,125 Erlangen</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.4531000" lon="+011.0924000">
+ <name>DB0FHN</name>
+ <cmt>439,275 N</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.4266000" lon="+011.0382000">
+ <name>DB0VOX</name>
+ <cmt>439,250 N</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.5667992" lon="+010.8667002">
+ <name>DM0HZA</name>
+ <cmt>145,58750 Herzogenaurach</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.3134000" lon="+011.0497000">
+ <name>DM0SC</name>
+ <cmt>438,9875 Schwabach</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.4670000" lon="+011.3119000">
+ <name>DB0ANN</name>
+ <cmt>145,750 NUERNBERG-MORITZBERG</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.4670000" lon="+011.3119000">
+ <name>DB0ANN</name>
+ <cmt>438,750 NUERNBERG-MORITZBERG</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.4670000" lon="+011.3119000">
+ <name>DB0ANN</name>
+ <cmt>1298,625 NUERNBERG-MORITZBERG</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.2708000" lon="+010.9583000">
+ <name>DM0RH</name>
+ <cmt>439,18750 Kammerstein</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.3076000" lon="+010.5814000">
+ <name>DB0AND</name>
+ <cmt>145,7875 Ansbach</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.5366000" lon="+011.5252000">
+ <name>DB0EH</name>
+ <cmt>145,6625 Hersbruck, Hegendorf</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.8542000" lon="+011.0417000">
+ <name>DB0UB</name>
+ <cmt>145,625 BAMBERG</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.2816060" lon="+010.5643210">
+ <name>DB0ANU</name>
+ <cmt>1298,675 Ansbach</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.2816060" lon="+010.5643210">
+ <name>DB0ANU</name>
+ <cmt>439,400 Ansbach</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.1517210" lon="+010.8102670">
+ <name>DB0ANS1</name>
+ <cmt>432,650 Gr</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.1517210" lon="+010.8102670">
+ <name>DB0ANS2</name>
+ <cmt>432,650 Gr</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.8806680" lon="+010.8685940">
+ <name>DB0VT</name>
+ <cmt>438,900 BAMBERG</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.7902459" lon="+010.5850364">
+ <name>DB0ABA</name>
+ <cmt>439,375 EBRACHTAL</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.8873000" lon="+010.8593000">
+ <name>DB0ADB</name>
+ <cmt>439,300 Bamberg</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.3444000" lon="+011.5647000">
+ <name>DB0TMH</name>
+ <cmt>145,7625 Neumarkt i</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.1822800" lon="+011.4092300">
+ <name>DB0XG</name>
+ <cmt>439,050 Sulzb</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.1822000" lon="+011.4092000">
+ <name>DB0XG</name>
+ <cmt>145,775 M</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.0775986" lon="+011.1752996">
+ <name>DB0THM</name>
+ <cmt>438,51250 Thalmaessing</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.0861000" lon="+011.2299000">
+ <name>DB0THM</name>
+ <cmt>438,5125 Thalm</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.0764000" lon="+011.1872000">
+ <name>DB0RWH</name>
+ <cmt>438,3375 Thalm</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.4346500" lon="+010.3129700">
+ <name>DB0BH</name>
+ <cmt>430,025 Burgbernheim</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.0453987" lon="+011.0873003">
+ <name>DB0AMB</name>
+ <cmt>439,425 Nennslingen</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.0208000" lon="+010.7917000">
+ <name>DB0HEG</name>
+ <cmt>438,925 Heidenheim, Hahnenkamm</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.0660019" lon="+010.5360003">
+ <name>DB0HBG</name>
+ <cmt>145,2375 Hesselberg</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.8880000" lon="+011.5576000">
+ <name>DB0BT</name>
+ <cmt>145,6125 Bayreuth-Sophienberg</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.8880000" lon="+011.5576000">
+ <name>DB0BT</name>
+ <cmt>439,900 Bayreuth-Sophienberg</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.0515830" lon="+010.5570140">
+ <name>DB0HBG</name>
+ <cmt>439,0875 Hesselberg</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.7288920" lon="+010.2421166">
+ <name>DB0BGK</name>
+ <cmt>438,575 KITZINGEN</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.7288920" lon="+010.2421166">
+ <name>DB0BGK</name>
+ <cmt>1298,375 KITZINGEN</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.7288920" lon="+010.2421166">
+ <name>DB0BGK</name>
+ <cmt>439,225 KITZINGEN</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.1583333" lon="+010.3265000">
+ <name>DB0FEU</name>
+ <cmt>430,375 Tetra </cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.1583333" lon="+010.3265000">
+ <name>DB0FEU</name>
+ <cmt>438,375 Feuchtwangen APCO25 NAC293</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.1583333" lon="+010.3265000">
+ <name>DB0FEU</name>
+ <cmt>438,700 Feuchtwangen</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.4529440" lon="+011.8710250">
+ <name>DB0CJ</name>
+ <cmt>438,875 Amberg</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.4375000" lon="+011.8750000">
+ <name>DB0CJ</name>
+ <cmt>438,875 AMBERG</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.1629710" lon="+011.7306570">
+ <name>DB0LP</name>
+ <cmt>439,325 Parsberg</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.0750000" lon="+010.6663000">
+ <name>DB0NH</name>
+ <cmt>145,3375 B</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+48.8958000" lon="+011.2083000">
+ <name>DB0EIC</name>
+ <cmt>439,175 Eichst</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.1458000" lon="+011.0417000">
+ <name>DB0LIC</name>
+ <cmt>439,025 LICHTENFELS</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.1458000" lon="+011.0417000">
+ <name>DB0LIC</name>
+ <cmt>1298,400 LICHTENFELS</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.0450000" lon="+010.3850000">
+ <name>DB0KR</name>
+ <cmt>438,8125 Gresshausen, BY</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.1755100" lon="+010.7400300">
+ <name>DB0NU</name>
+ <cmt>438,675 Altenstein</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+48.8047300" lon="+011.2925690">
+ <name>DB0RDT</name>
+ <cmt>439,150 Tauberfeld, NEUBURG</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.1924410" lon="+010.6813450">
+ <name>DB0NU</name>
+ <cmt>438,675 MAROLDSWEISACH</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.2190800" lon="+012.0393400">
+ <name>DB0STD</name>
+ <cmt>438,600 Burglengenfeld</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.2110000" lon="+012.0538000">
+ <name>DB0BUL</name>
+ <cmt>144,975 Burglengenfeld</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.0509271" lon="+010.2156450">
+ <name>DB0FWS</name>
+ <cmt>439,3375 Schweinfurt</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.7893333" lon="+009.9338333">
+ <name>DB0RUF</name>
+ <cmt>144,8875 Wuerzburg</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.2603360" lon="+010.9755740">
+ <name>DB0UC</name>
+ <cmt>145,700 COBURG</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.2650000" lon="+010.9955000">
+ <name>DB0UC</name>
+ <cmt>145,700 Coburg</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.7829000" lon="+009.9018000">
+ <name>DB0WZ</name>
+ <cmt>1298,425 W</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.7829000" lon="+009.9018000">
+ <name>DB0WZ</name>
+ <cmt>438,850 W</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.7829000" lon="+009.9018000">
+ <name>DB0WZ</name>
+ <cmt>145,675 WUERZBURG</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.4061093" lon="+009.8278694">
+ <name>DB0TTM</name>
+ <cmt>438,550 Bad Mergentheim</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.1207008" lon="+009.9756098">
+ <name>DB0TD</name>
+ <cmt>438,800 Crailsheim</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.1668800" lon="+011.6196800">
+ <name>DH1NGL-HS3</name>
+ <cmt>145,2125 Marktleugast BY</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+48.7333000" lon="+010.7893000">
+ <name>DB0DON</name>
+ <cmt>145,700 Donauw</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+48.7333000" lon="+010.7893000">
+ <name>DB0DON</name>
+ <cmt>1298,300 Donauw</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+48.7333420" lon="+010.7893050">
+ <name>DB0DON</name>
+ <cmt>438,575 DONAUWOERTH</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.5106100" lon="+009.7920700">
+ <name>DB0MGH</name>
+ <cmt>438,6875 Bad Mergentheim</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.5208000" lon="+009.7917000">
+ <name>DB0MGH</name>
+ <cmt>145,575 Bad Mergentheim</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+48.7626590" lon="+011.4411970">
+ <name>DB0IN</name>
+ <cmt>145,6875 Ingolstadt</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+48.7625618" lon="+011.4412842">
+ <name>DO0IN</name>
+ <cmt>438,6375 Ingolstadt</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.2708000" lon="+011.2917000">
+ <name>DB0KCH</name>
+ <cmt>438,725 KRONACH</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.0625000" lon="+011.8750000">
+ <name>DB0THC</name>
+ <cmt>1298,300 SCHNEEBERG</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.0625000" lon="+011.8750000">
+ <name>DB0ZB</name>
+ <cmt>438,800 SCHNEEBERG</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.0625000" lon="+011.8750000">
+ <name>DB0ZB</name>
+ <cmt>145,600 SCHNEEBERG</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.6875000" lon="+012.2082996">
+ <name>DB0YQ</name>
+ <cmt>438,56250 Weiden</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.8033910" lon="+009.8125950">
+ <name>DB0WZH</name>
+ <cmt>145,2875 Hettstadt, BY</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.9343940" lon="+012.1166190">
+ <name>DB0RQ</name>
+ <cmt>439,075 Fuchsmuehl</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.9200120" lon="+012.1323080">
+ <name>DB0RQ</name>
+ <cmt>439,075 FUCHSMUEHL</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+48.8608450" lon="+010.1373600">
+ <name>DB0FAA</name>
+ <cmt>439,11250 Aalen</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+48.9792000" lon="+012.0417000">
+ <name>DB0BMW</name>
+ <cmt>438,76250 Pentling</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+48.9942830" lon="+012.0751660">
+ <name>DB0RP</name>
+ <cmt>438,900 Regensburg</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+48.9942830" lon="+012.0751660">
+ <name>DB0RP</name>
+ <cmt>1298,275 Regensburg</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+48.9942830" lon="+012.0751660">
+ <name>DB0RP</name>
+ <cmt>439,100 Regensburg</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+48.6593300" lon="+011.3830000">
+ <name>DB0POB</name>
+ <cmt>439,075 Pobenhausen AllStarLink 28175</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.0399170" lon="+012.1620110">
+ <name>DB0TK</name>
+ <cmt>145,750 REGENSBURG</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.5208000" lon="+012.3750000">
+ <name>DB0TS</name>
+ <cmt>145,78750 Rueckersrieth</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.0006340" lon="+012.1497070">
+ <name>DB0MAK</name>
+ <cmt>439,000 Marktredwitz, Multimode</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.0006340" lon="+012.1497070">
+ <name>DB0MAK</name>
+ <cmt>438,775 Marktredwitz</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.0006340" lon="+012.1497070">
+ <name>DB0MAK</name>
+ <cmt>145,775 Marktredwitz</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.0006340" lon="+012.1497070">
+ <name>DB0MAK</name>
+ <cmt>1298,350 MARKTREDWITZ</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+48.8542000" lon="+010.0417000">
+ <name>DB0FHA</name>
+ <cmt>439,0125 Wasserturm Onatsfeld, Aalen</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+48.8542000" lon="+010.0417000">
+ <name>DB0FHA</name>
+ <cmt>145,6625 Wasserturm Onatsfeld, Aalen</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+50.3958000" lon="+011.2083000">
+ <name>DB0SON</name>
+ <cmt>439,175 SONNEBERG</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.5405540" lon="+012.4029940">
+ <name>DB0TS</name>
+ <cmt>439,1625 Rueckersrieth</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.3125000" lon="+009.6250000">
+ <name>DB0LD</name>
+ <cmt>145,7375 KUENZELSAU</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.3125000" lon="+009.6250000">
+ <name>DB0LD</name>
+ <cmt>439,350 KUENZELSAU</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+48.7708000" lon="+010.1250000">
+ <name>DB0AA</name>
+ <cmt>439,200 AALEN</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+48.7708000" lon="+010.1250000">
+ <name>DO0OKO</name>
+ <cmt>438,78750 Oberkochen</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br><wpt lat="+49.1906863" lon="+009.6428660">
+ <name>DB0WAB</name>
+ <cmt>439,0625 Waldenburg</cmt>
+  <desc></desc>
+  <sym>Flag, Blue</sym>
+ <extensions>
+ <gpxx:WaypointExtension xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensions/v3/GpxExtensionsv3.xsd">
+  <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>
+ </gpxx:WaypointExtension>
+ </extensions>
+ </wpt>
+<br></gpx>
+<br>

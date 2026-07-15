@@ -1,0 +1,104 @@
+Location,Name,Frequency,Duplex,Offset,Tone,rToneFreq,cToneFreq,DtcsCode,DtcsPolarity,Mode,TStep,Skip,Comment,URCALL,RPT1CALL,RPT2CALL<br>
+1,DB0FUE,145.6375,-,0.6000,Tone,88.5,88.5,023,NN,FM,12.5,,"F&#252rth, gekoppelt mit 70cm",,,,,<br>
+2,DB0FUE,438.625,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"F&#252rth, gekoppelt mit 2m, Echolink",,,,,<br>
+3,DB0UN,145.650,-,0.6000,,100.0,100.0,023,NN,FM,12.5,,"NUERNBERG-STADT",,,,,<br>
+4,DB0GJ,439.125,-,7.6000,Tone,88.5,88.5,023,NN,FM,12.5,,"Erlangen",,,,,<br>
+5,DB0FHN,439.275,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"N&#252rnberg",,,,,<br>
+6,DB0VOX,439.250,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"N&#252rnberg, Allstarlink: 2398",,,,,<br>
+7,DM0HZA,145.58750,-,0.6000,Tone,88.5,88.5,023,NN,FM,12.5,,"Herzogenaurach",,,,,<br>
+8,DM0SC,438.9875,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Schwabach",,,,,<br>
+9,DB0ANN,145.750,-,0.6000,Tone,77.0,77.0,023,NN,FM,12.5,,"NUERNBERG-MORITZBERG",,,,,<br>
+10,DB0ANN,438.750,-,7.6000,Tone,77.0,77.0,023,NN,FM,12.5,,"NUERNBERG-MORITZBERG",,,,,<br>
+11,DB0ANN,1298.625,-,28.0000,,100.0,100.0,023,NN,FM,12.5,,"NUERNBERG-MORITZBERG",,,,,<br>
+12,DM0RH,439.18750,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Kammerstein",,,,,<br>
+13,DB0AND,145.7875,-,0.6000,,100.0,100.0,023,NN,FM,12.5,,"Ansbach",,,,,<br>
+14,DB0EH,145.6625,-,0.6000,,100.0,100.0,023,NN,FM,12.5,,"Hersbruck, Hegendorf",,,,,<br>
+15,DB0UB,145.625,-,0.6000,,100.0,100.0,023,NN,FM,12.5,,"BAMBERG",,,,,<br>
+16,DB0ANU,1298.675,-,28.0000,,100.0,100.0,023,NN,FM,12.5,,"Ansbach",,,,,<br>
+17,DB0ANU,439.400,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Ansbach",,,,,<br>
+18,DB0ANS1,432.650,+,863.9000,,100.0,100.0,023,NN,FM,12.5,,"Gr&#228fensteinberg",,,,,<br>
+19,DB0ANS2,432.650,+,9935.9000,,100.0,100.0,023,NN,FM,12.5,,"Gr&#228fensteinberg",,,,,<br>
+20,DB0VT,438.900,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"BAMBERG",,,,,<br>
+21,DB0ABA,439.375,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"EBRACHTAL",,,,,<br>
+22,DB0ADB,439.300,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Bamberg",,,,,<br>
+23,DB0TMH,145.7625,-,0.6000,Tone,88.5,88.5,023,NN,FM,12.5,,"Neumarkt i.d.Opf.-Trautmannshofen",,,,,<br>
+24,DB0XG,439.050,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Sulzb&#252rg (M&#252hlhausen)",,,,,<br>
+25,DB0XG,145.775,-,0.6000,Tone,77.0,77.0,023,NN,FM,12.5,,"Mühlhausen",,,,,<br>
+26,DB0THM,438.51250,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Thalmaessing",,,,,<br>
+27,DB0THM,438.5125,-,7.6000,Tone,88.5,88.5,023,NN,FM,12.5,,"Thalmässing",,,,,<br>
+28,DB0RWH,438.3375,-,7.6000,Tone,88.5,88.5,023,NN,FM,12.5,,"Thalmässing",,,,,<br>
+29,DB0BH,430.025,+,0.0000,Tone,79.7,79.7,023,NN,FM,12.5,,"Burgbernheim",,,,,<br>
+30,DB0AMB,439.425,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Nennslingen",,,,,<br>
+31,DB0HEG,438.925,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Heidenheim, Hahnenkamm",,,,,<br>
+32,DB0HBG,145.2375,,0.6000,,100.0,100.0,023,NN,FM,12.5,,"Hesselberg",,,,,<br>
+33,DB0BT,145.6125,-,0.6000,Tone,103.5,103.5,023,NN,FM,12.5,,"Bayreuth-Sophienberg",,,,,<br>
+34,DB0BT,439.900,-,9.4000,Tone,94.8,94.8,023,NN,FM,12.5,,"Bayreuth-Sophienberg",,,,,<br>
+35,DB0HBG,439.0875,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Hesselberg",,,,,<br>
+36,DB0BGK,438.575,-,7.6000,Tone,67.0,67.0,023,NN,FM,12.5,,"KITZINGEN/SCH.SCHWANB(RTTY)",,,,,<br>
+37,DB0BGK,1298.375,-,28.0000,,100.0,100.0,023,NN,FM,12.5,,"KITZINGEN/SCHLOSS SCHWANBG.",,,,,<br>
+38,DB0BGK,439.225,-,7.6000,Tone,67.0,67.0,023,NN,FM,12.5,,"KITZINGEN/SCHLOSS SCHWANBG.",,,,,<br>
+39,DB0FEU,430.375,,0.6000,,100.0,100.0,023,NN,FM,12.5,,"Tetra (GSSI:1, MCC901, MNC:16383)",,,,,<br>
+40,DB0FEU,438.375,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Feuchtwangen APCO25 NAC293",,,,,<br>
+41,DB0FEU,438.700,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Feuchtwangen",,,,,<br>
+42,DB0CJ,438.875,-,7.6000,Tone,71.9,71.9,023,NN,FM,12.5,,"Amberg",,,,,<br>
+43,DB0CJ,438.875,-,7.6000,Tone,100.0,100.0,023,NN,FM,12.5,,"AMBERG",,,,,<br>
+44,DB0LP,439.325,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Parsberg",,,,,<br>
+45,DB0NH,145.3375,,0.6000,Tone,88.5,88.5,023,NN,FM,12.5,,"Bühl, Ufr., BY",,,,,<br>
+46,DB0EIC,439.175,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Eichstätt",,,,,<br>
+47,DB0LIC,439.025,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"LICHTENFELS",,,,,<br>
+48,DB0LIC,1298.400,-,28.0000,,100.0,100.0,023,NN,FM,12.5,,"LICHTENFELS",,,,,<br>
+49,DB0KR,438.8125,-,7.8125,Tone,123.0,123.0,023,NN,FM,12.5,,"Gresshausen, BY",,,,,<br>
+50,DB0NU,438.675,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Altenstein",,,,,<br>
+51,DB0RDT,439.150,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Tauberfeld, NEUBURG/DONAU",,,,,<br>
+52,DB0NU,438.675,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"MAROLDSWEISACH",,,,,<br>
+53,DB0STD,438.600,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Burglengenfeld",,,,,<br>
+54,DB0BUL,144.975,,0.6000,,100.0,100.0,023,NN,FM,12.5,,"Burglengenfeld",,,,,<br>
+55,DB0FWS,439.3375,-,7.6000,Tone,97.4,97.4,023,NN,FM,12.5,,"Schweinfurt",,,,,<br>
+56,DB0RUF,144.8875,,0.6000,Tone,88.5,88.5,023,NN,FM,12.5,,"Wuerzburg",,,,,<br>
+57,DB0UC,145.700,-,0.6000,,100.0,100.0,023,NN,FM,12.5,,"COBURG",,,,,<br>
+58,DB0UC,145.700,-,0.6000,Tone,88.5,88.5,023,NN,FM,12.5,,"Coburg",,,,,<br>
+59,DB0WZ,1298.425,-,28.0000,Tone,88.5,88.5,023,NN,FM,12.5,,"W&#252rzburg",,,,,<br>
+60,DB0WZ,438.850,-,7.6000,Tone,88.5,88.5,023,NN,FM,12.5,,"W&#252rzburg",,,,,<br>
+61,DB0WZ,145.675,-,0.6000,Tone,88.5,88.5,023,NN,FM,12.5,,"WUERZBURG",,,,,<br>
+62,DB0TTM,438.550,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Bad Mergentheim",,,,,<br>
+63,DB0TD,438.800,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Crailsheim",,,,,<br>
+64,DH1NGL-HS3,145.2125,,0.6000,Tone,77.0,77.0,023,NN,FM,12.5,,"Marktleugast BY",,,,,<br>
+65,DB0DON,145.700,-,0.6000,,100.0,100.0,023,NN,FM,12.5,,"Donauw&#246rth",,,,,<br>
+66,DB0DON,1298.300,-,28.0000,,100.0,100.0,023,NN,FM,12.5,,"Donauw&#246rth",,,,,<br>
+67,DB0DON,438.575,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"DONAUWOERTH",,,,,<br>
+68,DB0MGH,438.6875,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Bad Mergentheim",,,,,<br>
+69,DB0MGH,145.575,-,0.6000,Tone,179.9,179.9,023,NN,FM,12.5,,"Bad Mergentheim",,,,,<br>
+70,DB0IN,145.6875,-,0.6000,,100.0,100.0,023,NN,FM,12.5,,"Ingolstadt",,,,,<br>
+71,DO0IN,438.6375,-,7.6000,Tone,88.5,88.5,023,NN,FM,12.5,,"Ingolstadt",,,,,<br>
+72,DB0KCH,438.725,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"KRONACH",,,,,<br>
+73,DB0THC,1298.300,-,28.0000,,100.0,100.0,023,NN,FM,12.5,,"SCHNEEBERG/FICHTELGEBIRGE",,,,,<br>
+74,DB0ZB,438.800,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"SCHNEEBERG/FICHTELGEBIRGE",,,,,<br>
+75,DB0ZB,145.600,-,0.6000,,100.0,100.0,023,NN,FM,12.5,,"SCHNEEBERG/FICHTELGEBIRGE",,,,,<br>
+76,DB0YQ,438.56250,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Weiden",,,,,<br>
+77,DB0WZH,145.2875,,0.6000,Tone,179.9,179.9,023,NN,FM,12.5,,"Hettstadt, BY",,,,,<br>
+78,DB0RQ,439.075,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Fuchsmuehl",,,,,<br>
+79,DB0RQ,439.075,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"FUCHSMUEHL",,,,,<br>
+80,DB0FAA,439.11250,-,7.6000,Tone,110.9,110.9,023,NN,FM,12.5,,"Aalen",,,,,<br>
+81,DB0BMW,438.76250,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Pentling",,,,,<br>
+82,DB0RP,438.900,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Regensburg",,,,,<br>
+83,DB0RP,1298.275,-,28.0000,,100.0,100.0,023,NN,FM,12.5,,"Regensburg",,,,,<br>
+84,DB0RP,439.100,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Regensburg",,,,,<br>
+85,DB0POB,439.075,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Pobenhausen AllStarLink 28175",,,,,<br>
+86,DB0TK,145.750,-,0.6000,,100.0,100.0,023,NN,FM,12.5,,"REGENSBURG",,,,,<br>
+87,DB0TS,145.78750,-,0.6000,Tone,203.5,203.5,023,NN,FM,12.5,,"Rueckersrieth",,,,,<br>
+88,DB0MAK,439.000,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Marktredwitz, Multimode",,,,,<br>
+89,DB0MAK,438.775,-,7.6000,Tone,74.4,74.4,023,NN,FM,12.5,,"Marktredwitz",,,,,<br>
+90,DB0MAK,145.775,-,0.6000,Tone,74.4,74.4,023,NN,FM,12.5,,"Marktredwitz",,,,,<br>
+91,DB0MAK,1298.350,-,28.0000,Tone,74.4,74.4,023,NN,FM,12.5,,"MARKTREDWITZ",,,,,<br>
+92,DB0FHA,439.0125,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Wasserturm Onatsfeld, Aalen",,,,,<br>
+93,DB0FHA,145.6625,-,0.6000,,100.0,100.0,023,NN,FM,12.5,,"Wasserturm Onatsfeld, Aalen",,,,,<br>
+94,DB0SON,439.175,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"SONNEBERG",,,,,<br>
+95,DB0TS,439.1625,-,7.6000,Tone,203.5,203.5,023,NN,FM,12.5,,"Rueckersrieth",,,,,<br>
+96,DB0LD,145.7375,-,0.6000,,100.0,100.0,023,NN,FM,12.5,,"KUENZELSAU",,,,,<br>
+97,DB0LD,439.350,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"KUENZELSAU",,,,,<br>
+98,DB0AA,439.200,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"AALEN/VOLKMARSBERG",,,,,<br>
+99,DO0OKO,438.78750,-,7.6000,Tone,88.5,88.5,023,NN,FM,12.5,,"Oberkochen",,,,,<br>
+100,DB0WAB,439.0625,-,7.6000,,100.0,100.0,023,NN,FM,12.5,,"Waldenburg",,,,,<br>
+Daten mit Copy & Paste in eine Datei mit der Endung .csv speichern. Die Datei dann in Chirp importieren. Bitte vorhier *diese* Zeile wieder löschen<br>
+</BODY>
+</HTML>
