@@ -291,8 +291,9 @@ bm-auto --von "Winkelhaider Str. 4a, Feucht" --nach "Bendorf" --oeffnen
 | `--ausgabe ORDNER` | Ausgabeverzeichnis (Default: `out/<start>-<ziel>`) |
 
 Frequenzangaben in allen Ausgaben sind aus Sicht des Funkgeräts
-(RX = Relais-Ausgabe) — auch bei FM. TG9 „Lokal" wird immer ergänzt, auch
-wenn die API sie nicht listet.
+(RX = Relais-Ausgabe) — auch bei FM. Berücksichtigt werden nur 2-m- und
+70-cm-Relais (10 m/6 m/23 cm werden aussortiert). TG9 „Lokal" wird immer
+ergänzt, auch wenn die API sie nicht listet.
 
 ## Technische Highlights & Externe Technologien
 

@@ -102,3 +102,49 @@ def test_fehler_nach_retries(tmp_path, monkeypatch):
     c = _client(lambda r: httpx.Response(500), tmp_path, monkeypatch)
     with pytest.raises(RuntimeError, match=r"relaislisten\.darc\.de"):
         c.repeaters_near(49.5, 11.0)
+
+
+BUSY = b"Cacheupdate is running, please come again in 30s <br>\n"
+
+
+def test_cacheupdate_antwort_wird_abgewartet_und_nie_gecacht(
+        tmp_path, monkeypatch):
+    # Erster Abruf: Server baut Cache neu auf; danach echte Daten.
+    sleeps: list[float] = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    calls: list[httpx.URL] = []
+    fixture = _fixture_handler(calls)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if len(calls) == 0:
+            calls.append(request.url)
+            return httpx.Response(200, content=BUSY)
+        return fixture(request)
+
+    c = DL3ELClient()
+    c._http = httpx.Client(transport=httpx.MockTransport(handler))
+    c._cache.dir = tmp_path
+    assert len(c.repeaters_near(49.5, 11.0)) == 100
+    assert 30.0 in sleeps                      # erbetene Wartezeit eingehalten
+    # gecacht wurde erst die echte Antwort: kein weiterer HTTP-Abruf nötig
+    calls.clear()
+    assert len(c.repeaters_near(49.5, 11.0)) == 100
+    assert calls == []
+
+
+def test_dauerhaftes_cacheupdate_meldet_fehler(tmp_path, monkeypatch):
+    c = _client(lambda r: httpx.Response(200, content=BUSY),
+                tmp_path, monkeypatch)
+    with pytest.raises(RuntimeError, match="Cache neu auf"):
+        c.repeaters_near(49.5, 11.0)
+    assert list(tmp_path.glob("*.json")) == []  # nichts gecacht
+
+
+def test_vergifteter_cache_eintrag_wird_neu_geholt(tmp_path, monkeypatch):
+    # Altbestand: eine früher gecachte "Cacheupdate läuft"-Antwort
+    calls: list[httpx.URL] = []
+    c = _client(_fixture_handler(calls), tmp_path, monkeypatch)
+    c._cache.set("latlon-49.5-11.0-200-DL3EL+fr",
+                 {"csv": BUSY.decode("iso-8859-1"), "gpx": ""})
+    assert len(c.repeaters_near(49.5, 11.0)) == 100
+    assert len(calls) == 2                     # neu geholt statt leer geliefert

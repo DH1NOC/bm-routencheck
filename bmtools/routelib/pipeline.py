@@ -16,7 +16,7 @@ from rich.panel import Panel
 from rich.progress import track
 
 from bmtools.bm_api import BrandmeisterClient, DeviceProfile, TalkgroupSub
-from bmtools.fm_api import DL3ELClient, FmRepeater
+from bmtools.fm_api import DL3ELClient, FmRepeater, band_label
 
 from .codeplug.anytone import write_anytone
 from .codeplug.chirp import write_chirp
@@ -55,6 +55,13 @@ def _with_local_tg(profile: DeviceProfile, simplex: bool) -> DeviceProfile:
     return profile
 
 
+def _band_2m_70cm(d: RepeaterLike) -> bool:
+    """Nur 2-m- und 70-cm-Relais sind relevant (Festlegung 2026-07-15,
+    Dualband-Funkgeräte) — 10-m-/6-m-/23-cm-Einträge beider Quellen
+    werden aussortiert."""
+    return d.tx_mhz is not None and band_label(d.tx_mhz) in ("2m", "70cm")
+
+
 def run_pipeline(route: Route, *, console: Console, out_dir: Path,
                  corridor_km: float | None, no_terrain: bool,
                  open_browser: bool, zone: str,
@@ -73,17 +80,19 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
     if modus != "fm":
         client = BrandmeisterClient(refresh=refresh)
         console.print(f"[bold]Lade Brandmeister-Geräteliste …[/bold]{cache_note}")
-        repeaters += client.repeaters()
-        quellen_note.append(f"{len(repeaters)} DMR-Repeater im Netz")
+        repeaters += [d for d in client.repeaters() if _band_2m_70cm(d)]
+        quellen_note.append(f"{len(repeaters)} DMR-Repeater (2 m/70 cm) "
+                            "im Netz")
     if modus != "dmr":
         console.print("[bold]Lade FM-Relais entlang der Route "
                       f"(relaislisten.darc.de) …[/bold]{cache_note}")
         with console.status("Stützpunkte alle 50 km abfragen "
                             "(gedrosselt, Antworten werden gecacht) …"):
-            fm_relais = DL3ELClient(refresh=refresh).repeaters_along(
-                route.points)
+            fm_relais = [r for r in DL3ELClient(refresh=refresh)
+                         .repeaters_along(route.points) if _band_2m_70cm(r)]
         repeaters += fm_relais
-        quellen_note.append(f"{len(fm_relais)} FM-Relais im Routenumfeld")
+        quellen_note.append(f"{len(fm_relais)} FM-Relais (2 m/70 cm) "
+                            "im Routenumfeld")
 
     # Auswahlkriterium ist die rechnerische Erreichbarkeit von der Strecke
     # (Sichtkontakt zu >=1 Streckenpunkt), nicht ein fester Abstand.

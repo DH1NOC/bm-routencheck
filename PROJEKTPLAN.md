@@ -58,6 +58,7 @@ Fachliche Regeln (dürfen bei Änderungen nicht regressieren):
 | Relais-Auswahl | Rechnerische Erreichbarkeit von der Strecke (Sichtkontakt zu ≥ 1 Streckenpunkt im Geländemodell) statt festem Korridor; `--korridor` nur als optionales Abstands-Limit; kein implizites Distanz-Limit |
 | Frequenz-Sicht | Alle Ausgaben aus Sicht des Funkgeräts (RX = Relais-Ausgabe) — gilt für DMR und FM |
 | Modus | `--modus {dmr,fm,beide}`, Default `beide` (Festlegung 2026-07-15; ändert die Ausgaben alter Aufrufe bewusst). Reines DMR sieht aus wie vor dem Umbau: Modus-/CTCSS-Spalten erscheinen nur, wenn FM dabei ist |
+| Bandfilter | Nur 2-m- und 70-cm-Relais sind relevant (Festlegung 2026-07-15, Dualband-Funkgeräte) — 10-m-/6-m-/23-cm-Einträge beider Quellen werden in der Pipeline aussortiert |
 | FM-Regeln | CTCSS ist Encode-Ton (Gerät sendet), Decode default offen (`--ctcss-decode` setzt den Relais-Ton); Ablage stets aus rx−tx berechnen, nie annehmen (NL-70cm nutzt +1,6 MHz); Bandbreite Codeplug default 12,5 kHz, `--bandbreite 25` global (kein Raster in den Daten). TG9/Slot-0/Colorcode-Regeln gelten NICHT für FM |
 | FM-IDs | Synthetisch negativ (CRC32-Hash über Call+QRG, stabil über Läufe) — kollidieren nie mit den 6-stellig positiven BM-IDs; bleiben ein Internum (CSV-Spalte `dmr_id` bleibt bei FM leer) |
 | Marker-Farben | DMR blau, FM **orange** (kein Grün — Farbwelt ohne Rot/Grün, CVD-sicher, s. `ui.py`), Grenzbereich grau |
@@ -128,6 +129,13 @@ CGI, Hobby-Projekt ohne SLA — analoge FM-Relais; alles verifiziert
   Stützpunkt (abgefragt wird der Rasterpunkt selbst, damit ähnliche Routen
   Treffer teilen); Drosselung 1 s Grundpause. Negative Koordinaten
   (`South`/`West`-Formularwörter) live verifiziert.
+- **Während der Server seinen Cache neu aufbaut, antwortet er mit HTTP 200
+  und „Cacheupdate is running, please come again in 30s" statt Daten**
+  (beobachtet 2026-07-15: die Antwort wurde 24 h gecacht, halbe Route ohne
+  FM-Relais). Der Client erkennt den Marker, wartet 30 s und versucht neu;
+  Antworten ohne parsebare Relais werden nie gecacht (die Liste ist
+  weltweit, `maxgateways` nächste Relais gibt es immer), vergiftete
+  Alt-Einträge werden beim Lesen verworfen und neu geholt.
 - DL3ELs eigene CHIRP-Ausgabe (`printas=chirp`) dient als Referenz für die
   Feldkonventionen unseres `chirp.csv` (Fixture
   `tests/fixtures/dl3el_nuernberg.chirp`); sie liefert keine Koordinaten

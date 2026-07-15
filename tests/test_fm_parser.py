@@ -111,6 +111,18 @@ def test_aachen_auslandsdaten(aachen):
     assert rmd.rx_mhz == pytest.approx(431.9625)
 
 
+def test_bandfilter_nur_2m_und_70cm():
+    from bmtools.routelib.pipeline import _band_2m_70cm
+    from tests.conftest import make_device, make_fm_repeater
+
+    assert _band_2m_70cm(make_fm_repeater(tx_mhz=145.6375))
+    assert _band_2m_70cm(make_fm_repeater(tx_mhz=439.125))
+    assert not _band_2m_70cm(make_fm_repeater(tx_mhz=1298.625))  # 23cm
+    assert not _band_2m_70cm(make_fm_repeater(tx_mhz=29.67))     # 10m
+    assert not _band_2m_70cm(make_fm_repeater(tx_mhz=51.3))      # 6m
+    assert not _band_2m_70cm(make_device(tx_mhz=None))
+
+
 def test_fm_repeater_id_stabil_negativ_und_bandgetrennt():
     a = fm_repeater_id("DB0FUE", 145.6375)
     assert a < 0

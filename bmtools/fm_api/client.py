@@ -37,6 +37,13 @@ MAX_GATEWAYS = 200        # F0-Dichte-Check: 100 reicht im Ballungsraum nicht
 STEP_KM = 50.0            # Stützpunkt-Raster entlang der Route
 GRID_DEG = 0.1            # Cache-/Abfrage-Raster für Stützpunkte
 
+# Während der Server seinen eigenen Cache neu aufbaut, antwortet er mit
+# HTTP 200 und diesem Text statt Daten (beobachtet 2026-07-15: vergiftete
+# 24-h-Cache-Einträge, halbe Route ohne FM-Relais) — erkennen, die
+# erbetenen 30 s warten, neu versuchen und so etwas nie cachen.
+SERVER_BUSY_MARKER = "Cacheupdate is running"
+SERVER_BUSY_WAIT = 30.0
+
 
 def query_points(points: list[Point]) -> list[tuple[float, float]]:
     """Stützpunkte fürs Abfrage-Raster: alle STEP_KM plus Ziel, auf
@@ -96,9 +103,15 @@ class DL3ELClient:
             except httpx.HTTPError as e:
                 last_error = e
                 continue
-            time.sleep(self._delay)
             # Content-Type nennt kein Charset — Antworten sind ISO-8859-1
-            return response.content.decode("iso-8859-1")
+            text = response.content.decode("iso-8859-1")
+            if SERVER_BUSY_MARKER in text:
+                last_error = RuntimeError(
+                    "Server baut gerade seinen Cache neu auf")
+                time.sleep(SERVER_BUSY_WAIT)
+                continue
+            time.sleep(self._delay)
+            return text
         raise RuntimeError(
             f"relaislisten.darc.de nicht erreichbar: {last_error}")
 
@@ -111,10 +124,23 @@ class DL3ELClient:
         glng = round(lng / GRID_DEG) * GRID_DEG
         key = f"latlon-{glat:.1f}-{glng:.1f}-{MAX_GATEWAYS}-DL3EL+fr"
         raw = None if self._refresh else self._cache.get(key)
+        if raw is not None and not parse_csv(raw["csv"]):
+            # Vergifteter Alt-Eintrag (z. B. gecachte "Cacheupdate läuft"-
+            # Antwort einer früheren Version) → wie Cache-Miss behandeln
+            raw = None
         if raw is None:
             params = _latlon_params(glat, glng)
             raw = {"csv": self._fetch_text([*params, ("printas", "csv")]),
                    "gpx": self._fetch_text([*params, ("printas", "gpx")])}
+            if not parse_csv(raw["csv"]):
+                # Die Liste ist weltweit — MAX_GATEWAYS nächste Relais gibt
+                # es immer. Null geparste Zeilen heißt kaputte Antwort:
+                # laut scheitern statt still eine Lücke in der Route lassen,
+                # und so etwas nie cachen.
+                raise RuntimeError(
+                    f"relaislisten.darc.de lieferte keine verwertbaren "
+                    f"Relais für {glat:.1f}/{glng:.1f} — bitte später "
+                    f"erneut versuchen")
             self._cache.set(key, raw)
         repeaters = parse_csv(raw["csv"])
         return merge_gpx_coords(repeaters, parse_gpx_coords(raw["gpx"]))
