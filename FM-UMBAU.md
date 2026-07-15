@@ -253,9 +253,25 @@ Routen-Treffern exportieren, nicht aus der Roh-Antwort.
       `maxgateways=100`) deckungsgleich mit der Webansicht
       (`printas=html`) derselben Query — 100 Zeilen, identische
       (Call, QRG)-Menge.
-- [ ] **F1 — `fm_api`-Client:** Umkreis-Abfragen entlang einer Route,
-      Cache, Drosselung, Dedupe. Abnahme: `--modus fm`-Trockenlauf
-      listet plausible Relais einer bekannten Strecke.
+- [x] **F1 — `fm_api`-Client** (erledigt 2026-07-15): `client.py` mit
+      `DL3ELClient` — Umkreisabfrage je Stützpunkt (CSV + GPX derselben
+      Query), Disk-Cache `Cache(24*3600, "bmtools/fm")` mit Rohantworten
+      als Wert und auf 0,1° gerastetem Stützpunkt als Key (abgefragt
+      wird der Rasterpunkt selbst, damit Key und Query identisch sind;
+      Versatz ≤ ~7 km ist gegen den 129-km-Antwortradius unerheblich),
+      Drosselung 1 s Grundpause + Retry-Backoff (bewusst ohne
+      Retry-After-Logik — das CGI kennt kein Rate-Limit, daher eigener
+      `_fetch_text` statt Refactoring von `bm_api._fetch_json`),
+      `repeaters_along()` mit 50-km-Raster + Ziel und Dedupe. Tests mit
+      MockTransport gegen die F0-Fixtures (`tests/test_fm_client.py`).
+      Zusatzbefund: negative Koordinaten funktionieren — Formular-Wörter
+      `South`/`West` live verifiziert (London-Probe liefert GB3-Relais
+      mit korrekt negativen Längen aus dem GPX-Merge).
+      Abnahme: Trockenlauf Koblenz→Frankfurt→Würzburg→Nürnberg
+      (269 km, 7 Stützpunkte): 425 eindeutige FM-Relais, davon 51 im
+      25-km-Korridor — Verlauf plausibel (DB0ZK Koblenz km 0, Feldberg-
+      Relais km 62, DB0WZ Würzburg km 177, DB0FUE/DB0UN/DB0ANN am Ziel),
+      korrekt nach Streckenkilometer sortiert.
 - [ ] **F2 — Pipeline/Berichte:** `RepeaterLike`-Protocol, modusfähige
       Results, Tabelle/CSV/HTML/Karte. Abnahme: `bm-bahn --modus beide`
       Koblenz→Nürnberg; Karte zeigt beide Modi konsistent.
