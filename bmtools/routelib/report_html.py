@@ -137,8 +137,11 @@ Verbindung: {{ legs }}{% if interpolated %} ·
 <p><b>Alle Frequenzangaben aus Sicht deines Funkgeräts:</b>
 RX = Relais-Ausgabe (du hörst), TX = Relais-Eingabe (du sendest).
 {% if has_dmr %}Uhrzeiten von Zeitschaltungen sind Lokalzeit.{% endif %}
-{% if has_fm %}CTCSS ist der Ton, den dein Gerät sendet (Encode);
-der Empfang bleibt standardmäßig offen.{% endif %}</p>
+{% if has_fm %}<b>Wichtig bei FM:</b> Viele Relais öffnen nur mit ihrem
+CTCSS-Pilotton — der angegebene Ton wird deshalb immer als Sendeton
+(Encode) gesetzt und automatisch mitgesendet; der Empfang bleibt
+standardmäßig offen. Relais ohne CTCSS-Angabe („—") brauchen zum Öffnen
+ggf. einen 1750-Hz-Tonruf.{% endif %}</p>
 
 <h2>Übersicht</h2>
 <div class="tablewrap"><table>

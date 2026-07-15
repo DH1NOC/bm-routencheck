@@ -84,6 +84,9 @@ def print_table(results: list[RepeaterResult], console: Console | None = None) -
     if has_dmr:
         caption_parts += ["⏱ = zeitgeschaltet (Uhrzeiten: Lokalzeit)",
                           "⇄ = Cluster (lokale TG ⇄ Cluster-TG)"]
+    if has_fm:
+        caption_parts.append("CTCSS = Pilotton, wird gesendet "
+                             "(viele Relais öffnen nur damit)")
     caption_parts.append("gedimmt = nur Grenzbereich (Beugung)")
     modus = "beide" if mixed else ("fm" if has_fm else "dmr")
     table = Table(

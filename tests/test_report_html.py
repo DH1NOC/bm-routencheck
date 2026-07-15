@@ -53,7 +53,9 @@ def test_bericht_beide_modi_mit_fm_kanaltabelle(tmp_path: Path):
     assert "DB0FX 70cm" in html                 # FM-Kanalname mit Band
     assert "-7.6 MHz" in html                   # Ablage aus rx−tx berechnet
     assert "88.5" in html
-    assert "CTCSS ist der Ton" in html          # Encode-Festlegung erklärt
+    # Pilotton-Hinweis: Ton wird gesendet, Relais ohne Angabe ggf. Tonruf
+    assert "CTCSS-Pilotton" in html
+    assert "1750-Hz-Tonruf" in html
     assert "Locator JO40AA" in html
     assert html.count("<html") == 1
 
