@@ -340,6 +340,7 @@ bm-routencheck/
 │   ├── cli.py            # bmtools-Einstieg: Menü und Subcommand-Dispatcher
 │   └── ui.py             # Gemeinsames CLI-Erscheinungsbild (Banner, Farben)
 ├── tests/                # pytest-Suite (Parser, Geometrie, Berichte, Clients)
+├── packaging/            # PyInstaller-Einstieg + macOS-Entitlements für Releases
 ├── out/                  # Generierte Berichte/Karten/CSV je Route (nicht versioniert)
 ├── pyproject.toml        # Paketdefinition, Abhängigkeiten, Entry Points
 ├── PROJEKTPLAN.md        # Offene Punkte, Festlegungen, API-Eigenheiten
@@ -354,3 +355,38 @@ bm-routencheck/
 - **`bmtools/routelib/`** — die gesamte Auswertung von der Routen-Geometrie
   bis zu den Ausgabedateien; die Tools in `rail/` und `road/` liefern nur die
   Route an diese Pipeline.
+
+## Releases
+
+Releases werden manuell über GitHub Actions gebaut:
+**Actions → Release → „Run workflow"**, dort Branch und Versionssprung wählen.
+
+- **Branch bestimmt die Art:** `main` erzeugt einen regulären Release
+  (Version wird in `pyproject.toml` committet und getaggt, z. B. `v0.2.0`);
+  jeder andere Branch erzeugt eine **Beta** (nur Tag, z. B. `v0.2.0-beta.1`,
+  auf GitHub als Pre-Release markiert — die Versionsnummer im Branch bleibt
+  unverändert).
+- **Versionssprung:** `major` erhöht die Featureversion (`0.1.0 → 0.2.0`),
+  `minor` den Patch (`0.1.0 → 0.1.1`).
+- **Assets:** Quell-ZIP sowie eigenständige Binaries (PyInstaller) für
+  Windows (x64), Linux (x64) und macOS (Apple Silicon). Die Binaries brauchen
+  kein installiertes Python; unter Linux/macOS nach dem Entpacken ggf.
+  `chmod +x bmtools`.
+
+### macOS-Signierung und Notarisierung
+
+Das macOS-Binary wird automatisch signiert und notarisiert, wenn folgende
+**Repository-Secrets** (Settings → Secrets and variables → Actions) gesetzt
+sind — fehlen sie, wird mit Warnung unsigniert gebaut:
+
+| Secret | Inhalt |
+| --- | --- |
+| `APPLE_CERT_P12` | „Developer ID Application"-Zertifikat als Base64 (`base64 -i zertifikat.p12 \| pbcopy`) |
+| `APPLE_CERT_PASSWORD` | Passwort des `.p12`-Exports |
+| `APPLE_ID` | Apple-ID (E-Mail) des Developer-Accounts |
+| `APPLE_TEAM_ID` | Team-ID (developer.apple.com → Membership) |
+| `APPLE_APP_PASSWORD` | App-spezifisches Passwort (account.apple.com → Anmeldung & Sicherheit) |
+
+Das Zertifikat („Developer ID Application", *nicht* „Apple Development")
+wird auf developer.apple.com unter *Certificates* erstellt und über die
+Schlüsselbundverwaltung als `.p12` mit Passwort exportiert.

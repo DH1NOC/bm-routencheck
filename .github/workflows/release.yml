@@ -1,0 +1,232 @@
+# Release: manuell starten unter Actions → Release → "Run workflow".
+#
+# Der gewählte Branch bestimmt die Art des Releases:
+#   main           → regulärer Release (Version wird in pyproject.toml
+#                    committet und getaggt, z. B. v0.2.0)
+#   Feature-Branch → Beta (nur Tag, z. B. v0.2.0-beta.1; die Versionsnummer
+#                    im Branch bleibt unangetastet)
+#
+# Der Versionssprung erhöht die Version aus pyproject.toml:
+#   major = Featureversion (0.1.0 → 0.2.0)
+#   minor = Patch          (0.1.0 → 0.1.1)
+#
+# Assets: Quell-ZIP sowie Binaries für Windows, Linux und macOS.
+# Das macOS-Binary wird signiert und notarisiert, sofern die Secrets
+# APPLE_CERT_P12, APPLE_CERT_PASSWORD, APPLE_ID, APPLE_TEAM_ID und
+# APPLE_APP_PASSWORD hinterlegt sind (siehe README, Abschnitt Releases).
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      sprung:
+        description: "major = Featureversion erhöhen, minor = Patch erhöhen"
+        required: true
+        type: choice
+        options:
+          - major
+          - minor
+
+permissions:
+  contents: write
+
+# Nie zwei Releases gleichzeitig (Versionsberechnung wäre sonst ein Wettlauf).
+concurrency: release
+
+jobs:
+  # Kein Release ohne grüne QS — gleiche Prüfungen wie bei jedem Push.
+  qs:
+    uses: ./.github/workflows/qs.yml
+
+  version:
+    name: Version bestimmen und taggen
+    needs: qs
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.rechnen.outputs.version }}     # PEP 440, z. B. 0.2.0b1
+      label: ${{ steps.rechnen.outputs.label }}         # lesbar, z. B. 0.2.0-beta.1
+      tag: ${{ steps.rechnen.outputs.tag }}             # z. B. v0.2.0-beta.1
+      prerelease: ${{ steps.rechnen.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # alle Tags, für die Beta-Zählung
+      - name: Version berechnen, taggen, bei Release committen
+        id: rechnen
+        env:
+          SPRUNG: ${{ inputs.sprung }}
+        run: |
+          set -euo pipefail
+
+          BASIS=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)
+          IFS=. read -r HAUPT FEATURE PATCH <<< "$BASIS"
+          if [ "$SPRUNG" = "major" ]; then
+            FEATURE=$((FEATURE + 1)); PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+          VERSION="$HAUPT.$FEATURE.$PATCH"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            LABEL="$VERSION"
+            TAG="v$VERSION"
+            PRERELEASE=false
+            sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+            git commit -am "Release $VERSION"
+            git tag "$TAG"
+            git push origin HEAD:main "$TAG"
+          else
+            # Fortlaufende Beta-Nummer je Zielversion (beta.1, beta.2, …)
+            N=$(( $(git tag --list "v$VERSION-beta.*" | wc -l) + 1 ))
+            LABEL="$VERSION-beta.$N"
+            TAG="v$LABEL"
+            VERSION="${VERSION}b$N"  # PEP-440-Schreibweise für pyproject.toml
+            PRERELEASE=true
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+
+          {
+            echo "version=$VERSION"
+            echo "label=$LABEL"
+            echo "tag=$TAG"
+            echo "prerelease=$PRERELEASE"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Binary ${{ matrix.plattform }}
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            plattform: linux-x64
+          - os: windows-latest
+            plattform: windows-x64
+          - os: macos-latest
+            plattform: macos-arm64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash  # einheitliche Skripte, auch auf Windows (Git Bash)
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Version eintragen (bei Beta nur lokal, nicht committet)
+        run: |
+          sed -i.bak 's/^version = ".*"/version = "${{ needs.version.outputs.version }}"/' pyproject.toml
+          rm pyproject.toml.bak
+      - name: Abhängigkeiten installieren
+        run: pip install . pyinstaller
+
+      - name: Signatur-Zertifikat importieren (macOS)
+        if: runner.os == 'macOS'
+        env:
+          CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
+          CERT_PASSWORT: ${{ secrets.APPLE_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CERT_P12" ]; then
+            echo "::warning::Secret APPLE_CERT_P12 fehlt — macOS-Binary bleibt unsigniert."
+            exit 0
+          fi
+          KEYCHAIN_PW=$(uuidgen)
+          echo "$CERT_P12" | base64 -d > "$RUNNER_TEMP/zertifikat.p12"
+          security create-keychain -p "$KEYCHAIN_PW" build.keychain
+          security set-keychain-settings -lut 1800 build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PW" build.keychain
+          security import "$RUNNER_TEMP/zertifikat.p12" -k build.keychain \
+            -P "$CERT_PASSWORT" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s \
+            -k "$KEYCHAIN_PW" build.keychain > /dev/null
+          IDENTITAET=$(security find-identity -v -p codesigning build.keychain \
+            | awk -F'"' '/Developer ID Application/ {print $2; exit}')
+          echo "SIGNIER_IDENTITAET=$IDENTITAET" >> "$GITHUB_ENV"
+
+      - name: Binary bauen (PyInstaller)
+        run: |
+          set -euo pipefail
+          EXTRA=()
+          if [ -n "${SIGNIER_IDENTITAET:-}" ]; then
+            # Signiert auch alle eingebetteten Bibliotheken (Pflicht für
+            # Notarisierung mit Hardened Runtime).
+            EXTRA+=(--codesign-identity "$SIGNIER_IDENTITAET"
+                    --osx-entitlements-file packaging/entitlements.plist)
+          fi
+          pyinstaller --onefile --name bmtools \
+            --collect-submodules bmtools \
+            --collect-data folium --collect-data branca \
+            ${EXTRA[@]+"${EXTRA[@]}"} packaging/entry.py
+
+      - name: Notarisieren (macOS)
+        if: runner.os == 'macOS' && env.SIGNIER_IDENTITAET != ''
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORT: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          ditto -c -k dist/bmtools "$RUNNER_TEMP/notarisierung.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarisierung.zip" \
+            --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORT" --wait
+
+      - name: Paket schnüren
+        env:
+          LABEL: ${{ needs.version.outputs.label }}
+          PLATTFORM: ${{ matrix.plattform }}
+        run: |
+          set -euo pipefail
+          mkdir -p out/release
+          case "$PLATTFORM" in
+            windows-*) cp dist/bmtools.exe "out/release/bmtools-$LABEL-$PLATTFORM.exe" ;;
+            linux-*)   tar -C dist -czf "out/release/bmtools-$LABEL-$PLATTFORM.tar.gz" bmtools ;;
+            macos-*)   ditto -c -k dist/bmtools "out/release/bmtools-$LABEL-$PLATTFORM.zip" ;;
+          esac
+      - uses: actions/upload-artifact@v7
+        with:
+          name: binary-${{ matrix.plattform }}
+          path: out/release/*
+          if-no-files-found: error
+
+  release:
+    name: Release veröffentlichen
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+      - uses: actions/download-artifact@v8
+        with:
+          path: out/release
+          merge-multiple: true
+      - name: Quell-ZIP packen
+        env:
+          LABEL: ${{ needs.version.outputs.label }}
+        run: |
+          git archive --format=zip --prefix="bm-routencheck-$LABEL/" \
+            -o "out/release/bm-routencheck-$LABEL-quellen.zip" HEAD
+      - name: GitHub-Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+          LABEL: ${{ needs.version.outputs.label }}
+          PRERELEASE: ${{ needs.version.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          FLAGS=(--title "bm-routencheck $LABEL" --generate-notes)
+          if [ "$PRERELEASE" = "true" ]; then
+            FLAGS+=(--prerelease)
+          fi
+          gh release create "$TAG" out/release/* "${FLAGS[@]}"
