@@ -16,6 +16,7 @@ unerheblich.
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 
 import httpx
 
@@ -145,9 +146,21 @@ class DL3ELClient:
         repeaters = parse_csv(raw["csv"])
         return merge_gpx_coords(repeaters, parse_gpx_coords(raw["gpx"]))
 
-    def repeaters_along(self, points: list[Point]) -> list[FmRepeater]:
-        """Alle FM-Relais entlang einer Route (STEP_KM-Raster, dedupliziert)."""
+    def repeaters_along(
+        self, points: list[Point],
+        progress: Callable[[int, int], None] | None = None,
+    ) -> list[FmRepeater]:
+        """Alle FM-Relais entlang einer Route (STEP_KM-Raster, dedupliziert).
+
+        progress(fertig, gesamt) wird vorab mit (0, gesamt) und dann nach
+        jedem Stützpunkt gerufen — UI-frei, die CLI hängt daran ihren
+        Fortschrittsbalken."""
+        grid = query_points(points)
+        if progress:
+            progress(0, len(grid))
         found: list[FmRepeater] = []
-        for lat, lng in query_points(points):
+        for i, (lat, lng) in enumerate(grid, start=1):
             found.extend(self.repeaters_near(lat, lng))
+            if progress:
+                progress(i, len(grid))
         return dedupe(found)

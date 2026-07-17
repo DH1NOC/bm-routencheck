@@ -11,6 +11,7 @@ import math
 import os
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -79,19 +80,39 @@ class TerrainModel:
         with self._dl_lock:
             self.tiles_downloaded += 1
 
-    def _download_missing(self, keys: set[tuple[int, int]]) -> None:
+    def _download_missing(
+        self, keys: set[tuple[int, int]],
+        progress: Callable[[int, int], None] | None = None,
+    ) -> None:
         """Fehlende Kacheln parallel laden — der sequenzielle Einzelabruf
-        war bei kaltem Cache der Flaschenhals des gesamten Laufs."""
+        war bei kaltem Cache der Flaschenhals des gesamten Laufs.
+
+        progress(fertig, gesamt) wird vorab mit (0, gesamt) und je
+        geladener Kachel gerufen — aus den Download-Threads heraus, der
+        Empfänger muss threadsicher sein (rich.progress ist es)."""
         missing = [k for k in keys
                    if k not in self._tiles and not self._tile_path(*k).exists()]
         if not missing:
             return
+        if progress:
+            progress(0, len(missing))
+        fertig = 0
+
+        def laden(tx: int, ty: int) -> None:
+            nonlocal fertig
+            self._download(tx, ty)
+            if progress:
+                with self._dl_lock:
+                    fertig += 1
+                    stand = fertig
+                progress(stand, len(missing))
+
         if len(missing) == 1:
-            self._download(*missing[0])
+            laden(*missing[0])
             return
         with ThreadPoolExecutor(
                 max_workers=min(MAX_PARALLEL_DOWNLOADS, len(missing))) as pool:
-            for f in [pool.submit(self._download, tx, ty)
+            for f in [pool.submit(laden, tx, ty)
                       for tx, ty in missing]:
                 f.result()
 
@@ -120,10 +141,12 @@ class TerrainModel:
         py = np.clip((y * 256).astype(np.int64), 0, max_px)
         return px // 256, px % 256, py // 256, py % 256
 
-    def prefetch(self, lats: np.ndarray, lons: np.ndarray) -> None:
+    def prefetch(self, lats: np.ndarray, lons: np.ndarray,
+                 progress: Callable[[int, int], None] | None = None) -> None:
         """Alle für die Koordinaten nötigen Kacheln parallel vorladen."""
         tx, _, ty, _ = self._tile_indices(lats, lons)
-        self._download_missing(set(zip(tx.tolist(), ty.tolist(), strict=True)))
+        self._download_missing(set(zip(tx.tolist(), ty.tolist(), strict=True)),
+                               progress)
 
     def elevations(self, lats: np.ndarray, lons: np.ndarray) -> np.ndarray:
         """Geländehöhen (m üNN) für Koordinaten-Arrays; Nearest Neighbor —
