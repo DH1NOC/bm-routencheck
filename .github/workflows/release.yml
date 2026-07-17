@@ -152,6 +152,8 @@ jobs:
           IDENTITAET=$(security find-identity -v -p codesigning build.keychain \
             | awk -F'"' '/Developer ID Application/ {print $2; exit}')
           echo "SIGNIER_IDENTITAET=$IDENTITAET" >> "$GITHUB_ENV"
+          # Für spätere Schritte (Installer-Import braucht die Partition-List)
+          echo "KEYCHAIN_PW=$KEYCHAIN_PW" >> "$GITHUB_ENV"
 
       - name: Binary bauen (PyInstaller)
         run: |
@@ -168,18 +170,91 @@ jobs:
             --collect-data folium --collect-data branca \
             ${EXTRA[@]+"${EXTRA[@]}"} packaging/entry.py
 
-      - name: Notarisieren (macOS)
+      - name: Notarisieren + Installationspaket (macOS)
         if: runner.os == 'macOS' && env.SIGNIER_IDENTITAET != ''
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_PASSWORT: ${{ secrets.APPLE_APP_PASSWORD }}
+          INSTALLER_P12: ${{ secrets.APPLE_INSTALLER_CERT_P12 }}
+          INSTALLER_PASSWORT: ${{ secrets.APPLE_INSTALLER_CERT_PASSWORD }}
+          VERSION: ${{ needs.version.outputs.version }}
+          LABEL: ${{ needs.version.outputs.label }}
         run: |
           set -euo pipefail
+
+          # notarytool meldet auch abgelehnte Einreichungen nicht immer als
+          # Fehler-Exitcode — daher Status explizit prüfen und bei allem
+          # außer "Accepted" das Prüfprotokoll ausgeben und abbrechen.
+          notarisieren() {
+            local ergebnis id status
+            ergebnis=$(xcrun notarytool submit "$1" \
+              --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+              --password "$APPLE_APP_PASSWORT" --wait --output-format json)
+            id=$(echo "$ergebnis" | jq -r .id)
+            status=$(echo "$ergebnis" | jq -r .status)
+            echo "Notarisierung $1: $status (Submission $id)"
+            if [ "$status" != "Accepted" ]; then
+              xcrun notarytool log "$id" \
+                --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+                --password "$APPLE_APP_PASSWORT" || true
+              exit 1
+            fi
+          }
+
           ditto -c -k dist/bmtools "$RUNNER_TEMP/notarisierung.zip"
-          xcrun notarytool submit "$RUNNER_TEMP/notarisierung.zip" \
-            --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
-            --password "$APPLE_APP_PASSWORT" --wait
+          notarisieren "$RUNNER_TEMP/notarisierung.zip"
+
+          # Beta-Befund 2026-07-17: Beim Doppelklick behandelt Gatekeeper
+          # ein nacktes Unix-Binary nie wie eine App ("Apple konnte nicht
+          # überprüfen …"), und stapeln lässt sich das Ticket daran auch
+          # nicht. Fürs Doppelklick-Publikum daher zusätzlich ein
+          # signiertes, notarisiertes UND gestapeltes .pkg, das bmtools
+          # nach /usr/local/bin installiert. Braucht das separate
+          # "Developer ID Installer"-Zertifikat; ohne die beiden
+          # INSTALLER-Secrets entfällt nur das .pkg (mit Warnung).
+          if [ -z "$INSTALLER_P12" ]; then
+            echo "::warning::Secret APPLE_INSTALLER_CERT_P12 fehlt — es wird kein macOS-Installationspaket (.pkg) gebaut."
+            exit 0
+          fi
+          echo "$INSTALLER_P12" | base64 -d > "$RUNNER_TEMP/installer.p12"
+          security import "$RUNNER_TEMP/installer.p12" -k build.keychain \
+            -P "$INSTALLER_PASSWORT" \
+            -T /usr/bin/pkgbuild -T /usr/bin/productsign
+          security set-key-partition-list -S apple-tool:,apple: -s \
+            -k "$KEYCHAIN_PW" build.keychain > /dev/null
+          INSTALLER_IDENTITAET=$(security find-identity -v build.keychain \
+            | awk -F'"' '/Developer ID Installer/ {print $2; exit}')
+
+          mkdir -p pkgroot/usr/local/bin out/release
+          # -X: ohne erweiterte Attribute (sonst landen ._-Dateien im Paket)
+          cp -X dist/bmtools pkgroot/usr/local/bin/bmtools
+          PKG="out/release/bmtools-$LABEL-macos-arm64.pkg"
+          pkgbuild --root pkgroot --install-location / \
+            --identifier de.dh1noc.bmtools --version "$VERSION" \
+            --sign "$INSTALLER_IDENTITAET" "$PKG"
+          notarisieren "$PKG"
+          xcrun stapler staple "$PKG"
+
+      - name: Gatekeeper-Freigabe abwarten (macOS)
+        if: runner.os == 'macOS' && env.SIGNIER_IDENTITAET != ''
+        run: |
+          set -euo pipefail
+          # Beta-Befund 2026-07-17: Direkt nach der Notarisierung braucht
+          # Apples CDN einige Minuten, bis das Ticket abrufbar ist — wer
+          # sofort herunterlädt, sieht sonst "Apple konnte nicht
+          # überprüfen …". Der Release wird erst freigegeben, wenn
+          # Gatekeeper das Binary tatsächlich akzeptiert.
+          for versuch in $(seq 1 20); do
+            if spctl --assess --type install dist/bmtools 2>/dev/null; then
+              spctl --assess --type install -vv dist/bmtools
+              exit 0
+            fi
+            echo "Ticket noch nicht verteilt — warte 15 s (Versuch $versuch/20)"
+            sleep 15
+          done
+          echo "::error::Gatekeeper akzeptiert das Binary nach 5 Minuten nicht."
+          exit 1
 
       - name: Paket schnüren
         env:
