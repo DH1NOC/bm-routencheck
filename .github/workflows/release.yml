@@ -152,8 +152,6 @@ jobs:
           IDENTITAET=$(security find-identity -v -p codesigning build.keychain \
             | awk -F'"' '/Developer ID Application/ {print $2; exit}')
           echo "SIGNIER_IDENTITAET=$IDENTITAET" >> "$GITHUB_ENV"
-          # Für spätere Schritte (Installer-Import braucht die Partition-List)
-          echo "KEYCHAIN_PW=$KEYCHAIN_PW" >> "$GITHUB_ENV"
 
       - name: Binary bauen (PyInstaller)
         run: |
@@ -170,15 +168,12 @@ jobs:
             --collect-data folium --collect-data branca \
             ${EXTRA[@]+"${EXTRA[@]}"} packaging/entry.py
 
-      - name: Notarisieren + Installationspaket (macOS)
+      - name: Notarisieren + DMG (macOS)
         if: runner.os == 'macOS' && env.SIGNIER_IDENTITAET != ''
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_PASSWORT: ${{ secrets.APPLE_APP_PASSWORD }}
-          INSTALLER_P12: ${{ secrets.APPLE_INSTALLER_CERT_P12 }}
-          INSTALLER_PASSWORT: ${{ secrets.APPLE_INSTALLER_CERT_PASSWORD }}
-          VERSION: ${{ needs.version.outputs.version }}
           LABEL: ${{ needs.version.outputs.label }}
         run: |
           set -euo pipefail
@@ -205,36 +200,30 @@ jobs:
           ditto -c -k dist/bmtools "$RUNNER_TEMP/notarisierung.zip"
           notarisieren "$RUNNER_TEMP/notarisierung.zip"
 
-          # Beta-Befund 2026-07-17: Beim Doppelklick behandelt Gatekeeper
-          # ein nacktes Unix-Binary nie wie eine App ("Apple konnte nicht
-          # überprüfen …"), und stapeln lässt sich das Ticket daran auch
-          # nicht. Fürs Doppelklick-Publikum daher zusätzlich ein
-          # signiertes, notarisiertes UND gestapeltes .pkg, das bmtools
-          # nach /usr/local/bin installiert. Braucht das separate
-          # "Developer ID Installer"-Zertifikat; ohne die beiden
-          # INSTALLER-Secrets entfällt nur das .pkg (mit Warnung).
-          if [ -z "$INSTALLER_P12" ]; then
-            echo "::warning::Secret APPLE_INSTALLER_CERT_P12 fehlt — es wird kein macOS-Installationspaket (.pkg) gebaut."
-            exit 0
-          fi
-          echo "$INSTALLER_P12" | base64 -d > "$RUNNER_TEMP/installer.p12"
-          security import "$RUNNER_TEMP/installer.p12" -k build.keychain \
-            -P "$INSTALLER_PASSWORT" \
-            -T /usr/bin/pkgbuild -T /usr/bin/productsign
-          security set-key-partition-list -S apple-tool:,apple: -s \
-            -k "$KEYCHAIN_PW" build.keychain > /dev/null
-          INSTALLER_IDENTITAET=$(security find-identity -v build.keychain \
-            | awk -F'"' '/Developer ID Installer/ {print $2; exit}')
-
-          mkdir -p pkgroot/usr/local/bin out/release
-          # -X: ohne erweiterte Attribute (sonst landen ._-Dateien im Paket)
-          cp -X dist/bmtools pkgroot/usr/local/bin/bmtools
-          PKG="out/release/bmtools-$LABEL-macos-arm64.pkg"
-          pkgbuild --root pkgroot --install-location / \
-            --identifier de.dh1noc.bmtools --version "$VERSION" \
-            --sign "$INSTALLER_IDENTITAET" "$PKG"
-          notarisieren "$PKG"
-          xcrun stapler staple "$PKG"
+          # Beta-Befund 2026-07-17: Das Notarisierungs-Ticket lässt sich
+          # an ein nacktes Binary nicht anheften — direkt nach dem Release
+          # (Ticket noch nicht auf Apples CDN) meldet Gatekeeper dann
+          # "Apple konnte nicht überprüfen …". Daher zusätzlich ein DMG:
+          # signiert, notarisiert und gestapelt — das Ticket steckt in
+          # der Datei und wird offline geprüft. Bewusst KEIN Installer
+          # (.pkg): Nutzerfestlegung 2026-07-17, nichts ins System
+          # installieren; ZIP bleibt für Terminal-Nutzer dabei.
+          mkdir -p dmgroot out/release
+          # -X: ohne erweiterte Attribute (sonst landen ._-Dateien im DMG)
+          cp -X dist/bmtools dmgroot/bmtools
+          printf '%s\n' \
+            "bmtools — BM-Routencheck" \
+            "" \
+            "Terminalprogramm: bmtools an einen beliebigen Ort kopieren" \
+            "und im Terminal starten:  ./bmtools" \
+            "Ein Doppelklick im Finder ist nicht vorgesehen." \
+            > dmgroot/LIESMICH.txt
+          DMG="out/release/bmtools-$LABEL-macos-arm64.dmg"
+          hdiutil create -volname "bmtools $LABEL" -srcfolder dmgroot \
+            -format UDZO -ov "$DMG"
+          codesign --force --timestamp --sign "$SIGNIER_IDENTITAET" "$DMG"
+          notarisieren "$DMG"
+          xcrun stapler staple "$DMG"
 
       - name: Gatekeeper-Freigabe abwarten (macOS)
         if: runner.os == 'macOS' && env.SIGNIER_IDENTITAET != ''

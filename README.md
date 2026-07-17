@@ -372,13 +372,15 @@ Releases werden manuell über GitHub Actions gebaut:
   Windows (x64), Linux (x64) und macOS (Apple Silicon). Die Binaries brauchen
   kein installiertes Python; unter Linux/macOS nach dem Entpacken ggf.
   `chmod +x bmtools`.
-- **macOS-Nutzung:** bmtools ist ein Terminalprogramm — das nackte Binary
-  aus dem ZIP startet man im Terminal (`./bmtools`); ein Doppelklick im
-  Finder führt bei jedem Unix-Binary zur Gatekeeper-Warnung „Apple konnte
-  nicht überprüfen …", auch bei korrekter Notarisierung. Für
-  Doppelklick-Installation liegt dem Release ein `.pkg` bei (signiert,
-  notarisiert, Ticket angeheftet — funktioniert auch offline); es
-  installiert `bmtools` nach `/usr/local/bin`.
+- **macOS-Nutzung:** bmtools ist ein Terminalprogramm — Binary aus ZIP
+  oder DMG an einen beliebigen Ort kopieren und im Terminal starten
+  (`./bmtools`). Ein Doppelklick im Finder führt bei jedem nackten
+  Unix-Binary zur Gatekeeper-Warnung „Apple konnte nicht überprüfen …",
+  auch bei korrekter Notarisierung. Das DMG ist signiert, notarisiert
+  und gestapelt (Ticket steckt in der Datei) — seine Prüfung
+  funktioniert damit sofort nach dem Release und auch offline; beim ZIP
+  braucht Apples Online-Prüfung nach einem frischen Release ein paar
+  Minuten Vorlauf.
 
 ### macOS-Signierung und Notarisierung
 
@@ -393,12 +395,8 @@ sind — fehlen sie, wird mit Warnung unsigniert gebaut:
 | `APPLE_ID` | Apple-ID (E-Mail) des Developer-Accounts |
 | `APPLE_TEAM_ID` | Team-ID (developer.apple.com → Membership) |
 | `APPLE_APP_PASSWORD` | App-spezifisches Passwort (account.apple.com → Anmeldung & Sicherheit) |
-| `APPLE_INSTALLER_CERT_P12` | *(optional)* „Developer ID Installer"-Zertifikat als Base64 — nur fürs `.pkg` |
-| `APPLE_INSTALLER_CERT_PASSWORD` | *(optional)* Passwort dieses `.p12`-Exports |
 
-Beide Zertifikate lassen sich am einfachsten in Xcode erstellen
+Das Zertifikat lässt sich am einfachsten in Xcode erstellen
 (Settings → Accounts → Team → „Manage Certificates…" → „+" →
-„Developer ID Application" bzw. „Developer ID Installer") und dort per
-Rechtsklick → „Export Certificate…" als `.p12` mit Passwort exportieren.
-Fehlen die beiden INSTALLER-Secrets, entfällt nur das `.pkg` —
-signiertes/notarisiertes Binary-ZIP gibt es trotzdem.
+„Developer ID Application") und dort per Rechtsklick →
+„Export Certificate…" als `.p12` mit Passwort exportieren.
