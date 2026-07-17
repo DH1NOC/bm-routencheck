@@ -274,7 +274,8 @@ def main(profile: str) -> int:
             open_browser=args.open, zone=zone,
             route_label=route_label, waypoint_icon=icon,
             refresh=args.refresh, modus=args.modus,
-            bandbreite=args.bandbreite, ctcss_decode=args.ctcss_decode)
+            bandbreite=args.bandbreite, ctcss_decode=args.ctcss_decode,
+            interactive=interactive)
     except (KeyboardInterrupt, EOFError):
         console.print("\n[dim]Abgebrochen.[/dim]")
         return 130

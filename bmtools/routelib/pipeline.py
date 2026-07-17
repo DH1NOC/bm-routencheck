@@ -8,13 +8,14 @@ sind bewusst unverändert.
 from __future__ import annotations
 
 import re
-import webbrowser
 from pathlib import Path
 
+import questionary
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import track
 
+from bmtools import ui
 from bmtools.bm_api import BrandmeisterClient, DeviceProfile, TalkgroupSub
 from bmtools.fm_api import DL3ELClient, FmRepeater, band_label
 
@@ -24,6 +25,7 @@ from .corridor import find_in_corridor
 from .coverage import estimate_coverage
 from .mapview import write_map
 from .model import RepeaterLike, Route
+from .oeffnen import system_oeffnen
 from .report import FUNK_LABEL, RepeaterResult, print_table, write_csv
 from .report_html import write_html_report
 from .terrain import TerrainError, TerrainModel
@@ -70,7 +72,8 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
                  refresh: bool = False,
                  modus: str = "beide",
                  bandbreite: str = "12.5",
-                 ctcss_decode: bool = False) -> int:
+                 ctcss_decode: bool = False,
+                 interactive: bool = False) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     cache_note = " [dim](Cache wird ignoriert)[/dim]" if refresh else ""
@@ -195,6 +198,13 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
     console.print(Panel.fit("\n".join(lines), border_style="green"))
 
     if open_browser:
-        webbrowser.open(html_path.resolve().as_uri())
-        webbrowser.open(map_path.resolve().as_uri())
+        # Nicht webbrowser.open(): siehe oeffnen.py (Windows-Beta-Befund)
+        system_oeffnen(html_path)
+        system_oeffnen(map_path)
+    # Beta-Wunsch 2026-07-17: Ausgabeordner (Codeplug-CSVs!) direkt im
+    # Dateimanager öffnen können. Ctrl-C/ESC zählt als Nein.
+    if interactive and questionary.confirm(
+            "Ausgabeordner im Dateimanager öffnen?", default=False,
+            style=ui.QSTYLE).ask():
+        system_oeffnen(out_dir)
     return 0

@@ -89,16 +89,32 @@ def main() -> int:
         for name, (icon, desc, _) in TOOLS.items()
     ]
     choices += [Separator(), Choice("🚪  Beenden", value=None)]
-    tool = questionary.select(
-        "Welches Tool?", choices=choices,
-        style=ui.QSTYLE, pointer=ui.POINTER, qmark="",
-    ).ask()
-    if tool is None:
-        console.print("[dim]Bis zum nächsten Mal — 73![/dim]")
-        return 0
-    console.print()
-    sys.argv = [f"bmtools {tool}"]
-    return TOOLS[tool][2]()
+    code = 0
+    # Beta-Wunsch 2026-07-17: Nach einem Lauf nicht sofort beenden,
+    # sondern zurück zur Tool-Auswahl anbieten (Ctrl-C/ESC = beenden).
+    while True:
+        tool = questionary.select(
+            "Welches Tool?", choices=choices,
+            style=ui.QSTYLE, pointer=ui.POINTER, qmark="",
+        ).ask()
+        if tool is None:
+            console.print("[dim]Bis zum nächsten Mal — 73![/dim]")
+            return code
+        console.print()
+        sys.argv = [f"bmtools {tool}"]
+        code = TOOLS[tool][2]()
+        console.print()
+        weiter = questionary.select(
+            "Und jetzt?",
+            choices=[
+                Choice("🔁  Neuer Lauf — zurück zur Tool-Auswahl", "nochmal"),
+                Choice("🚪  Beenden", "ende"),
+            ],
+            style=ui.QSTYLE, pointer=ui.POINTER, qmark="",
+        ).ask()
+        if weiter != "nochmal":
+            return code
+        console.print()
 
 
 if __name__ == "__main__":
