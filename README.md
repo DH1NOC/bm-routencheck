@@ -1,199 +1,129 @@
 # BM-Routencheck
 
-Kommandozeilen-Tools, die ermitteln, welche Amateurfunk-Relais entlang einer
-Route erreichbar sind — per Bahn, Auto oder Fahrrad: DMR-Relais des
-[Brandmeister-Netzwerks](https://brandmeister.network) und analoge FM-Relais
-aus der [DL3EL-Relaisliste](https://relaislisten.darc.de) (umschaltbar per
-`--modus`, Default: beide). Die Erreichbarkeit wird pro Streckenpunkt über
-ein Sichtlinien-Geländemodell berechnet, nicht über einen bloßen
-Entfernungsradius.
+Welche Amateurfunk-Relais erreichst du unterwegs? BM-Routencheck ermittelt
+für eine Route — per Bahn, Auto oder Fahrrad — alle rechnerisch erreichbaren
+DMR-Relais des [Brandmeister-Netzwerks](https://brandmeister.network) und
+analogen FM-Relais aus der
+[DL3EL-Relaisliste](https://relaislisten.darc.de). Die Erreichbarkeit wird
+pro Streckenpunkt über ein Sichtlinien-Geländemodell berechnet, nicht über
+einen bloßen Entfernungsradius.
 
-Drei Tools, ein gemeinsamer Kern:
-
-| Kommando | Route aus |
-|---|---|
-| `bm-bahn` | Zugverbindung (bahn.de-Link oder Start-/Zielbahnhof, via [Transitous](https://transitous.org)) |
-| `bm-auto` | Google-Maps-Link oder Start-/Zieladresse (OSRM-Routing) |
-| `bm-rad` | Komoot-Tour, Google-Maps-Link, GPX-Datei oder Start/Ziel |
-
-Jeder Lauf erzeugt in `out/<route>/` einen HTML-Bericht mit Kanaltabellen je
-Relais (Rufzeichen, Frequenzen; bei DMR Colorcode und Talkgroups in TS1/TS2,
-bei FM CTCSS und Ablage), eine interaktive Karte, eine CSV-Datei, einen
-AnyTone-Codeplug-Export mit gemischter Zone und — sobald FM-Relais dabei
-sind — ein CHIRP-CSV der analogen Kanäle.
+Jeder Lauf erzeugt einen HTML-Bericht mit fertigen Kanaltabellen je Relais,
+eine interaktive Karte, eine CSV-Datei und fertige Codeplug-Dateien für
+AnyTone-CPS und [CHIRP](https://chirpmyradio.com).
 
 ![Interaktive Karte eines Laufs: Route mit Relais-Markern und geschätzten Sichtfeldern](docs/beispielkarte.png)
 
-*Die interaktive Karte (`karte.html`) eines `bm-auto`-Laufs: Die Strecke ist
-nach Erreichbarkeit gezeichnet (durchgezogen = Sicht, gestrichelt =
-Grenzbereich, gepunktet = Schatten), die blauen Flächen sind die berechneten
-Sichtfelder der erreichbaren Relais — je dunkler, desto mehr Relais.*
-
-Paketdefinition und Entry Points stehen in [`pyproject.toml`](pyproject.toml);
-offene Punkte, verbindliche Festlegungen und die Eigenheiten der externen
-Datenquellen in [`PROJEKTPLAN.md`](PROJEKTPLAN.md).
+*Die interaktive Karte (`karte.html`) eines Laufs: Die Strecke ist nach
+Erreichbarkeit gezeichnet (durchgezogen = Sicht, gestrichelt = Grenzbereich,
+gepunktet = Schatten), die blauen Flächen sind die berechneten Sichtfelder
+der erreichbaren Relais — je dunkler, desto mehr Relais.*
 
 ## Inhalt
 
-- [Quick Start](#quick-start)
-  - [Voraussetzungen](#voraussetzungen)
-  - [Installation](#installation)
-  - [Starten](#starten)
-  - [Qualitätssicherung (Entwicklung)](#qualitätssicherung-entwicklung)
+- [Download & Start](#download--start)
+- [Bedienung](#bedienung)
+- [Die Ergebnis-Dateien](#die-ergebnis-dateien)
 - [Die Tools im Detail](#die-tools-im-detail)
-  - [`bmtools` — gemeinsamer Einstieg](#bmtools--gemeinsamer-einstieg)
-  - [`bm-bahn` — Relais entlang einer Bahnstrecke](#bm-bahn--relais-entlang-einer-bahnstrecke)
-  - [`bm-auto` / `bm-rad` — Relais entlang einer Auto- oder Radroute](#bm-auto--bm-rad--relais-entlang-einer-auto--oder-radroute)
-  - [Gemeinsame Parameter (alle Tools)](#gemeinsame-parameter-alle-tools)
-- [Technische Highlights & Externe Technologien](#technische-highlights--externe-technologien)
-- [Projektstruktur](#projektstruktur)
+- [Gemeinsame Parameter (alle Tools)](#gemeinsame-parameter-alle-tools)
+- [Zwischenspeicher (Cache)](#zwischenspeicher-cache)
+- [Installation aus dem Quellcode](#installation-aus-dem-quellcode)
+- [Für Entwickler](#für-entwickler)
 
-## Quick Start
+## Download & Start
 
-### Voraussetzungen
+Fertige Programme für Windows, Linux und macOS gibt es auf der
+[**Releases-Seite**](https://github.com/DH1NOC/bm-routencheck/releases) —
+Datei für das eigene Betriebssystem herunterladen und starten. Ein
+installiertes Python ist **nicht** nötig.
 
-- **Python ≥ 3.12**
-- **Git**
-- Keine API-Keys, keine `.env`-Datei — alle genutzten Dienste sind ohne
-  Anmeldung lesbar.
+**Windows (x64):** Die `bmtools-…-windows-x64.exe` herunterladen und
+doppelklicken oder in der Eingabeaufforderung starten. SmartScreen meldet
+beim ersten Start „Unbekannter Herausgeber" —
+über „Weitere Informationen" → „Trotzdem ausführen" geht es weiter (die
+`.exe` ist nicht code-signiert; Microsofts Signaturdienst steht
+Einzelentwicklern in Deutschland nicht offen). Auf Rechnern mit aktivem
+**Smart App Control** (nur bei neu aufgesetztem Windows 11) wird die Datei
+ohne Ausnahmemöglichkeit blockiert — dann SAC deaktivieren
+(Windows-Sicherheit → App- & Browsersteuerung) oder die
+[Installation aus dem Quellcode](#installation-aus-dem-quellcode) nutzen.
 
-Prüfen, ob eine passende Python-Version vorhanden ist:
-
-```bash
-python3 --version        # Windows: py --version
-```
-
-Zeigt der Befehl 3.12 oder neuer, weiter zu [Installation](#installation).
-Andernfalls Python wie folgt installieren:
-
-**macOS** — über [Homebrew](https://brew.sh/) oder den Installer von
-[python.org](https://www.python.org/downloads/macos/):
-
-```bash
-brew install python
-```
-
-**Linux** — über den Paketmanager der Distribution:
+**macOS (Apple Silicon):** Das ZIP herunterladen und entpacken. bmtools ist
+ein Terminalprogramm und wird **im Terminal gestartet — nicht per
+Doppelklick im Finder:**
 
 ```bash
-# Debian/Ubuntu
-sudo apt install python3 python3-venv python3-pip
-
-# Fedora
-sudo dnf install python3
+# ZIP entpacken, dann im Terminal:
+chmod +x bmtools && ./bmtools
 ```
 
-Liefert die Distribution ein älteres Python als 3.12, den Installer von
-[python.org](https://www.python.org/downloads/) verwenden.
+Beim Doppelklick zeigt macOS bei *jedem* nackten Unix-Binary die Meldung
+„Apple konnte nicht überprüfen, ob ‚bmtools' frei von Schadsoftware ist".
+Das ist **kein** Signaturproblem — das Binary ist mit Developer ID signiert
+und von Apple notarisiert —, sondern das Standardverhalten von Gatekeeper
+für alles, was kein `.app`-Bundle ist. Eine LIESMICH.txt mit diesem Hinweis
+liegt mit im ZIP.
 
-**Windows** — über [winget](https://learn.microsoft.com/windows/package-manager/winget/)
-oder den Installer von [python.org](https://www.python.org/downloads/windows/)
-(dort die Option **„Add python.exe to PATH"** anhaken):
-
-```powershell
-winget install Python.Python.3.12
-```
-
-### Installation
+**Linux (x64):**
 
 ```bash
-git clone https://github.com/DH1NOC/bm-routencheck.git
-cd bm-routencheck
-
-# Virtuelle Umgebung anlegen
-python3 -m venv .venv            # Windows: py -m venv .venv
-
-# Virtuelle Umgebung aktivieren
-source .venv/bin/activate        # macOS/Linux
-.venv\Scripts\Activate.ps1       # Windows PowerShell
-.venv\Scripts\activate.bat       # Windows cmd
-
-# Paket samt Abhängigkeiten installieren (editierbar)
-pip install -e .
+tar -xzf bmtools-*-linux-x64.tar.gz
+./bmtools
 ```
 
-Die Aktivierung gilt pro Terminal-Sitzung; nach dem Öffnen eines neuen
-Terminals im Projektordner erneut aktivieren.
+## Bedienung
 
-### Starten
+Ohne Argumente startet das Menü — alle Eingaben werden interaktiv abgefragt
+(Auswahllisten mit ↑/↓ navigieren, Enter bestätigt, Strg-C bricht ab):
 
-Der einfachste Weg ist der interaktive Modus — ohne Argumente starten, alle
-Eingaben werden abgefragt (Auswahllisten mit ↑/↓ navigieren, Enter bestätigt):
+```text
+📡 BM-Routencheck
+🚆  bahn  Bahnstrecke — Zugverbindung wählen, Relais entlang der Fahrt
+🚗  auto  Autoroute — Google-Maps-Link einfügen oder Start/Ziel eingeben
+🚴  rad   Radroute — Google-Maps-/Komoot-Link, GPX-Datei oder Start/Ziel
+🧹  Cache leeren — gespeicherte API-Antworten und Höhenkacheln löschen
+🚪  Beenden
+```
+
+Längere Schritte (Relais-Abfrage, Erreichbarkeits-Berechnung, Karte) zeigen
+einen Fortschrittsbalken; ab etwa 10 Sekunden Restzeit erscheint zusätzlich
+eine Zeitschätzung.
+
+Für Skripte und Wiederholläufe laufen alle Tools auch nicht-interaktiv mit
+Flags durch — jedes Tool zeigt mit `--help` seine vollständige Optionsliste
+samt Beispielen. Für jedes deutsche Flag existiert das englische Original
+als Alias (`--von` = `--from`, `--zeit` = `--time`, …):
 
 ```bash
-bmtools            # Menü aller Tools
-bm-bahn            # direkt: Relais entlang einer Bahnstrecke
+bmtools bahn --von "Koblenz Hbf" --nach "Nürnberg Hbf" --oeffnen
+bmtools auto "https://maps.app.goo.gl/…"
+bmtools rad  --gpx tour.gpx
 ```
 
-Für Skripte und Wiederholläufe gibt es Flags — alle Parameter sind unter
-[Die Tools im Detail](#die-tools-im-detail) dokumentiert:
+Bei der Installation aus dem Quellcode heißen die Tools zusätzlich
+`bm-bahn`, `bm-auto` und `bm-rad`; die englischen Subcommand-Namen `rail`,
+`car`, `bike` funktionieren ebenfalls.
 
-```bash
-bm-bahn --von "Koblenz Hbf" --nach "Nürnberg Hbf" --oeffnen
-bm-auto "https://maps.app.goo.gl/…"
-bm-rad  --gpx tour.gpx
-```
+## Die Ergebnis-Dateien
 
-Ergebnis pro Lauf in `out/<start>-<ziel>/`:
+Jeder Lauf legt seine Ausgaben in `out/<start>-<ziel>/` ab (änderbar mit
+`--ausgabe`):
 
 | Datei | Inhalt |
 |---|---|
 | `bericht.html` | Bericht mit fertigen Kanaltabellen je Relais (für manuelle CPS-Eingabe) |
-| `relais.csv` | Alle Daten maschinenlesbar (Semikolon-getrennt; Spalten `modus`, `ctcss_hz` für FM) |
 | `karte.html` | Interaktive Karte: Strecke + erreichbare Relais (blau = DMR, orange = FM) |
+| `relais.csv` | Alle Daten maschinenlesbar (Semikolon-getrennt; Spalten `modus`, `ctcss_hz` für FM) |
 | `anytone/*.CSV` | Channel/TalkGroups/Zone für den AnyTone-CPS-Import — digitale und analoge Kanäle in einer Zone |
 | `chirp.csv` | Nur die FM-Kanäle im generischen [CHIRP](https://chirpmyradio.com)-CSV-Format — in CHIRP öffnen und auf jedes unterstützte Gerät laden (entfällt bei `--modus dmr`) |
 
-Der AnyTone-Export nutzt derzeit das D878UV-Spaltenlayout (siehe
-[`PROJEKTPLAN.md`](PROJEKTPLAN.md), M5).
-
-Alle API-Antworten und Höhenkacheln landen in einem lokalen Disk-Cache;
-Wiederholläufe brauchen dadurch nur Sekunden. `--aktualisieren` erzwingt
-frische Relais-Daten.
-
-### Qualitätssicherung (Entwicklung)
-
-```bash
-pip install -e ".[dev]"
-make qs          # Lint (ruff) + Typprüfung (mypy strict) + Tests (pytest)
-make abdeckung   # Tests mit HTML-Abdeckungsbericht (out/coverage/)
-```
-
-Dieselben Prüfungen laufen als GitHub-Actions-Workflow bei jedem Push
-(`.github/workflows/qs.yml`). Konfiguriert ist alles in `pyproject.toml`:
-
-- **ruff** — Lint inkl. Import-Sortierung, bugbear und Modernisierung;
-  Ausnahmen (z. B. deutsche Typografie) sind dort begründet.
-- **mypy strict** — der gesamte Quellcode ist streng typgeprüft; die
-  wenigen Lockerungen (ungetypte Bibliotheken, Tests ohne
-  Annotationszwang) sind als Overrides dokumentiert.
-- **pytest + coverage** — getestet wird die Kernlogik (Parser, Geometrie,
-  Abdeckungsschätzung, Berichte, Codeplug, API-Clients mit gemockten
-  HTTP-Antworten). Interaktive CLIs und Karten-Rendering sind bewusst
-  ausgenommen; die Untergrenze (`fail_under`) sichert das erreichte
-  Niveau ab, ohne Statistik-Kosmetik zu belohnen.
+Frequenzangaben in allen Ausgaben sind aus Sicht des Funkgeräts
+(RX = Relais-Ausgabe) — auch bei FM. Berücksichtigt werden nur 2-m- und
+70-cm-Relais (10 m/6 m/23 cm werden aussortiert). TG9 „Lokal" wird immer
+ergänzt, auch wenn die API sie nicht listet. Der AnyTone-Export nutzt
+derzeit das D878UV-Spaltenlayout.
 
 ## Die Tools im Detail
-
-Alle Tools folgen demselben Muster: **Ohne Argumente startet ein
-interaktiver Assistent**, der alle Angaben abfragt — mit Argumenten laufen
-sie nicht-interaktiv durch (skriptfähig). Jedes Tool zeigt mit `--help`
-seine vollständige Optionsliste samt Beispielen. Für jedes deutsche Flag
-existiert das englische Original als Alias (`--von` = `--from`,
-`--zeit` = `--time`, …).
-
-### `bmtools` — gemeinsamer Einstieg
-
-```bash
-bmtools                  # Menü aller Tools (Pfeiltasten + Enter)
-bmtools bahn [OPTIONEN]  # Tool direkt starten, Optionen werden durchgereicht
-bmtools auto [OPTIONEN]
-bmtools rad  [OPTIONEN]
-```
-
-`bmtools bahn --von Koblenz --nach Nürnberg` ist identisch zu
-`bm-bahn --von Koblenz --nach Nürnberg`. Die englischen Subcommand-Namen
-`rail`, `car`, `bike` funktionieren ebenfalls.
 
 ### `bm-bahn` — Relais entlang einer Bahnstrecke
 
@@ -212,11 +142,8 @@ andere Kette — entsprechend ändern sich die gefundenen Relais.
 | `--via BAHNHOF` | Zwischenhalt zu `--von`/`--nach`; mehrfach angebbar (`--via Mainz --via Würzburg`) |
 | `--bahnhoefe "A, B, C"` | Alternativ: kommagetrennte Bahnhofsliste statt `--von`/`--nach` |
 
-Der bahn.de-Link wird über einen inoffiziellen bahn.de-Endpunkt in die
-einzelnen Fahrtabschnitte aufgelöst; die Streckengeometrie liefert danach
-wie üblich Transitous (Abschnitte werden über die exakte Abfahrtszeit dem
-Fahrplandatensatz zugeordnet). Solche Links laufen serverseitig nach
-einiger Zeit ab — dann auf bahn.de neu suchen und frisch teilen.
+bahn.de-Links laufen serverseitig nach einiger Zeit ab — dann auf bahn.de
+neu suchen und frisch teilen.
 
 **Verbindungsauswahl:**
 
@@ -228,10 +155,10 @@ einiger Zeit ab — dann auf bahn.de neu suchen und frisch teilen.
 | `--direkt` | Nur Direktverbindungen (ohne Umstieg) |
 | `--luftlinie` | Keine Verbindungssuche; Luftlinie zwischen den Bahnhöfen auswerten |
 
-Interaktiv wird bei mehrdeutigen Bahnhofsnamen immer nachgefragt
-(„Koblenz" ist z. B. auch exakt der Name eines Schweizer Bahnhofs) und
-unter mehreren gefundenen Verbindungen ausgewählt. Nicht-interaktiv nimmt
-das Tool jeweils den ersten Treffer bzw. die erste passende Verbindung.
+Interaktiv wird bei mehrdeutigen Bahnhofsnamen immer nachgefragt („Koblenz"
+ist z. B. auch exakt der Name eines Schweizer Bahnhofs) und unter mehreren
+gefundenen Verbindungen ausgewählt. Nicht-interaktiv nimmt das Tool jeweils
+den ersten Treffer bzw. die erste passende Verbindung.
 
 ```bash
 bm-bahn "https://www.bahn.de/buchung/start?vbid=…" --oeffnen
@@ -251,7 +178,7 @@ oder Start/Ziel:
 |---|---|
 | `LINK` (Positionsargument) | Google-Maps-Routenlink (auch Kurzlink vom Teilen-Button) oder Komoot-Tour-Link |
 | `--gpx DATEI` | GPX-Datei, z. B. ein Komoot-Export — funktioniert immer |
-| `--von ORT --nach ORT` | Start/Ziel als Ort oder Adresse (hausnummerngenau, Geocoding via Transitous) |
+| `--von ORT --nach ORT` | Start/Ziel als Ort oder Adresse (hausnummerngenau) |
 | `--via ORT` | Zwischenpunkt zu `--von`/`--nach`; mehrfach angebbar |
 
 Was bei den Link-Quellen zu wissen ist:
@@ -277,7 +204,7 @@ bm-rad  --gpx tour.gpx
 bm-auto --von "Winkelhaider Str. 4a, Feucht" --nach "Bendorf" --oeffnen
 ```
 
-### Gemeinsame Parameter (alle Tools)
+## Gemeinsame Parameter (alle Tools)
 
 | Parameter | Bedeutung |
 |---|---|
@@ -290,131 +217,55 @@ bm-auto --von "Winkelhaider Str. 4a, Feucht" --nach "Bendorf" --oeffnen
 | `--oeffnen` | Bericht und Karte nach dem Lauf im Browser öffnen (interaktiv automatisch aktiv) |
 | `--ausgabe ORDNER` | Ausgabeverzeichnis (Default: `out/<start>-<ziel>`) |
 
-Frequenzangaben in allen Ausgaben sind aus Sicht des Funkgeräts
-(RX = Relais-Ausgabe) — auch bei FM. Berücksichtigt werden nur 2-m- und
-70-cm-Relais (10 m/6 m/23 cm werden aussortiert). TG9 „Lokal" wird immer
-ergänzt, auch wenn die API sie nicht listet.
+Alle genutzten Dienste sind ohne Anmeldung nutzbar — keine API-Keys, keine
+Konfigurationsdatei.
 
-## Technische Highlights & Externe Technologien
+## Zwischenspeicher (Cache)
 
-**Kernbibliotheken** (siehe [`pyproject.toml`](pyproject.toml)):
+Alle API-Antworten und Höhenkacheln landen in einem lokalen Disk-Cache;
+Wiederholläufe brauchen dadurch nur Sekunden. Der Cache verwaltet sich
+selbst (Relais-Daten verfallen nach spätestens einem Tag, `--aktualisieren`
+erzwingt frische Daten) — er kann aber jederzeit komplett geleert werden,
+etwa um Speicherplatz freizugeben:
 
-- [httpx](https://www.python-httpx.org/) — HTTP-Client für alle API-Zugriffe
-- [Rich](https://rich.readthedocs.io/) und
-  [Questionary](https://questionary.readthedocs.io/) — Terminal-Ausgabe und
-  interaktive Auswahlmenüs
-- [Folium](https://python-visualization.github.io/folium/) — erzeugt die
-  interaktive Karte auf Basis von [Leaflet](https://leafletjs.com/) und
-  [OpenStreetMap](https://www.openstreetmap.org/)
-- [NumPy](https://numpy.org/) und [Pillow](https://python-pillow.org/) —
-  Geländemodell: Höhenraster dekodieren und Sichtlinien berechnen
-- [platformdirs](https://platformdirs.readthedocs.io/) — plattformgerechter
-  Ablageort für den Disk-Cache
+- **Im Menü:** `🧹 Cache leeren` — zeigt erst, wie viel Speicher die
+  Bereiche (Brandmeister-API, FM-Relaisliste, Höhenkacheln) belegen, und
+  fragt vor dem Löschen nach.
+- **Auf der Kommandozeile:** `bmtools cache` zeigt die Übersicht,
+  `bmtools cache --leeren` löscht ohne Rückfrage.
 
-**Externe Dienste** (alle ohne API-Key nutzbar):
+Der nächste Lauf lädt gelöschte Daten automatisch neu herunter.
 
-- [Brandmeister-API v2](https://api.brandmeister.network/v2/) — DMR-Relais,
-  Frequenzen, Talkgroup-Profile
-- [DL3EL-Relaisliste](https://relaislisten.darc.de) — analoge FM-Relais
-  (Frequenzen, CTCSS) per Umkreissuche entlang der Route
-- [Transitous](https://transitous.org) — Bahnverbindungen inklusive
-  Streckengeometrie
-- [OSRM auf FOSSGIS-Servern](https://routing.openstreetmap.de) — Auto- und
-  Radrouting auf OpenStreetMap-Daten
-- [Komoot-API](https://www.komoot.com) — exakte Geometrie gespeicherter Touren
-- [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) —
-  Höhendaten (Terrarium-Format) für das Sichtlinien-Modell
+## Installation aus dem Quellcode
 
-## Projektstruktur
+Alternative zu den fertigen Programmen — nötig sind **Python ≥ 3.12** und
+**Git**:
 
-```text
-bm-routencheck/
-├── bmtools/              # Python-Paket mit allen Tools
-│   ├── bm_api/           # Brandmeister-API-Client (HTTP, Disk-Cache, Datenmodelle)
-│   ├── fm_api/           # DL3EL-Client für analoge FM-Relais (Umkreissuche,
-│   │                     #   defensiver CSV/GPX-Parser, Disk-Cache)
-│   ├── routelib/         # Gemeinsamer Kern: Geländemodell/Erreichbarkeit,
-│   │                     #   Bericht, Karte, CSV, Codeplug-Export, Pipeline
-│   ├── rail/             # bm-bahn (Bahnverbindungen via Transitous)
-│   ├── road/             # bm-auto / bm-rad (Maps-/Komoot-Link, GPX, OSRM, Geocoding)
-│   ├── cli.py            # bmtools-Einstieg: Menü und Subcommand-Dispatcher
-│   └── ui.py             # Gemeinsames CLI-Erscheinungsbild (Banner, Farben)
-├── tests/                # pytest-Suite (Parser, Geometrie, Berichte, Clients)
-├── packaging/            # PyInstaller-Einstieg + macOS-Entitlements für Releases
-├── out/                  # Generierte Berichte/Karten/CSV je Route (nicht versioniert)
-├── pyproject.toml        # Paketdefinition, Abhängigkeiten, Entry Points
-├── PROJEKTPLAN.md        # Offene Punkte, Festlegungen, API-Eigenheiten
-└── README.md
+```bash
+git clone https://github.com/DH1NOC/bm-routencheck.git
+cd bm-routencheck
+
+python3 -m venv .venv            # Windows: py -m venv .venv
+source .venv/bin/activate        # Windows PowerShell: .venv\Scripts\Activate.ps1
+pip install -e .
+
+bmtools                          # Menü aller Tools
 ```
 
-- **`bmtools/bm_api/`** — wiederverwendbarer, gecachter Client für die
-  Brandmeister-API; unabhängig von den Routen-Tools nutzbar.
-- **`bmtools/fm_api/`** — Gegenstück für relaislisten.darc.de (DL3EL):
-  Umkreisabfragen je Streckenraster, Parser für die „schmutzigen"
-  CSV/GPX-Antworten, Dedupe über (Rufzeichen, Frequenz).
-- **`bmtools/routelib/`** — die gesamte Auswertung von der Routen-Geometrie
-  bis zu den Ausgabedateien; die Tools in `rail/` und `road/` liefern nur die
-  Route an diese Pipeline.
+Die Aktivierung der virtuellen Umgebung gilt pro Terminal-Sitzung; nach dem
+Öffnen eines neuen Terminals im Projektordner erneut aktivieren. Wie eine
+passende Python-Version installiert wird, steht in der
+[Python-Dokumentation](https://www.python.org/downloads/) (Windows: bei der
+Installation **„Add python.exe to PATH"** anhaken).
 
-## Releases
+## Für Entwickler
 
-Releases werden manuell über GitHub Actions gebaut:
-**Actions → Release → „Run workflow"**, dort Branch und Versionssprung wählen.
+Architektur, Qualitätssicherung, Projektstruktur, die Eigenheiten der
+externen Datenquellen und der Release-Prozess sind im
+[**Entwickler-README (DEVELOPER.md)**](DEVELOPER.md) beschrieben; offene
+Punkte und verbindliche Festlegungen stehen in
+[`PROJEKTPLAN.md`](PROJEKTPLAN.md).
 
-- **Branch bestimmt die Art:** `main` erzeugt einen regulären Release
-  (Version wird in `pyproject.toml` committet und getaggt, z. B. `v0.2.0`);
-  jeder andere Branch erzeugt eine **Beta** (nur Tag, z. B. `v0.2.0-beta.1`,
-  auf GitHub als Pre-Release markiert — die Versionsnummer im Branch bleibt
-  unverändert).
-- **Versionssprung:** `major` erhöht die Featureversion (`0.1.0 → 0.2.0`),
-  `minor` den Patch (`0.1.0 → 0.1.1`).
-- **Assets:** Quell-ZIP sowie eigenständige Binaries (PyInstaller) für
-  Windows (x64), Linux (x64) und macOS (Apple Silicon). Die Binaries brauchen
-  kein installiertes Python; unter Linux/macOS nach dem Entpacken ggf.
-  `chmod +x bmtools`.
-- **macOS-Start (wichtig):** bmtools ist ein Terminalprogramm und wird
-  **im Terminal gestartet — nicht per Doppelklick im Finder.** Beim
-  Doppelklick zeigt macOS bei *jedem* nackten Unix-Binary die Meldung
-  „Apple konnte nicht überprüfen, ob ‚bmtools' frei von Schadsoftware
-  ist". Das ist **kein** Signaturproblem — das Binary ist mit
-  Developer ID signiert und von Apple notarisiert —, sondern das
-  Standardverhalten von Gatekeeper für alles, was kein `.app`-Bundle
-  ist (Originalmeldung: „the code is valid but does not seem to be an
-  app"). Eine LIESMICH.txt mit diesem Hinweis liegt mit im ZIP. Start:
+## Lizenz
 
-  ```bash
-  # ZIP entpacken, dann:
-  chmod +x bmtools && ./bmtools
-  ```
-
-  Der Release-Workflow veröffentlicht erst, wenn Apples Server das
-  Notarisierungs-Ticket ausliefern — die Gatekeeper-Prüfung
-  funktioniert also direkt ab Veröffentlichung.
-- **Windows-Hinweis:** Die `.exe` ist derzeit nicht code-signiert
-  (Microsofts Signaturdienst steht Einzelentwicklern in Deutschland
-  nicht offen, klassische Zertifikate kosten laufend Geld). SmartScreen
-  meldet daher „Unbekannter Herausgeber" (→ „Weitere Informationen" →
-  „Trotzdem ausführen"). Auf Rechnern mit aktivem **Smart App Control**
-  (nur bei neu aufgesetztem Windows 11 aktiv) wird die Datei ohne
-  Ausnahmemöglichkeit blockiert — SAC lässt sich nur komplett
-  deaktivieren (Windows-Sicherheit → App- & Browsersteuerung) oder man
-  nutzt das Quell-ZIP mit installiertem Python.
-
-### macOS-Signierung und Notarisierung
-
-Das macOS-Binary wird automatisch signiert und notarisiert, wenn folgende
-**Repository-Secrets** (Settings → Secrets and variables → Actions) gesetzt
-sind — fehlen sie, wird mit Warnung unsigniert gebaut:
-
-| Secret | Inhalt |
-| --- | --- |
-| `APPLE_CERT_P12` | „Developer ID Application"-Zertifikat als Base64 (`base64 -i zertifikat.p12 \| pbcopy`) |
-| `APPLE_CERT_PASSWORD` | Passwort des `.p12`-Exports |
-| `APPLE_ID` | Apple-ID (E-Mail) des Developer-Accounts |
-| `APPLE_TEAM_ID` | Team-ID (developer.apple.com → Membership) |
-| `APPLE_APP_PASSWORD` | App-spezifisches Passwort (account.apple.com → Anmeldung & Sicherheit) |
-
-Das Zertifikat lässt sich am einfachsten in Xcode erstellen
-(Settings → Accounts → Team → „Manage Certificates…" → „+" →
-„Developer ID Application") und dort per Rechtsklick →
-„Export Certificate…" als `.p12` mit Passwort exportieren.
+Siehe [LICENSE](LICENSE).

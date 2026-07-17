@@ -13,7 +13,7 @@
 # Assets: Quell-ZIP sowie Binaries für Windows, Linux und macOS.
 # Das macOS-Binary wird signiert und notarisiert, sofern die Secrets
 # APPLE_CERT_P12, APPLE_CERT_PASSWORD, APPLE_ID, APPLE_TEAM_ID und
-# APPLE_APP_PASSWORD hinterlegt sind (siehe README, Abschnitt Releases).
+# APPLE_APP_PASSWORD hinterlegt sind (siehe DEVELOPER.md, Abschnitt Releases).
 name: Release
 
 on:
