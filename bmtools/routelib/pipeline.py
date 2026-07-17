@@ -175,9 +175,17 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
     write_html_report(results, route, html_path, tg_names, coverage,
                       modus=modus)
     with console.status("Karte erzeugen (inkl. Relais-Sichtfelder) …"):
-        write_map(results, route, map_path, coverage,
-                  terrain if coverage.terrain_used else None,
-                  route_label=route_label, waypoint_icon=waypoint_icon)
+        # Die Sichtfelder laden weitere Höhenkacheln nach — reißt das Netz
+        # dabei ab, kommt die Karte ohne Sichtfelder statt gar nicht.
+        try:
+            write_map(results, route, map_path, coverage,
+                      terrain if coverage.terrain_used else None,
+                      route_label=route_label, waypoint_icon=waypoint_icon)
+        except TerrainError as e:
+            console.print(f"[yellow]Höhendaten abgebrochen ({e}) — "
+                          f"Karte ohne Relais-Sichtfelder.[/yellow]")
+            write_map(results, route, map_path, coverage, None,
+                      route_label=route_label, waypoint_icon=waypoint_icon)
     # Codeplug: digitale und analoge Kanäle in derselben Zone; die
     # FM-Kanäle zusätzlich als generisches CHIRP-CSV
     write_anytone(results, out_dir / "anytone", zone, tg_names,
