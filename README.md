@@ -390,6 +390,15 @@ Releases werden manuell über GitHub Actions gebaut:
   Der Release-Workflow veröffentlicht erst, wenn Apples Server das
   Notarisierungs-Ticket ausliefern — die Gatekeeper-Prüfung
   funktioniert also direkt ab Veröffentlichung.
+- **Windows-Hinweis:** Die `.exe` ist derzeit nicht code-signiert
+  (Microsofts Signaturdienst steht Einzelentwicklern in Deutschland
+  nicht offen, klassische Zertifikate kosten laufend Geld). SmartScreen
+  meldet daher „Unbekannter Herausgeber" (→ „Weitere Informationen" →
+  „Trotzdem ausführen"). Auf Rechnern mit aktivem **Smart App Control**
+  (nur bei neu aufgesetztem Windows 11 aktiv) wird die Datei ohne
+  Ausnahmemöglichkeit blockiert — SAC lässt sich nur komplett
+  deaktivieren (Windows-Sicherheit → App- & Browsersteuerung) oder man
+  nutzt das Quell-ZIP mit installiertem Python.
 
 ### macOS-Signierung und Notarisierung
 
