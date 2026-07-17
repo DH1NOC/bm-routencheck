@@ -203,16 +203,34 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
     write_csv(results, csv_path)
     write_html_report(results, route, html_path, tg_names, coverage,
                       modus=modus)
-    with console.status("Karte erzeugen (inkl. Relais-Sichtfelder) …"):
-        # Die Sichtfelder laden weitere Höhenkacheln nach — reißt das Netz
-        # dabei ab, kommt die Karte ohne Sichtfelder statt gar nicht.
-        try:
-            write_map(results, route, map_path, coverage,
-                      terrain if coverage.terrain_used else None,
-                      route_label=route_label, waypoint_icon=waypoint_icon)
-        except TerrainError as e:
-            console.print(f"[yellow]Höhendaten abgebrochen ({e}) — "
-                          f"Karte ohne Relais-Sichtfelder.[/yellow]")
+    # Die Sichtfelder laden weitere Höhenkacheln nach — reißt das Netz
+    # dabei ab, kommt die Karte ohne Sichtfelder statt gar nicht.
+    sichtfeld_terrain = terrain if coverage.terrain_used else None
+    if sichtfeld_terrain is not None:
+        with ui.fortschritt(console) as map_p:
+            map_kacheln = map_p.add_task("Höhenkacheln laden (Sichtfelder)",
+                                         total=None, visible=False)
+            felder_task = map_p.add_task("Karte erzeugen (Relais-Sichtfelder)",
+                                         total=None)
+
+            def map_tile_progress(fertig: int, gesamt: int) -> None:
+                map_p.update(map_kacheln, completed=fertig, total=gesamt,
+                             visible=True)
+
+            def felder_progress(fertig: int, gesamt: int) -> None:
+                map_p.update(felder_task, completed=fertig, total=gesamt)
+
+            try:
+                write_map(results, route, map_path, coverage, sichtfeld_terrain,
+                          route_label=route_label, waypoint_icon=waypoint_icon,
+                          tile_progress=map_tile_progress,
+                          viewshed_progress=felder_progress)
+            except TerrainError as e:
+                console.print(f"[yellow]Höhendaten abgebrochen ({e}) — "
+                              f"Karte ohne Relais-Sichtfelder.[/yellow]")
+                sichtfeld_terrain = None
+    if sichtfeld_terrain is None:
+        with console.status("Karte erzeugen …"):
             write_map(results, route, map_path, coverage, None,
                       route_label=route_label, waypoint_icon=waypoint_icon)
     # Codeplug: digitale und analoge Kanäle in derselben Zone; die

@@ -7,7 +7,8 @@ import io
 import math
 import os
 from bisect import bisect_right
-from concurrent.futures import ProcessPoolExecutor
+from collections.abc import Callable
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import folium
@@ -78,11 +79,17 @@ def _pos(d: RepeaterLike) -> tuple[float, float]:
 
 
 def _coverage_raster(results: list[RepeaterResult], route: Route,
-                     terrain: TerrainModel) -> tuple[str, list[list[float]]]:
+                     terrain: TerrainModel,
+                     tile_progress: Callable[[int, int], None] | None = None,
+                     viewshed_progress: Callable[[int, int], None] | None = None,
+                     ) -> tuple[str, list[list[float]]]:
     """Viewsheds aller Korridor-Relais in ein RGBA-Raster aggregieren.
 
     Ein Blauton, Deckkraft nach Zahl der abdeckenden Relais (sequenzielle
     Ein-Farb-Rampe, farbfehlsichtigkeits-sicher).
+
+    tile_progress/viewshed_progress melden (fertig, gesamt) für den
+    Kachel-Prefetch bzw. je fertig gerechnetem Relais-Sichtfeld.
     """
     # Raster-Ausdehnung: Strecke plus jedes Relais samt seiner vollen
     # Sichtweite — sonst werden Viewsheds am Rasterrand abgeschnitten
@@ -119,22 +126,37 @@ def _coverage_raster(results: list[RepeaterResult], route: Route,
         pre_lats.append((lat + np.outer(np.cos(az), d_km) / 111.32).ravel())
         pre_lons.append((lng + np.outer(np.sin(az), d_km)
                          / (111.32 * math.cos(math.radians(lat)))).ravel())
-    terrain.prefetch(np.concatenate(pre_lats), np.concatenate(pre_lons))
+    terrain.prefetch(np.concatenate(pre_lats), np.concatenate(pre_lons),
+                     tile_progress)
 
     count = np.zeros((h, w), dtype=np.uint8)   # Relais mit freier Sicht
     marginal = np.zeros((h, w), dtype=bool)    # Grenzbereich (Beugung)
+    fertig = 0
+
+    def einrechnen(los: np.ndarray, marg_bits: np.ndarray) -> None:
+        nonlocal fertig, count, marginal
+        count += los
+        marginal |= np.unpackbits(
+            marg_bits, count=h * w).reshape(h, w).astype(bool)
+        fertig += 1
+        if viewshed_progress:
+            viewshed_progress(fertig, len(tasks))
+
+    if viewshed_progress:
+        viewshed_progress(0, len(tasks))
     if len(tasks) > 1:
         workers = min(len(tasks), os.cpu_count() or 2)
         with ProcessPoolExecutor(
                 max_workers=workers,
                 initializer=viewshed_raster.init_worker) as pool:
-            rendered = list(pool.map(viewshed_raster.render_relay, tasks))
+            # submit/as_completed statt pool.map: Fortschritt je fertigem
+            # Sichtfeld; die Aggregation ist reihenfolge-unabhängig
+            for f in as_completed([pool.submit(viewshed_raster.render_relay, t)
+                                   for t in tasks]):
+                einrechnen(*f.result())
     else:
-        rendered = [viewshed_raster.render_relay(t, terrain) for t in tasks]
-    for los, marg_bits in rendered:
-        count += los
-        marginal |= np.unpackbits(
-            marg_bits, count=h * w).reshape(h, w).astype(bool)
+        for t in tasks:
+            einrechnen(*viewshed_raster.render_relay(t, terrain))
 
     # Rampenindex: 0 = nichts, 1 = nur Grenzbereich, 2..4 = 1/2/>=3 Relais
     index = np.where(count > 0, 1 + np.clip(count, 0, 3),
@@ -205,7 +227,10 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
               coverage: CoverageEstimate | None = None,
               terrain: TerrainModel | None = None,
               route_label: str = "Strecke",
-              waypoint_icon: str = "flag") -> None:
+              waypoint_icon: str = "flag", *,
+              tile_progress: Callable[[int, int], None] | None = None,
+              viewshed_progress: Callable[[int, int], None] | None = None,
+              ) -> None:
     lats = [p[0] for p in route.points]
     lons = [p[1] for p in route.points]
     # tile.openstreetmap.de statt tile.openstreetmap.org: Die OSMF-Server
@@ -222,7 +247,8 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
     m.fit_bounds([(min(lats), min(lons)), (max(lats), max(lons))])
 
     if terrain is not None and results:
-        image_uri, bounds = _coverage_raster(results, route, terrain)
+        image_uri, bounds = _coverage_raster(results, route, terrain,
+                                             tile_progress, viewshed_progress)
         folium.raster_layers.ImageOverlay(
             image=image_uri, bounds=bounds, opacity=0.8,
             name="Relais-Sichtfelder (rechnerisch)",
