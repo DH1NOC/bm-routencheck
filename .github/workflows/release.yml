@@ -168,13 +168,12 @@ jobs:
             --collect-data folium --collect-data branca \
             ${EXTRA[@]+"${EXTRA[@]}"} packaging/entry.py
 
-      - name: Notarisieren + DMG (macOS)
+      - name: Notarisieren (macOS)
         if: runner.os == 'macOS' && env.SIGNIER_IDENTITAET != ''
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_PASSWORT: ${{ secrets.APPLE_APP_PASSWORD }}
-          LABEL: ${{ needs.version.outputs.label }}
         run: |
           set -euo pipefail
 
@@ -199,38 +198,6 @@ jobs:
 
           ditto -c -k dist/bmtools "$RUNNER_TEMP/notarisierung.zip"
           notarisieren "$RUNNER_TEMP/notarisierung.zip"
-
-          # Beta-Befund 2026-07-17: Das Notarisierungs-Ticket lässt sich
-          # an ein nacktes Binary nicht anheften — direkt nach dem Release
-          # (Ticket noch nicht auf Apples CDN) meldet Gatekeeper dann
-          # "Apple konnte nicht überprüfen …". Daher zusätzlich ein DMG:
-          # signiert, notarisiert und gestapelt — das Ticket steckt in
-          # der Datei und wird offline geprüft. Bewusst KEIN Installer
-          # (.pkg): Nutzerfestlegung 2026-07-17, nichts ins System
-          # installieren; ZIP bleibt für Terminal-Nutzer dabei.
-          mkdir -p dmgroot out/release
-          # -X: ohne erweiterte Attribute (sonst landen ._-Dateien im DMG)
-          cp -X dist/bmtools dmgroot/bmtools
-          printf '%s\n' \
-            "bmtools — BM-Routencheck" \
-            "" \
-            "bmtools ist ein Terminalprogramm und wird im Terminal gestartet:" \
-            "    \"/Volumes/bmtools\"*/bmtools" \
-            "oder nach dem Kopieren an einen beliebigen Ort:  ./bmtools" \
-            "" \
-            "WICHTIG: Nicht per Doppelklick im Finder starten. macOS zeigt" \
-            "dabei bei jedem Terminalprogramm die Meldung 'Apple konnte" \
-            "nicht überprüfen, ob bmtools frei von Schadsoftware ist'." \
-            "Das ist kein Signaturproblem: Binary und DMG sind mit" \
-            "Developer ID signiert und von Apple notarisiert — Gatekeeper" \
-            "behandelt per Doppelklick nur .app-Bundles als Apps." \
-            > dmgroot/LIESMICH.txt
-          DMG="out/release/bmtools-$LABEL-macos-arm64.dmg"
-          hdiutil create -volname "bmtools $LABEL" -srcfolder dmgroot \
-            -format UDZO -ov "$DMG"
-          codesign --force --timestamp --sign "$SIGNIER_IDENTITAET" "$DMG"
-          notarisieren "$DMG"
-          xcrun stapler staple "$DMG"
 
       - name: Gatekeeper-Freigabe abwarten (macOS)
         if: runner.os == 'macOS' && env.SIGNIER_IDENTITAET != ''
@@ -262,7 +229,28 @@ jobs:
           case "$PLATTFORM" in
             windows-*) cp dist/bmtools.exe "out/release/bmtools-$LABEL-$PLATTFORM.exe" ;;
             linux-*)   tar -C dist -czf "out/release/bmtools-$LABEL-$PLATTFORM.tar.gz" bmtools ;;
-            macos-*)   ditto -c -k dist/bmtools "out/release/bmtools-$LABEL-$PLATTFORM.zip" ;;
+            macos-*)
+              # ZIP mit Binary + Hinweis-Datei (Nutzerfestlegung 2026-07-17:
+              # kein Installer, kein DMG). Die LIESMICH erklärt die
+              # Gatekeeper-Meldung beim Doppelklick — bmtools ist ein
+              # Terminalprogramm, gestartet wird im Terminal.
+              mkdir -p zipinhalt
+              # -X: ohne erweiterte Attribute (sonst ._-Dateien im ZIP)
+              cp -X dist/bmtools zipinhalt/bmtools
+              printf '%s\n' \
+                "bmtools — BM-Routencheck" \
+                "" \
+                "bmtools ist ein Terminalprogramm und wird im Terminal gestartet:" \
+                "    chmod +x bmtools && ./bmtools" \
+                "" \
+                "WICHTIG: Nicht per Doppelklick im Finder starten. macOS zeigt" \
+                "dabei bei jedem Terminalprogramm die Meldung 'Apple konnte" \
+                "nicht überprüfen, ob bmtools frei von Schadsoftware ist'." \
+                "Das ist kein Signaturproblem: Das Binary ist mit Developer ID" \
+                "signiert und von Apple notarisiert — Gatekeeper behandelt per" \
+                "Doppelklick nur .app-Bundles als Apps." \
+                > zipinhalt/LIESMICH.txt
+              ditto -c -k zipinhalt "out/release/bmtools-$LABEL-$PLATTFORM.zip" ;;
           esac
       - uses: actions/upload-artifact@v7
         with:

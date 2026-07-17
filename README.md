@@ -376,23 +376,20 @@ Releases werden manuell über GitHub Actions gebaut:
   **im Terminal gestartet — nicht per Doppelklick im Finder.** Beim
   Doppelklick zeigt macOS bei *jedem* nackten Unix-Binary die Meldung
   „Apple konnte nicht überprüfen, ob ‚bmtools' frei von Schadsoftware
-  ist". Das ist **kein** Signaturproblem — Binary und DMG sind mit
+  ist". Das ist **kein** Signaturproblem — das Binary ist mit
   Developer ID signiert und von Apple notarisiert —, sondern das
   Standardverhalten von Gatekeeper für alles, was kein `.app`-Bundle
   ist (Originalmeldung: „the code is valid but does not seem to be an
-  app"). So startet man es:
+  app"). Eine LIESMICH.txt mit diesem Hinweis liegt mit im ZIP. Start:
 
   ```bash
-  # DMG: Image doppelklicken (mounten), dann im Terminal:
-  "/Volumes/bmtools"*/bmtools
-  # ZIP: entpacken, dann:
+  # ZIP entpacken, dann:
   chmod +x bmtools && ./bmtools
   ```
 
-  Das DMG ist zusätzlich gestapelt (Notarisierungs-Ticket steckt in der
-  Datei) — seine Prüfung funktioniert sofort nach dem Release und
-  offline; beim ZIP braucht Apples Online-Prüfung nach einem frischen
-  Release ein paar Minuten Vorlauf.
+  Der Release-Workflow veröffentlicht erst, wenn Apples Server das
+  Notarisierungs-Ticket ausliefern — die Gatekeeper-Prüfung
+  funktioniert also direkt ab Veröffentlichung.
 
 ### macOS-Signierung und Notarisierung
 
