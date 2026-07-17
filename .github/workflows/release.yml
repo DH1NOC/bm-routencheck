@@ -163,10 +163,26 @@ jobs:
             EXTRA+=(--codesign-identity "$SIGNIER_IDENTITAET"
                     --osx-entitlements-file packaging/entitlements.plist)
           fi
+          # --collect-all tzdata: zoneinfo lädt das Paket dynamisch
+          # (string-basiert) — die statische Analyse sieht es nicht.
           pyinstaller --onefile --name bmtools \
             --collect-submodules bmtools \
             --collect-data folium --collect-data branca \
+            --collect-all tzdata \
             ${EXTRA[@]+"${EXTRA[@]}"} packaging/entry.py
+
+      - name: Binary rauchtesten
+        run: |
+          set -euo pipefail
+          BIN=dist/bmtools
+          [ -f dist/bmtools.exe ] && BIN=dist/bmtools.exe
+          "$BIN" --help
+          # PYTHONTZPATH leer: erzwingt den tzdata-Fallback auch auf
+          # Linux/macOS — bahn lädt ZoneInfo("Europe/Berlin") beim Import
+          # (genau der Windows-Absturz aus dem Beta-Test 2026-07-17).
+          PYTHONTZPATH= "$BIN" bahn --help > /dev/null
+          "$BIN" auto --help > /dev/null
+          "$BIN" rad --help > /dev/null
 
       - name: Notarisieren (macOS)
         if: runner.os == 'macOS' && env.SIGNIER_IDENTITAET != ''
