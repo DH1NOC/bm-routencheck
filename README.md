@@ -372,15 +372,27 @@ Releases werden manuell über GitHub Actions gebaut:
   Windows (x64), Linux (x64) und macOS (Apple Silicon). Die Binaries brauchen
   kein installiertes Python; unter Linux/macOS nach dem Entpacken ggf.
   `chmod +x bmtools`.
-- **macOS-Nutzung:** bmtools ist ein Terminalprogramm — Binary aus ZIP
-  oder DMG an einen beliebigen Ort kopieren und im Terminal starten
-  (`./bmtools`). Ein Doppelklick im Finder führt bei jedem nackten
-  Unix-Binary zur Gatekeeper-Warnung „Apple konnte nicht überprüfen …",
-  auch bei korrekter Notarisierung. Das DMG ist signiert, notarisiert
-  und gestapelt (Ticket steckt in der Datei) — seine Prüfung
-  funktioniert damit sofort nach dem Release und auch offline; beim ZIP
-  braucht Apples Online-Prüfung nach einem frischen Release ein paar
-  Minuten Vorlauf.
+- **macOS-Start (wichtig):** bmtools ist ein Terminalprogramm und wird
+  **im Terminal gestartet — nicht per Doppelklick im Finder.** Beim
+  Doppelklick zeigt macOS bei *jedem* nackten Unix-Binary die Meldung
+  „Apple konnte nicht überprüfen, ob ‚bmtools' frei von Schadsoftware
+  ist". Das ist **kein** Signaturproblem — Binary und DMG sind mit
+  Developer ID signiert und von Apple notarisiert —, sondern das
+  Standardverhalten von Gatekeeper für alles, was kein `.app`-Bundle
+  ist (Originalmeldung: „the code is valid but does not seem to be an
+  app"). So startet man es:
+
+  ```bash
+  # DMG: Image doppelklicken (mounten), dann im Terminal:
+  "/Volumes/bmtools"*/bmtools
+  # ZIP: entpacken, dann:
+  chmod +x bmtools && ./bmtools
+  ```
+
+  Das DMG ist zusätzlich gestapelt (Notarisierungs-Ticket steckt in der
+  Datei) — seine Prüfung funktioniert sofort nach dem Release und
+  offline; beim ZIP braucht Apples Online-Prüfung nach einem frischen
+  Release ein paar Minuten Vorlauf.
 
 ### macOS-Signierung und Notarisierung
 

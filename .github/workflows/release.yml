@@ -214,9 +214,16 @@ jobs:
           printf '%s\n' \
             "bmtools — BM-Routencheck" \
             "" \
-            "Terminalprogramm: bmtools an einen beliebigen Ort kopieren" \
-            "und im Terminal starten:  ./bmtools" \
-            "Ein Doppelklick im Finder ist nicht vorgesehen." \
+            "bmtools ist ein Terminalprogramm und wird im Terminal gestartet:" \
+            "    \"/Volumes/bmtools\"*/bmtools" \
+            "oder nach dem Kopieren an einen beliebigen Ort:  ./bmtools" \
+            "" \
+            "WICHTIG: Nicht per Doppelklick im Finder starten. macOS zeigt" \
+            "dabei bei jedem Terminalprogramm die Meldung 'Apple konnte" \
+            "nicht überprüfen, ob bmtools frei von Schadsoftware ist'." \
+            "Das ist kein Signaturproblem: Binary und DMG sind mit" \
+            "Developer ID signiert und von Apple notarisiert — Gatekeeper" \
+            "behandelt per Doppelklick nur .app-Bundles als Apps." \
             > dmgroot/LIESMICH.txt
           DMG="out/release/bmtools-$LABEL-macos-arm64.dmg"
           hdiutil create -volname "bmtools $LABEL" -srcfolder dmgroot \
