@@ -13,6 +13,7 @@ nicht nur gegen die Treffer im Suchkorridor.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -84,7 +85,15 @@ class CoverageEstimate:
 
 
 def estimate_coverage(points: list[Point], repeaters: list[RepeaterLike],
-                      terrain: TerrainModel | None = None) -> CoverageEstimate:
+                      terrain: TerrainModel | None = None, *,
+                      tile_progress: Callable[[int, int], None] | None = None,
+                      sample_progress: Callable[[int, int], None] | None = None,
+                      ) -> CoverageEstimate:
+    """tile_progress/sample_progress melden (fertig, gesamt) für den
+    Höhenkachel-Download bzw. die Klassifikation je Streckenpunkt —
+    UI-frei, die CLI hängt daran ihre Fortschrittsbalken. tile_progress
+    feuert nur, wenn tatsächlich Kacheln fehlen (und aus Threads,
+    s. TerrainModel._download_missing)."""
     cum = cumulative_km(points)
     total = cum[-1]
 
@@ -131,7 +140,8 @@ def estimate_coverage(points: list[Point], repeaters: list[RepeaterLike],
                 pre_lats.append(lat + (rl - lat) * f)
                 pre_lons.append(lon + (rn - lon) * f)
         if pre_lats:
-            terrain.prefetch(np.concatenate(pre_lats), np.concatenate(pre_lons))
+            terrain.prefetch(np.concatenate(pre_lats), np.concatenate(pre_lons),
+                             tile_progress)
 
     def classify(km: float, lat: float, lon: float,
                  candidates: list[tuple[float, float, float, float, str, int]],
@@ -157,9 +167,14 @@ def estimate_coverage(points: list[Point], repeaters: list[RepeaterLike],
         status = LOS if los else (MARGINAL if marginal else SHADOW)
         return SamplePoint(km, status, tuple(los), tuple(marginal))
 
-    sample_points = [classify(k, lat, lon, cands)
-                     for (k, lat, lon), cands in zip(samples, per_sample,
-                                                     strict=True)]
+    if sample_progress:
+        sample_progress(0, len(samples))
+    sample_points: list[SamplePoint] = []
+    for i, ((k, lat, lon), cands) in enumerate(
+            zip(samples, per_sample, strict=True), start=1):
+        sample_points.append(classify(k, lat, lon, cands))
+        if sample_progress:
+            sample_progress(i, len(samples))
     flags = [s.status for s in sample_points]
 
     covered = marginal = uncovered = 0.0

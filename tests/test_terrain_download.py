@@ -10,6 +10,7 @@ from __future__ import annotations
 import time
 
 import httpx
+import numpy as np
 import pytest
 
 from bmtools.routelib import terrain
@@ -57,3 +58,23 @@ def test_fehlerstatus_wird_zum_terrainerror(modell, monkeypatch):
                         lambda url: httpx.Response(503))
     with pytest.raises(terrain.TerrainError, match="HTTP 503"):
         modell._download(1, 2)
+
+
+def test_prefetch_meldet_fortschritt_je_kachel(modell, monkeypatch):
+    monkeypatch.setattr(modell._http, "get",
+                        lambda url: httpx.Response(200, content=b"png"))
+    # Drei Koordinaten in drei verschiedenen Kacheln
+    lats = np.array([50.0, 50.0, 51.0])
+    lons = np.array([8.0, 9.0, 8.0])
+    meldungen: list[tuple[int, int]] = []
+    modell.prefetch(lats, lons, progress=lambda f, g: meldungen.append((f, g)))
+    assert modell.tiles_downloaded == 3
+    assert meldungen[0] == (0, 3)
+    # Downloads laufen parallel — Meldungsreihenfolge ist nicht garantiert,
+    # aber jede Zählerstufe kommt genau einmal
+    assert sorted(f for f, _ in meldungen[1:]) == [1, 2, 3]
+    assert all(g == 3 for _, g in meldungen)
+    # Warmer Cache: nichts fehlt, kein Fortschritt gemeldet
+    meldungen.clear()
+    modell.prefetch(lats, lons, progress=lambda f, g: meldungen.append((f, g)))
+    assert meldungen == []

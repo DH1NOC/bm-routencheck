@@ -98,6 +98,15 @@ def test_repeaters_along_dedupliziert_ueber_stuetzpunkte(tmp_path, monkeypatch):
     assert len({(r.callsign, r.tx_mhz) for r in reps}) == 95
 
 
+def test_repeaters_along_meldet_fortschritt(tmp_path, monkeypatch):
+    c = _client(_fixture_handler([]), tmp_path, monkeypatch)
+    meldungen: list[tuple[int, int]] = []
+    c.repeaters_along(line_route(60),
+                      progress=lambda f, g: meldungen.append((f, g)))
+    # 2 Stützpunkte: Startmeldung (0, gesamt) + eine Meldung je Punkt
+    assert meldungen == [(0, 2), (1, 2), (2, 2)]
+
+
 def test_fehler_nach_retries(tmp_path, monkeypatch):
     c = _client(lambda r: httpx.Response(500), tmp_path, monkeypatch)
     with pytest.raises(RuntimeError, match=r"relaislisten\.darc\.de"):

@@ -89,10 +89,18 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
     if modus != "dmr":
         console.print("[bold]Lade FM-Relais entlang der Route "
                       f"(relaislisten.darc.de) …[/bold]{cache_note}")
-        with console.status("Stützpunkte alle 50 km abfragen "
-                            "(gedrosselt, Antworten werden gecacht) …"):
+        with ui.fortschritt(console) as fm_p:
+            # Kurz halten: die Balken-Zeile muss samt X/Y-Zähler in
+            # 80 Zeichen passen
+            fm_task = fm_p.add_task("Stützpunkte abfragen (alle 50 km, "
+                                    "gedrosselt)", total=None)
+
+            def fm_progress(fertig: int, gesamt: int) -> None:
+                fm_p.update(fm_task, completed=fertig, total=gesamt)
+
             fm_relais = [r for r in DL3ELClient(refresh=refresh)
-                         .repeaters_along(route.points) if _band_2m_70cm(r)]
+                         .repeaters_along(route.points, progress=fm_progress)
+                         if _band_2m_70cm(r)]
         repeaters += fm_relais
         quellen_note.append(f"{len(fm_relais)} FM-Relais (2 m/70 cm) "
                             "im Routenumfeld")
@@ -100,16 +108,37 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
     # Auswahlkriterium ist die rechnerische Erreichbarkeit von der Strecke
     # (Sichtkontakt zu >=1 Streckenpunkt), nicht ein fester Abstand.
     terrain = None if no_terrain else TerrainModel()
-    with console.status("Erreichbarkeit berechnen (Geländemodell; lädt ggf. "
-                        "Höhenkacheln) …" if terrain else
-                        "Erreichbarkeit berechnen (Horizontmodell) …"):
+    with ui.fortschritt(console) as cov_p:
+        # Kachel-Balken bleibt unsichtbar, bis wirklich Kacheln fehlen
+        # (warmer Cache: nur der Rechenbalken). Update aus Threads ist ok,
+        # rich.progress ist threadsicher.
+        kacheln_task = cov_p.add_task("Höhenkacheln laden", total=None,
+                                      visible=False)
+        punkte_task = cov_p.add_task(
+            "Erreichbarkeit berechnen (Geländemodell)" if terrain else
+            "Erreichbarkeit berechnen (Horizontmodell)", total=None)
+
+        def tile_progress(fertig: int, gesamt: int) -> None:
+            cov_p.update(kacheln_task, completed=fertig, total=gesamt,
+                         visible=True)
+
+        def sample_progress(fertig: int, gesamt: int) -> None:
+            cov_p.update(punkte_task, completed=fertig, total=gesamt)
+
         try:
-            coverage = estimate_coverage(route.points, repeaters, terrain)
+            coverage = estimate_coverage(route.points, repeaters, terrain,
+                                         tile_progress=tile_progress,
+                                         sample_progress=sample_progress)
         except TerrainError as e:
             console.print(f"[yellow]Höhendaten nicht verfügbar ({e}) — "
                           f"Fallback auf Horizontmodell.[/yellow]")
             terrain = None
-            coverage = estimate_coverage(route.points, repeaters, None)
+            cov_p.update(kacheln_task, visible=False)
+            cov_p.update(punkte_task, completed=0,
+                         description="Erreichbarkeit berechnen "
+                                     "(Horizontmodell)")
+            coverage = estimate_coverage(route.points, repeaters, None,
+                                         sample_progress=sample_progress)
 
     # Konsistenz-Zusage: Jedes Relais, das irgendwo (Karte, Abschnitts-
     # tabelle) als erreichbar oder grenzwertig auftaucht, bekommt auch
@@ -174,16 +203,34 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
     write_csv(results, csv_path)
     write_html_report(results, route, html_path, tg_names, coverage,
                       modus=modus)
-    with console.status("Karte erzeugen (inkl. Relais-Sichtfelder) …"):
-        # Die Sichtfelder laden weitere Höhenkacheln nach — reißt das Netz
-        # dabei ab, kommt die Karte ohne Sichtfelder statt gar nicht.
-        try:
-            write_map(results, route, map_path, coverage,
-                      terrain if coverage.terrain_used else None,
-                      route_label=route_label, waypoint_icon=waypoint_icon)
-        except TerrainError as e:
-            console.print(f"[yellow]Höhendaten abgebrochen ({e}) — "
-                          f"Karte ohne Relais-Sichtfelder.[/yellow]")
+    # Die Sichtfelder laden weitere Höhenkacheln nach — reißt das Netz
+    # dabei ab, kommt die Karte ohne Sichtfelder statt gar nicht.
+    sichtfeld_terrain = terrain if coverage.terrain_used else None
+    if sichtfeld_terrain is not None:
+        with ui.fortschritt(console) as map_p:
+            map_kacheln = map_p.add_task("Höhenkacheln laden (Sichtfelder)",
+                                         total=None, visible=False)
+            felder_task = map_p.add_task("Karte erzeugen (Relais-Sichtfelder)",
+                                         total=None)
+
+            def map_tile_progress(fertig: int, gesamt: int) -> None:
+                map_p.update(map_kacheln, completed=fertig, total=gesamt,
+                             visible=True)
+
+            def felder_progress(fertig: int, gesamt: int) -> None:
+                map_p.update(felder_task, completed=fertig, total=gesamt)
+
+            try:
+                write_map(results, route, map_path, coverage, sichtfeld_terrain,
+                          route_label=route_label, waypoint_icon=waypoint_icon,
+                          tile_progress=map_tile_progress,
+                          viewshed_progress=felder_progress)
+            except TerrainError as e:
+                console.print(f"[yellow]Höhendaten abgebrochen ({e}) — "
+                              f"Karte ohne Relais-Sichtfelder.[/yellow]")
+                sichtfeld_terrain = None
+    if sichtfeld_terrain is None:
+        with console.status("Karte erzeugen …"):
             write_map(results, route, map_path, coverage, None,
                       route_label=route_label, waypoint_icon=waypoint_icon)
     # Codeplug: digitale und analoge Kanäle in derselben Zone; die

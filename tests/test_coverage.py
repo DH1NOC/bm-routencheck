@@ -62,6 +62,17 @@ def test_kurze_luecken_werden_nicht_gelistet():
     assert cov.reachable_ids == {262001, 262002}
 
 
+def test_fortschritt_je_streckenpunkt():
+    repeater = make_device(lat=50.0, lng=8.0, agl=30.0)
+    meldungen: list[tuple[int, int]] = []
+    estimate_coverage(_route(10.0), [repeater], terrain=None,
+                      sample_progress=lambda f, g: meldungen.append((f, g)))
+    gesamt = meldungen[0][1]
+    assert gesamt > 0
+    assert [f for f, _ in meldungen] == list(range(gesamt + 1))
+    assert all(g == gesamt for _, g in meldungen)
+
+
 def test_relais_ausserhalb_des_puffers_ignoriert():
     # >60 km neben der Strecke: fällt schon am Bounding-Box-Vorfilter
     weit_weg = make_device(lat=51.0, lng=8.0, agl=1000.0)

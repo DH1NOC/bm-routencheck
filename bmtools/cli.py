@@ -9,6 +9,7 @@ eigene main() mit (inkl. eigener --help und ggf. interaktivem Modus).
 """
 from __future__ import annotations
 
+import argparse
 import sys
 from collections.abc import Callable
 
@@ -16,7 +17,7 @@ import questionary
 from questionary import Choice, Separator
 from rich.console import Console
 
-from . import ui
+from . import cache_admin, ui
 
 
 def _rail_main() -> int:
@@ -56,8 +57,75 @@ def _usage(console: Console) -> None:
     for name, (icon, desc, _) in TOOLS.items():
         console.print(f"  {icon} [{ui.LIGHT_BLUE} bold]{name:<5}[/] {desc}",
                       highlight=False)
+    console.print(f"  🧹 [{ui.LIGHT_BLUE} bold]{'cache':<5}[/] "
+                  "Cache-Übersicht anzeigen; --leeren löscht alle "
+                  "gecachten Daten", highlight=False)
     console.print("\nHilfe je Tool: [bold]bmtools <tool> --help[/bold]",
                   highlight=False)
+
+
+def _cache_uebersicht(console: Console) -> tuple[list[cache_admin.CacheBereich], int]:
+    """Belegten Cache je Bereich ausgeben; (Bereiche, Gesamtbytes)."""
+    liste = cache_admin.bereiche()
+    gesamt = sum(b.groesse_bytes for b in liste)
+    console.print("[bold]Belegter Disk-Cache:[/bold]")
+    for b in liste:
+        console.print(
+            f"  {b.name:<44} {b.dateien:>5} "
+            f"{'Dateien' if b.dateien != 1 else 'Datei  '} "
+            f"{cache_admin.groesse_mensch(b.groesse_bytes):>10}",
+            highlight=False)
+    console.print(
+        f"  [bold]{'Gesamt':<44} {sum(b.dateien for b in liste):>5} "
+        f"Dateien {cache_admin.groesse_mensch(gesamt):>10}[/bold]",
+        highlight=False)
+    return liste, gesamt
+
+
+def _cache_main() -> int:
+    """bmtools cache [--leeren]: Übersicht anzeigen bzw. alles löschen."""
+    ui.argparse_deutsch()
+    ap = argparse.ArgumentParser(
+        prog=sys.argv[0],
+        description="Zeigt den belegten Disk-Cache (API-Antworten, "
+                    "Höhenkacheln) und leert ihn auf Wunsch. Der nächste "
+                    "Lauf lädt gelöschte Daten automatisch neu.")
+    ap.add_argument("--leeren", "--clear", dest="leeren",
+                    action="store_true",
+                    help="alle gecachten Daten löschen (ohne Rückfrage)")
+    args = ap.parse_args(sys.argv[1:])
+    console = Console()
+    liste, gesamt = _cache_uebersicht(console)
+    if not args.leeren:
+        console.print("\n[dim]Leeren mit: bmtools cache --leeren[/dim]")
+        return 0
+    if gesamt == 0:
+        console.print("\nDer Cache ist bereits leer.")
+        return 0
+    frei = cache_admin.leeren(liste)
+    console.print(f"\n[green]Cache geleert[/green] — "
+                  f"{cache_admin.groesse_mensch(frei)} freigegeben.")
+    return 0
+
+
+def _cache_leeren_interaktiv(console: Console) -> None:
+    """Menüpunkt »Cache leeren«: Übersicht, Rückfrage (Default Nein),
+    löschen. Ctrl-C/ESC zählt als Nein."""
+    liste, gesamt = _cache_uebersicht(console)
+    if gesamt == 0:
+        console.print("\nDer Cache ist bereits leer.")
+        return
+    console.print("[dim]Der nächste Lauf lädt Relais-Daten und "
+                  "Höhenkacheln neu herunter.[/dim]")
+    if not questionary.confirm(
+            f"Alle gecachten Daten löschen "
+            f"({cache_admin.groesse_mensch(gesamt)})?",
+            default=False, style=ui.QSTYLE).ask():
+        console.print("[dim]Nichts gelöscht.[/dim]")
+        return
+    frei = cache_admin.leeren(liste)
+    console.print(f"[green]Cache geleert[/green] — "
+                  f"{cache_admin.groesse_mensch(frei)} freigegeben.")
 
 
 def main() -> int:
@@ -68,6 +136,9 @@ def main() -> int:
         if tool in ("-h", "--help"):
             _usage(console)
             return 0
+        if tool == "cache":
+            sys.argv = ["bmtools cache", *sys.argv[2:]]
+            return _cache_main()
         if tool not in TOOLS:
             console.print(f"[red]Unbekanntes Tool: {tool!r}[/red]\n")
             _usage(console)
@@ -88,7 +159,14 @@ def main() -> int:
         Choice(f"{icon}  {name:<5} {desc}", value=name)
         for name, (icon, desc, _) in TOOLS.items()
     ]
-    choices += [Separator(), Choice("🚪  Beenden", value=None)]
+    choices += [
+        Separator(),
+        Choice("🧹  Cache leeren — gespeicherte API-Antworten und "
+               "Höhenkacheln löschen", value="cache"),
+        # Achtung: value=None hieße bei questionary "Titel als Wert" —
+        # deshalb Sentinel "ende"; echtes None kommt nur von Ctrl-C/ESC
+        Choice("🚪  Beenden", value="ende"),
+    ]
     code = 0
     # Beta-Wunsch 2026-07-17: Nach einem Lauf nicht sofort beenden,
     # sondern zurück zur Tool-Auswahl anbieten (Ctrl-C/ESC = beenden).
@@ -97,9 +175,14 @@ def main() -> int:
             "Welches Tool?", choices=choices,
             style=ui.QSTYLE, pointer=ui.POINTER, qmark="",
         ).ask()
-        if tool is None:
+        if tool is None or tool == "ende":
             console.print("[dim]Bis zum nächsten Mal — 73![/dim]")
             return code
+        if tool == "cache":
+            console.print()
+            _cache_leeren_interaktiv(console)
+            console.print()
+            continue
         console.print()
         sys.argv = [f"bmtools {tool}"]
         code = TOOLS[tool][2]()
