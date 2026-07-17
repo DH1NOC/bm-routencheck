@@ -163,7 +163,9 @@ def main() -> int:
         Separator(),
         Choice("🧹  Cache leeren — gespeicherte API-Antworten und "
                "Höhenkacheln löschen", value="cache"),
-        Choice("🚪  Beenden", value=None),
+        # Achtung: value=None hieße bei questionary "Titel als Wert" —
+        # deshalb Sentinel "ende"; echtes None kommt nur von Ctrl-C/ESC
+        Choice("🚪  Beenden", value="ende"),
     ]
     code = 0
     # Beta-Wunsch 2026-07-17: Nach einem Lauf nicht sofort beenden,
@@ -173,7 +175,7 @@ def main() -> int:
             "Welches Tool?", choices=choices,
             style=ui.QSTYLE, pointer=ui.POINTER, qmark="",
         ).ask()
-        if tool is None:
+        if tool is None or tool == "ende":
             console.print("[dim]Bis zum nächsten Mal — 73![/dim]")
             return code
         if tool == "cache":
