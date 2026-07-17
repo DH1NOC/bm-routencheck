@@ -13,6 +13,17 @@ import questionary
 from questionary import Choice, Style
 from rich.console import Console
 from rich.panel import Panel
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    Task,
+    TaskID,
+    TaskProgressColumn,
+    TextColumn,
+    TimeRemainingColumn,
+)
+from rich.text import Text
 
 BLUE = "#0072B2"
 LIGHT_BLUE = "#56B4E9"
@@ -63,6 +74,47 @@ def modus_frage(default: str = "beide") -> questionary.Question:
             Choice("fm    — nur analoge FM-Relais", "fm"),
         ],
         default=default, style=QSTYLE, pointer=POINTER)
+
+
+# Ab dieser geschätzten Restzeit wird im Fortschrittsbalken eine ETA
+# eingeblendet (Nutzerwunsch 2026-07-17: kurze Läufe ohne ETA-Rauschen)
+ETA_AB_SEKUNDEN = 10.0
+
+
+class EtaSpalte(TimeRemainingColumn):
+    """Restzeit-Spalte, die erst ab ETA_AB_SEKUNDEN geschätzter Restzeit
+    erscheint. Einmal sichtbar, bleibt sie bis zum Task-Ende stehen —
+    sonst flackerte sie, sobald die Schätzung um die Schwelle pendelt."""
+
+    def __init__(self) -> None:
+        super().__init__(compact=True)
+        self._sichtbar: set[TaskID] = set()
+
+    def render(self, task: Task) -> Text:
+        remaining = task.time_remaining
+        if task.finished or remaining is None:
+            return Text("")
+        if remaining > ETA_AB_SEKUNDEN:
+            self._sichtbar.add(task.id)
+        if task.id not in self._sichtbar:
+            return Text("")
+        return Text.assemble(("noch ", "progress.remaining"),
+                             super().render(task))
+
+
+def fortschritt(console: Console) -> Progress:
+    """Einheitlicher Fortschrittsbalken aller Tools: Beschreibung, Balken,
+    X/Y, Prozent und ETA ab >10 s Restzeit (EtaSpalte).
+
+    Verwendung: with ui.fortschritt(console) as p: t = p.add_task(...)"""
+    return Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(complete_style=LIGHT_BLUE, finished_style=BLUE,
+                  pulse_style=ORANGE),
+        MofNCompleteColumn(),
+        TaskProgressColumn(),
+        EtaSpalte(),
+        console=console)
 
 
 def banner(console: Console, title: str, subtitle: str,
