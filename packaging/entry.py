@@ -4,6 +4,7 @@ bmtools/cli.py nutzt relative Imports und taugt daher nicht direkt als
 PyInstaller-Skript — dieses Mini-Skript importiert das Paket regulär.
 """
 import io
+import multiprocessing
 import sys
 
 if sys.platform == "win32":
@@ -15,7 +16,13 @@ if sys.platform == "win32":
         if isinstance(_strom, io.TextIOWrapper):
             _strom.reconfigure(encoding="utf-8", errors="replace")
 
-from bmtools.cli import main
-
 if __name__ == "__main__":
+    # Muss vor dem App-Start stehen: Windows/macOS starten multiprocessing-
+    # Kindprozesse (Sichtfeld-Rendering, mapview.py) per Neuaufruf des
+    # Binarys mit --multiprocessing-fork. Ohne freeze_support landete das
+    # im bmtools-Menü statt im Worker (Beta-Befund 2026-07-17: Menü-Spam
+    # und "process pool was terminated abruptly").
+    multiprocessing.freeze_support()
+
+    from bmtools.cli import main
     sys.exit(main())
