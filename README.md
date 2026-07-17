@@ -372,6 +372,33 @@ Releases werden manuell über GitHub Actions gebaut:
   Windows (x64), Linux (x64) und macOS (Apple Silicon). Die Binaries brauchen
   kein installiertes Python; unter Linux/macOS nach dem Entpacken ggf.
   `chmod +x bmtools`.
+- **macOS-Start (wichtig):** bmtools ist ein Terminalprogramm und wird
+  **im Terminal gestartet — nicht per Doppelklick im Finder.** Beim
+  Doppelklick zeigt macOS bei *jedem* nackten Unix-Binary die Meldung
+  „Apple konnte nicht überprüfen, ob ‚bmtools' frei von Schadsoftware
+  ist". Das ist **kein** Signaturproblem — das Binary ist mit
+  Developer ID signiert und von Apple notarisiert —, sondern das
+  Standardverhalten von Gatekeeper für alles, was kein `.app`-Bundle
+  ist (Originalmeldung: „the code is valid but does not seem to be an
+  app"). Eine LIESMICH.txt mit diesem Hinweis liegt mit im ZIP. Start:
+
+  ```bash
+  # ZIP entpacken, dann:
+  chmod +x bmtools && ./bmtools
+  ```
+
+  Der Release-Workflow veröffentlicht erst, wenn Apples Server das
+  Notarisierungs-Ticket ausliefern — die Gatekeeper-Prüfung
+  funktioniert also direkt ab Veröffentlichung.
+- **Windows-Hinweis:** Die `.exe` ist derzeit nicht code-signiert
+  (Microsofts Signaturdienst steht Einzelentwicklern in Deutschland
+  nicht offen, klassische Zertifikate kosten laufend Geld). SmartScreen
+  meldet daher „Unbekannter Herausgeber" (→ „Weitere Informationen" →
+  „Trotzdem ausführen"). Auf Rechnern mit aktivem **Smart App Control**
+  (nur bei neu aufgesetztem Windows 11 aktiv) wird die Datei ohne
+  Ausnahmemöglichkeit blockiert — SAC lässt sich nur komplett
+  deaktivieren (Windows-Sicherheit → App- & Browsersteuerung) oder man
+  nutzt das Quell-ZIP mit installiertem Python.
 
 ### macOS-Signierung und Notarisierung
 
@@ -387,6 +414,7 @@ sind — fehlen sie, wird mit Warnung unsigniert gebaut:
 | `APPLE_TEAM_ID` | Team-ID (developer.apple.com → Membership) |
 | `APPLE_APP_PASSWORD` | App-spezifisches Passwort (account.apple.com → Anmeldung & Sicherheit) |
 
-Das Zertifikat („Developer ID Application", *nicht* „Apple Development")
-wird auf developer.apple.com unter *Certificates* erstellt und über die
-Schlüsselbundverwaltung als `.p12` mit Passwort exportiert.
+Das Zertifikat lässt sich am einfachsten in Xcode erstellen
+(Settings → Accounts → Team → „Manage Certificates…" → „+" →
+„Developer ID Application") und dort per Rechtsklick →
+„Export Certificate…" als `.p12` mit Passwort exportieren.

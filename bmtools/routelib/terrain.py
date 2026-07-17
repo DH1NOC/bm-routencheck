@@ -10,6 +10,7 @@ from __future__ import annotations
 import math
 import os
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -22,6 +23,7 @@ TILE_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.
 ZOOM = 11
 USER_AGENT = "bmtools/0.1 (Amateurfunk-Tool; Kontakt: cnohl@gmx.de)"
 MAX_PARALLEL_DOWNLOADS = 12
+DOWNLOAD_VERSUCHE = 3  # Timeouts bei S3 sind meist transient — erst wiederholen
 
 EFFECTIVE_EARTH_KM = 6371.0 * 4.0 / 3.0  # 4/3-Erdradius (Funk-Refraktion)
 PROFILE_STEP_KM = 0.09                   # Abtastung entlang des Profils
@@ -50,7 +52,21 @@ class TerrainModel:
         path = self._tile_path(tx, ty)
         if path.exists():
             return
-        r = self._http.get(TILE_URL.format(z=self.zoom, x=tx, y=ty))
+        # Netzfehler (Timeout, Abbruch, DNS) hier in TerrainError übersetzen:
+        # nur darauf reagieren die Aufrufer mit dem Horizontmodell-Fallback —
+        # ein roher httpx-Fehler riss sonst den ganzen Lauf ab (Beta-Befund
+        # 2026-07-17, ReadTimeout auf Windows).
+        for versuch in range(1, DOWNLOAD_VERSUCHE + 1):
+            try:
+                r = self._http.get(TILE_URL.format(z=self.zoom, x=tx, y=ty))
+                break
+            except httpx.HTTPError as e:
+                if versuch == DOWNLOAD_VERSUCHE:
+                    raise TerrainError(
+                        f"Höhenkachel {self.zoom}/{tx}/{ty} nach "
+                        f"{DOWNLOAD_VERSUCHE} Versuchen nicht ladbar "
+                        f"({e.__class__.__name__})") from e
+                time.sleep(versuch)  # 1 s, 2 s — kurzer, wachsender Abstand
         if r.status_code != 200:
             raise TerrainError(
                 f"Höhenkachel {self.zoom}/{tx}/{ty} nicht ladbar "

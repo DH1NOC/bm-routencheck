@@ -79,8 +79,12 @@ jobs:
             git tag "$TAG"
             git push origin HEAD:main "$TAG"
           else
-            # Fortlaufende Beta-Nummer je Zielversion (beta.1, beta.2, …)
-            N=$(( $(git tag --list "v$VERSION-beta.*" | wc -l) + 1 ))
+            # Nächste Beta-Nummer = höchste vorhandene + 1. (Tags zählen
+            # bricht, sobald alte Beta-Tags gelöscht wurden — dann kollidiert
+            # die Nummer mit einer bestehenden; Befund 2026-07-17.)
+            N=$(git tag --list "v$VERSION-beta.*" \
+              | sed 's/.*-beta\.//' | sort -n | tail -1)
+            N=$(( ${N:-0} + 1 ))
             LABEL="$VERSION-beta.$N"
             TAG="v$LABEL"
             VERSION="${VERSION}b$N"  # PEP-440-Schreibweise für pyproject.toml
@@ -163,10 +167,26 @@ jobs:
             EXTRA+=(--codesign-identity "$SIGNIER_IDENTITAET"
                     --osx-entitlements-file packaging/entitlements.plist)
           fi
+          # --collect-all tzdata: zoneinfo lädt das Paket dynamisch
+          # (string-basiert) — die statische Analyse sieht es nicht.
           pyinstaller --onefile --name bmtools \
             --collect-submodules bmtools \
             --collect-data folium --collect-data branca \
+            --collect-all tzdata \
             ${EXTRA[@]+"${EXTRA[@]}"} packaging/entry.py
+
+      - name: Binary rauchtesten
+        run: |
+          set -euo pipefail
+          BIN=dist/bmtools
+          [ -f dist/bmtools.exe ] && BIN=dist/bmtools.exe
+          "$BIN" --help
+          # PYTHONTZPATH leer: erzwingt den tzdata-Fallback auch auf
+          # Linux/macOS — bahn lädt ZoneInfo("Europe/Berlin") beim Import
+          # (genau der Windows-Absturz aus dem Beta-Test 2026-07-17).
+          PYTHONTZPATH= "$BIN" bahn --help > /dev/null
+          "$BIN" auto --help > /dev/null
+          "$BIN" rad --help > /dev/null
 
       - name: Notarisieren (macOS)
         if: runner.os == 'macOS' && env.SIGNIER_IDENTITAET != ''
@@ -176,10 +196,48 @@ jobs:
           APPLE_APP_PASSWORT: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
           set -euo pipefail
+
+          # notarytool meldet auch abgelehnte Einreichungen nicht immer als
+          # Fehler-Exitcode — daher Status explizit prüfen und bei allem
+          # außer "Accepted" das Prüfprotokoll ausgeben und abbrechen.
+          notarisieren() {
+            local ergebnis id status
+            ergebnis=$(xcrun notarytool submit "$1" \
+              --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+              --password "$APPLE_APP_PASSWORT" --wait --output-format json)
+            id=$(echo "$ergebnis" | jq -r .id)
+            status=$(echo "$ergebnis" | jq -r .status)
+            echo "Notarisierung $1: $status (Submission $id)"
+            if [ "$status" != "Accepted" ]; then
+              xcrun notarytool log "$id" \
+                --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+                --password "$APPLE_APP_PASSWORT" || true
+              exit 1
+            fi
+          }
+
           ditto -c -k dist/bmtools "$RUNNER_TEMP/notarisierung.zip"
-          xcrun notarytool submit "$RUNNER_TEMP/notarisierung.zip" \
-            --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
-            --password "$APPLE_APP_PASSWORT" --wait
+          notarisieren "$RUNNER_TEMP/notarisierung.zip"
+
+      - name: Gatekeeper-Freigabe abwarten (macOS)
+        if: runner.os == 'macOS' && env.SIGNIER_IDENTITAET != ''
+        run: |
+          set -euo pipefail
+          # Beta-Befund 2026-07-17: Direkt nach der Notarisierung braucht
+          # Apples CDN einige Minuten, bis das Ticket abrufbar ist — wer
+          # sofort herunterlädt, sieht sonst "Apple konnte nicht
+          # überprüfen …". Der Release wird erst freigegeben, wenn
+          # Gatekeeper das Binary tatsächlich akzeptiert.
+          for versuch in $(seq 1 20); do
+            if spctl --assess --type install dist/bmtools 2>/dev/null; then
+              spctl --assess --type install -vv dist/bmtools
+              exit 0
+            fi
+            echo "Ticket noch nicht verteilt — warte 15 s (Versuch $versuch/20)"
+            sleep 15
+          done
+          echo "::error::Gatekeeper akzeptiert das Binary nach 5 Minuten nicht."
+          exit 1
 
       - name: Paket schnüren
         env:
@@ -191,7 +249,28 @@ jobs:
           case "$PLATTFORM" in
             windows-*) cp dist/bmtools.exe "out/release/bmtools-$LABEL-$PLATTFORM.exe" ;;
             linux-*)   tar -C dist -czf "out/release/bmtools-$LABEL-$PLATTFORM.tar.gz" bmtools ;;
-            macos-*)   ditto -c -k dist/bmtools "out/release/bmtools-$LABEL-$PLATTFORM.zip" ;;
+            macos-*)
+              # ZIP mit Binary + Hinweis-Datei (Nutzerfestlegung 2026-07-17:
+              # kein Installer, kein DMG). Die LIESMICH erklärt die
+              # Gatekeeper-Meldung beim Doppelklick — bmtools ist ein
+              # Terminalprogramm, gestartet wird im Terminal.
+              mkdir -p zipinhalt
+              # -X: ohne erweiterte Attribute (sonst ._-Dateien im ZIP)
+              cp -X dist/bmtools zipinhalt/bmtools
+              printf '%s\n' \
+                "bmtools — BM-Routencheck" \
+                "" \
+                "bmtools ist ein Terminalprogramm und wird im Terminal gestartet:" \
+                "    chmod +x bmtools && ./bmtools" \
+                "" \
+                "WICHTIG: Nicht per Doppelklick im Finder starten. macOS zeigt" \
+                "dabei bei jedem Terminalprogramm die Meldung 'Apple konnte" \
+                "nicht überprüfen, ob bmtools frei von Schadsoftware ist'." \
+                "Das ist kein Signaturproblem: Das Binary ist mit Developer ID" \
+                "signiert und von Apple notarisiert — Gatekeeper behandelt per" \
+                "Doppelklick nur .app-Bundles als Apps." \
+                > zipinhalt/LIESMICH.txt
+              ditto -c -k zipinhalt "out/release/bmtools-$LABEL-$PLATTFORM.zip" ;;
           esac
       - uses: actions/upload-artifact@v7
         with:

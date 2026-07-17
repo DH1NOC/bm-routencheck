@@ -199,7 +199,8 @@ def _pipeline(route: Route, args: argparse.Namespace, console: Console,
         no_terrain=args.no_terrain, open_browser=args.open, zone=zone,
         route_label="Bahnstrecke", waypoint_icon="train",
         refresh=args.refresh, modus=args.modus,
-        bandbreite=args.bandbreite, ctcss_decode=args.ctcss_decode)
+        bandbreite=args.bandbreite, ctcss_decode=args.ctcss_decode,
+        interactive=interactive)
 
 
 def _run(stations: list[Station], args: argparse.Namespace, console: Console,

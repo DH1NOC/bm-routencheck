@@ -8,13 +8,14 @@ sind bewusst unverändert.
 from __future__ import annotations
 
 import re
-import webbrowser
 from pathlib import Path
 
+import questionary
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import track
 
+from bmtools import ui
 from bmtools.bm_api import BrandmeisterClient, DeviceProfile, TalkgroupSub
 from bmtools.fm_api import DL3ELClient, FmRepeater, band_label
 
@@ -24,6 +25,7 @@ from .corridor import find_in_corridor
 from .coverage import estimate_coverage
 from .mapview import write_map
 from .model import RepeaterLike, Route
+from .oeffnen import system_oeffnen
 from .report import FUNK_LABEL, RepeaterResult, print_table, write_csv
 from .report_html import write_html_report
 from .terrain import TerrainError, TerrainModel
@@ -70,7 +72,8 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
                  refresh: bool = False,
                  modus: str = "beide",
                  bandbreite: str = "12.5",
-                 ctcss_decode: bool = False) -> int:
+                 ctcss_decode: bool = False,
+                 interactive: bool = False) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     cache_note = " [dim](Cache wird ignoriert)[/dim]" if refresh else ""
@@ -172,9 +175,17 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
     write_html_report(results, route, html_path, tg_names, coverage,
                       modus=modus)
     with console.status("Karte erzeugen (inkl. Relais-Sichtfelder) …"):
-        write_map(results, route, map_path, coverage,
-                  terrain if coverage.terrain_used else None,
-                  route_label=route_label, waypoint_icon=waypoint_icon)
+        # Die Sichtfelder laden weitere Höhenkacheln nach — reißt das Netz
+        # dabei ab, kommt die Karte ohne Sichtfelder statt gar nicht.
+        try:
+            write_map(results, route, map_path, coverage,
+                      terrain if coverage.terrain_used else None,
+                      route_label=route_label, waypoint_icon=waypoint_icon)
+        except TerrainError as e:
+            console.print(f"[yellow]Höhendaten abgebrochen ({e}) — "
+                          f"Karte ohne Relais-Sichtfelder.[/yellow]")
+            write_map(results, route, map_path, coverage, None,
+                      route_label=route_label, waypoint_icon=waypoint_icon)
     # Codeplug: digitale und analoge Kanäle in derselben Zone; die
     # FM-Kanäle zusätzlich als generisches CHIRP-CSV
     write_anytone(results, out_dir / "anytone", zone, tg_names,
@@ -195,6 +206,13 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
     console.print(Panel.fit("\n".join(lines), border_style="green"))
 
     if open_browser:
-        webbrowser.open(html_path.resolve().as_uri())
-        webbrowser.open(map_path.resolve().as_uri())
+        # Nicht webbrowser.open(): siehe oeffnen.py (Windows-Beta-Befund)
+        system_oeffnen(html_path)
+        system_oeffnen(map_path)
+    # Beta-Wunsch 2026-07-17: Ausgabeordner (Codeplug-CSVs!) direkt im
+    # Dateimanager öffnen können. Ctrl-C/ESC zählt als Nein.
+    if interactive and questionary.confirm(
+            "Ausgabeordner im Dateimanager öffnen?", default=False,
+            style=ui.QSTYLE).ask():
+        system_oeffnen(out_dir)
     return 0
