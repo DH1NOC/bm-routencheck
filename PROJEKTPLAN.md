@@ -1,19 +1,25 @@
 # BM-Routencheck — Projektplan
 
-Stand: 2026-07-15
+Stand: 2026-07-17
 
 ## 1. Status
 
 Die drei Tools `bm-bahn`, `bm-auto` und `bm-rad` sind fertig und abgenommen
-(gemeinsamer Kern in `bmtools/routelib/`, Nutzung siehe [README](README.md));
-seit dem FM-Umbau (2026-07-15) werten sie neben Brandmeister-DMR auch
-analoge FM-Relais aus (`--modus`, Default beide; Quelle:
-relaislisten.darc.de). Dieses Dokument hält nur noch fest, was für die
-Weiterarbeit gebraucht wird: offene Punkte, verbindliche Festlegungen und
-die Eigenheiten der externen Datenquellen. Die Abnahmeprotokolle der
-erledigten Meilensteine (M0–M6, R0–R5, FM-Umbau F0–F4) sind in der
-Git-Historie nachlesbar (F0–F3 in der Historie von `FM-UMBAU.md`, mit F4
-aufgelöst).
+(gemeinsamer Kern in `bmtools/routelib/`, Bedienung siehe
+[README](README.md), Technik siehe [DEVELOPER.md](DEVELOPER.md)); seit dem
+FM-Umbau (2026-07-15) werten sie neben Brandmeister-DMR auch analoge
+FM-Relais aus (`--modus`, Default beide; Quelle: relaislisten.darc.de).
+Erster Release v0.1.1 (2026-07-17); v0.1.2 (2026-07-17) ergänzt
+Fortschrittsbalken mit ETA für die längeren Pipeline-Schritte, eine
+Cache-leeren-Funktion (Menü und `bmtools cache --leeren`), einen
+Menü-Fix (Beenden warf `KeyError`) und die Trennung von README (Endnutzer)
+und DEVELOPER.md (Technik) — im Beta-Release v0.1.2-beta.1 interaktiv
+gegengetestet, danach gemergt und die Beta-Artefakte aufgeräumt. Dieses
+Dokument hält nur noch fest, was für die Weiterarbeit gebraucht wird:
+offene Punkte, verbindliche Festlegungen und die Eigenheiten der externen
+Datenquellen. Die Abnahmeprotokolle der erledigten Meilensteine (M0–M6,
+R0–R5, FM-Umbau F0–F4) sind in der Git-Historie nachlesbar (F0–F3 in der
+Historie von `FM-UMBAU.md`, mit F4 aufgelöst).
 
 ## 2. Offene Punkte
 
@@ -51,6 +57,9 @@ Projektprinzipien:
 | Assistenten-Reihenfolge | Die Modus-Frage (DMR/FM/beide) ist in allen Tools die **letzte** Frage — nach kompletter Streckenwahl inkl. Geocoding-/Verbindungs-Rückfragen und Bestätigungen, nie mittendrin (Nutzerwunsch 2026-07-15) |
 | Schlanke Abhängigkeiten | Bewusst kein shapely/geopandas — segmentweise Haversine-Distanz reicht |
 | Konsistenz der Ausgaben | Karte, Bericht und CSV zeigen exakt dieselben Relais; Grenzbereichs-Relais sind vollwertige, markierte Einträge (graue Marker, Badge, CSV-Spalte `erreichbarkeit`) |
+| Fortschrittsanzeige | Lange Pipeline-Schritte (FM-Stützpunkte, Erreichbarkeit inkl. Höhenkacheln, Karten-Sichtfelder) zeigen `ui.fortschritt()` (rich-Balken mit X/Y, Prozent); die ETA-Spalte blendet erst ab > 10 s geschätzter Restzeit ein und bleibt danach bis zum Abschluss stehen (Nutzerwunsch 2026-07-17) |
+| UI-freie Bibliotheksschichten | `bm_api`/`fm_api`/`routelib` importieren nichts aus `ui.py`; Fortschritt wird über optionale `(fertig, gesamt)`-Callbacks nach außen gereicht, die Pipeline hängt daran die Balken |
+| Doku-Trennung | `README.md` richtet sich an Endnutzer (Download, Bedienung, Ausgaben); Technik (Architektur, QS, Cache-Interna, Release-Prozess) steht in `DEVELOPER.md` — beide verweisen aufeinander (Nutzerfestlegung 2026-07-17) |
 
 Fachliche Regeln (dürfen bei Änderungen nicht regressieren):
 
@@ -67,7 +76,7 @@ Fachliche Regeln (dürfen bei Änderungen nicht regressieren):
 | Slot 0 | = „keine Slot-Angabe": bei Simplex-Repeatern (RX=TX) Anzeige „1 (Simplex)", Codeplug Slot 1 + DMR MODE 0. Auf Duplex-Relais ist Slot 0 eine Sysop-Miskonfiguration und wird komplett verworfen |
 | Relais ohne TGs | Bleiben in allen Ausgaben sichtbar (vollständiges Lagebild), mit TG9 als Minimum |
 | Geländemodell | Sichtlinienprüfung mit 4/3-Erdradius, dreistufig Sicht / Grenzbereich (≤ 30 m Hindernis) / Schatten, Schatten-Lücken ≥ 5 km; Antennenhöhe mobil 2,0 m; `--ohne-gelaende` = Horizontmodell-Fallback (auch bei Downloadfehler) |
-| Cache-TTLs | Geräteliste 1 Tag, Profile 12 h („ändern sich am ehesten"), TG-Namen 7 Tage, Höhenkacheln unbegrenzt; `--aktualisieren` erzwingt frische Daten |
+| Cache-TTLs | Geräteliste 1 Tag, Profile 12 h („ändern sich am ehesten"), TG-Namen 7 Tage, Höhenkacheln unbegrenzt; `--aktualisieren` erzwingt frische Daten; kompletter manueller Reset über `bmtools/cache_admin.py` (Menüpunkt „Cache leeren“ bzw. `bmtools cache --leeren`) |
 | Motorola | Kein automatischer Import — Eingabe manuell anhand des HTML-Berichts (Kanaltabellen sind dafür ausgelegt) |
 | HTML-Ausgaben | Vollständiges HTML5 mit `<meta charset="utf-8">` + Viewport (sonst Zeichensalat auf Mobilgeräten); Tabellen in scrollenden Wrappern |
 | Kartenkacheln | `tile.openstreetmap.de` (FOSSGIS), nicht `tile.openstreetmap.org`: Die OSMF-Server verlangen einen Referer, den eine per file:// geöffnete karte.html nie sendet („Access Blocked"); kein JS-Workaround möglich. Carto-CDN als umschaltbare Ausweich-Ebene |
