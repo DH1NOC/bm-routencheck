@@ -104,9 +104,34 @@ def test_start_lauf_meldet_formularfehler():
     assert r["ok"] is False and FORMULAR in r["fehler"]
 
 
-def test_start_lauf_gueltig_meldet_g4_hinweis():
-    r = Bridge().start_lauf("auto", {"von": "Koblenz", "nach": "Bonn"})
-    assert r["ok"] is False and "G4" in r["hinweis"]
+class _FakeLauf:
+    def __init__(self, sende):
+        self.gestartet = None
+        self._laeuft = False
+
+    def laeuft(self):
+        return self._laeuft
+
+    def starten(self, tool, daten):
+        self.gestartet = (tool, daten)
+        self._laeuft = True
+
+
+def test_start_lauf_gueltig_startet_hintergrundlauf(monkeypatch):
+    monkeypatch.setattr("bmtools.gui.bridge.Lauf", _FakeLauf)
+    b = Bridge()
+    r = b.start_lauf("auto", {"von": "Koblenz", "nach": "Bonn"})
+    assert r == {"ok": True}
+    assert isinstance(b._lauf, _FakeLauf)
+    assert b._lauf.gestartet[0] == "auto"
+
+
+def test_start_lauf_verweigert_zweiten_lauf(monkeypatch):
+    monkeypatch.setattr("bmtools.gui.bridge.Lauf", _FakeLauf)
+    b = Bridge()
+    assert b.start_lauf("auto", {"von": "A", "nach": "B"})["ok"] is True
+    r = b.start_lauf("auto", {"von": "A", "nach": "B"})
+    assert r["ok"] is False and "bereits" in r["hinweis"]
 
 
 def test_waehle_gpx_ohne_fenster_ist_none():

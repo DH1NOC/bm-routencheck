@@ -19,6 +19,7 @@ from questionary import Choice
 from rich.console import Console
 
 from bmtools import gui, ui
+from bmtools.routelib.melden import Melder, TerminalMelder
 from bmtools.routelib.model import Route, Station
 from bmtools.routelib.pipeline import run_pipeline, slug
 
@@ -103,7 +104,7 @@ def _link_valid(raw: str) -> bool | str:
 
 
 def _resolve_stations(planner: RoutePlanner, names: list[str],
-                      console: Console, interactive: bool) -> list[Station]:
+                      melder: Melder, interactive: bool) -> list[Station]:
     """Bahnhofsnamen auflösen.
 
     Interaktiv wird bei mehreren Kandidaten IMMER gefragt (Top-Treffer
@@ -113,20 +114,19 @@ def _resolve_stations(planner: RoutePlanner, names: list[str],
     for name in names:
         candidates = planner.geocode_candidates(name)
         if interactive and len(candidates) > 1:
-            chosen = _q(questionary.select(
+            chosen = candidates[melder.auswahl(
                 f"Bahnhof für '{name}':",
-                choices=[Choice(c.label, value=c) for c in candidates],
-                style=ui.QSTYLE, pointer=ui.POINTER))
+                [c.label for c in candidates])]
         else:
             chosen = candidates[0]
         if interactive:
-            console.print(f"  [dim]→ {chosen.label}[/dim]")
+            melder.text(f"  [dim]→ {chosen.label}[/dim]")
         stations.append(chosen)
     return stations
 
 
 def _interactive(console: Console, args: argparse.Namespace,
-                 planner: RoutePlanner) -> list[Station]:
+                 planner: RoutePlanner, melder: Melder) -> list[Station]:
     """Fragt Strecke, Verbindungsfilter und Korridor ab. Wird ein
     bahn.de-Link eingefügt, landet er in args.link und die Liste
     bleibt leer — die Verbindung steht dann schon fest."""
@@ -147,7 +147,7 @@ def _interactive(console: Console, args: argparse.Namespace,
                                   style=ui.QSTYLE))
     via = [v.strip() for v in via_raw.split(",") if v.strip()]
     stations = _resolve_stations(
-        planner, [origin, *via, destination], console, interactive=True)
+        planner, [origin, *via, destination], melder, interactive=True)
     args.modes = _q(questionary.select(
         "Zuggattung:",
         choices=[
@@ -170,32 +170,36 @@ def _interactive(console: Console, args: argparse.Namespace,
     return stations
 
 
-def _make_chooser(console: Console) -> Chooser:
+def _make_chooser(melder: Melder) -> Chooser:
     """Interaktive Auswahl unter den gefundenen Verbindungen je Abschnitt."""
     def chooser(options: list[ItineraryOption],
                 frm: Station, to: Station) -> ItineraryOption:
         if len(options) == 1:
-            console.print(f"  Verbindung {frm.name} → {to.name}: "
-                          f"{options[0].summary}")
+            melder.text(f"  Verbindung {frm.name} → {to.name}: "
+                        f"{options[0].summary}")
             return options[0]
-        return _q(questionary.select(
+        return options[melder.auswahl(
             f"Verbindung {frm.name} → {to.name}:",
-            choices=[Choice(o.summary, value=o) for o in options],
-            style=ui.QSTYLE, pointer=ui.POINTER))
+            [o.summary for o in options])]
     return chooser
 
 
-def _pipeline(route: Route, args: argparse.Namespace, console: Console,
-              interactive: bool = False) -> int:
+def _pipeline(route: Route, args: argparse.Namespace, melder: Melder,
+              interactive: bool = False,
+              modus_fragen: bool | None = None) -> int:
     # Letzte Frage des Assistenten, bewusst NACH der kompletten
-    # Streckenwahl (Nutzerwunsch 2026-07-15: Modus am Ende, nie mittendrin)
-    if interactive:
+    # Streckenwahl (Nutzerwunsch 2026-07-15: Modus am Ende, nie
+    # mittendrin). Die GUI stellt sie im Formular und schaltet sie
+    # hier ab (modus_fragen=False bei interactive=True).
+    if modus_fragen is None:
+        modus_fragen = interactive
+    if modus_fragen:
         args.modus = _q(ui.modus_frage(args.modus))
     names = [s.name for s in route.stations]
     out_dir = args.out or Path("out") / f"{slug(names[0])}-{slug(names[-1])}"
     zone = f"{names[0].removesuffix(' Hbf')}-{names[-1].removesuffix(' Hbf')}"
     return run_pipeline(
-        route, console=console, out_dir=out_dir, corridor_km=args.corridor,
+        route, melder=melder, out_dir=out_dir, corridor_km=args.corridor,
         no_terrain=args.no_terrain, open_browser=args.open, zone=zone,
         route_label="Bahnstrecke", waypoint_icon="train",
         refresh=args.refresh, modus=args.modus,
@@ -203,40 +207,41 @@ def _pipeline(route: Route, args: argparse.Namespace, console: Console,
         interactive=interactive)
 
 
-def _run(stations: list[Station], args: argparse.Namespace, console: Console,
-         planner: RoutePlanner, interactive: bool) -> int:
+def _run(stations: list[Station], args: argparse.Namespace, melder: Melder,
+         planner: RoutePlanner, interactive: bool,
+         modus_fragen: bool | None = None) -> int:
     opts = PlanOptions(modes=args.modes, time=args.time,
                        arrive_by=args.arrive, direct_only=args.direct)
-    console.print(f"\n[bold]Route:[/bold] {' → '.join(s.label for s in stations)}")
-    chooser = _make_chooser(console) if interactive else None
+    melder.text(f"\n[bold]Route:[/bold] {' → '.join(s.label for s in stations)}")
+    chooser = _make_chooser(melder) if interactive else None
     route = (planner.route_interpolated(stations) if args.straight_line
              else planner.route(stations, opts, chooser))
-    console.print(f"  Gewählte Verbindung: {', '.join(route.legs) or 'Luftlinie'}")
-    return _pipeline(route, args, console, interactive)
+    melder.text(f"  Gewählte Verbindung: {', '.join(route.legs) or 'Luftlinie'}")
+    return _pipeline(route, args, melder, interactive, modus_fragen)
 
 
-def _run_link(link: str, args: argparse.Namespace, console: Console,
-              planner: RoutePlanner, interactive: bool) -> int:
+def _run_link(link: str, args: argparse.Namespace, melder: Melder,
+              planner: RoutePlanner, interactive: bool,
+              modus_fragen: bool | None = None) -> int:
     """Verbindung aus bahn.de-Link übernehmen statt selbst zu suchen."""
     verbindung = fetch_verbindung(extract_vbid(link))
-    console.print(f"\n[bold]Verbindung laut bahn.de[/bold] "
-                  f"({verbindung.datum:%d.%m.%Y}): "
-                  f"{verbindung.start_ort} → {verbindung.ziel_ort}")
+    melder.text(f"\n[bold]Verbindung laut bahn.de[/bold] "
+                f"({verbindung.datum:%d.%m.%Y}): "
+                f"{verbindung.start_ort} → {verbindung.ziel_ort}")
     for leg in verbindung.legs:
         plus = " (+1)" if leg.arr.date() != leg.dep.date() else ""
-        console.print(f"  {leg.dep:%H:%M} {leg.frm.name} → "
-                      f"{leg.arr:%H:%M}{plus} {leg.to.name}  "
-                      f"[dim]{leg.train}[/dim]")
-    if interactive and not _q(questionary.confirm(
-            "Diese Verbindung verwenden?", default=True, style=ui.QSTYLE)):
+        melder.text(f"  {leg.dep:%H:%M} {leg.frm.name} → "
+                    f"{leg.arr:%H:%M}{plus} {leg.to.name}  "
+                    f"[dim]{leg.train}[/dim]")
+    if interactive and not melder.frage_ja("Diese Verbindung verwenden?"):
         raise KeyboardInterrupt
-    with console.status("Strecke auflösen …") as status:
+    with melder.status("Strecke auflösen …") as status_update:
         route = planner.route_fixed(
             verbindung.legs,
-            warn=lambda msg: console.print(f"[yellow]{msg}[/yellow]"),
-            progress=status.update)
-    console.print(f"  Übernommene Fahrt: {', '.join(route.legs) or 'Luftlinie'}")
-    return _pipeline(route, args, console, interactive)
+            warn=lambda msg: melder.text(f"[yellow]{msg}[/yellow]"),
+            progress=status_update)
+    melder.text(f"  Übernommene Fahrt: {', '.join(route.legs) or 'Luftlinie'}")
+    return _pipeline(route, args, melder, interactive, modus_fragen)
 
 
 def main(*, gui_start: bool = True) -> int:
@@ -317,28 +322,29 @@ def main(*, gui_start: bool = True) -> int:
         if code is not None:
             return code
     interactive = False
+    melder = TerminalMelder(console)
     planner = RoutePlanner()
     try:
         if args.link:
-            return _run_link(args.link, args, console, planner,
+            return _run_link(args.link, args, melder, planner,
                              interactive=False)
         if args.stations:
             names = [s.strip() for s in args.stations.split(",") if s.strip()]
-            stations = _resolve_stations(planner, names, console, interactive=False)
+            stations = _resolve_stations(planner, names, melder, interactive=False)
         elif args.origin and args.destination:
             names = [args.origin, *args.via, args.destination]
-            stations = _resolve_stations(planner, names, console, interactive=False)
+            stations = _resolve_stations(planner, names, melder, interactive=False)
         elif sys.stdin.isatty() and not (args.origin or args.destination):
             interactive = True
-            stations = _interactive(console, args, planner)
+            stations = _interactive(console, args, planner, melder)
             if args.link:  # Assistent bekam einen bahn.de-Link
-                return _run_link(args.link, args, console, planner,
+                return _run_link(args.link, args, melder, planner,
                                  interactive=True)
         else:
             ap.error("Entweder LINK (bahn.de) angeben, --von UND --nach, "
                      "--bahnhoefe, oder ohne Argumente interaktiv starten.")
 
-        return _run(stations, args, console, planner, interactive)
+        return _run(stations, args, melder, planner, interactive)
     except (KeyboardInterrupt, EOFError):
         console.print("\n[dim]Abgebrochen.[/dim]")
         return 130

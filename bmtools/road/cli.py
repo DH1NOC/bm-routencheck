@@ -17,10 +17,10 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import questionary
-from questionary import Choice
 from rich.console import Console
 
 from bmtools import gui, ui
+from bmtools.routelib.melden import Melder, TerminalMelder
 from bmtools.routelib.model import Route, Waypoint
 from bmtools.routelib.pipeline import run_pipeline, slug
 
@@ -78,7 +78,7 @@ def _short_name(name: str) -> str:
 
 
 def _resolve(names_or_wps: Sequence[str | Waypoint | LinkWaypoint],
-             console: Console, interactive: bool) -> list[Waypoint]:
+             melder: Melder, interactive: bool) -> list[Waypoint]:
     """Unaufgelöste Wegpunkte geocodieren (interaktiv mit Auswahl)."""
     resolved: list[Waypoint] = []
     for item in names_or_wps:
@@ -92,22 +92,20 @@ def _resolve(names_or_wps: Sequence[str | Waypoint | LinkWaypoint],
         name = item if isinstance(item, str) else item.name
         candidates = geocode_candidates(name)
         if interactive and len(candidates) > 1:
-            chosen = _q(questionary.select(
-                f"Ort für '{name}':",
-                choices=[Choice(c.label, value=c) for c in candidates],
-                style=ui.QSTYLE, pointer=ui.POINTER))
+            chosen = candidates[melder.auswahl(
+                f"Ort für '{name}':", [c.label for c in candidates])]
         else:
             chosen = candidates[0]
-        console.print(f"  [dim]→ {chosen.label}[/dim]")
+        melder.text(f"  [dim]→ {chosen.label}[/dim]")
         resolved.append(chosen)
     return resolved
 
 
-def _warn(console: Console) -> Callable[[str], None]:
-    return lambda msg: console.print(f"[yellow]{msg}[/yellow]")
+def _warn(melder: Melder) -> Callable[[str], None]:
+    return lambda msg: melder.text(f"[yellow]{msg}[/yellow]")
 
 
-def _route_from_gmaps(link: str, args: argparse.Namespace, console: Console,
+def _route_from_gmaps(link: str, args: argparse.Namespace, melder: Melder,
                       profile: str, interactive: bool) -> tuple[Route, str]:
     if urlsplit(link).netloc.lower() in SHORTLINK_HOSTS:
         link = expand_short_link(link)
@@ -117,36 +115,33 @@ def _route_from_gmaps(link: str, args: argparse.Namespace, console: Console,
     if mode != profile:
         label, tool_label = MODE_LABEL[mode], MODE_LABEL[profile]
         if interactive:
-            mode = _q(questionary.select(
+            gewaehlt = melder.auswahl(
                 f"Der Link ist eine {label}-Route, aufgerufen ist das "
                 f"{tool_label}-Tool. Wonach routen?",
-                choices=[Choice(f"{label} (wie im Link)", mode),
-                         Choice(f"{tool_label} (wie das Tool)", profile)],
-                style=ui.QSTYLE, pointer=ui.POINTER))
+                [f"{label} (wie im Link)", f"{tool_label} (wie das Tool)"])
+            mode = (mode, profile)[gewaehlt]
         else:
-            console.print(f"[yellow]Hinweis: Der Link ist eine {label}-Route "
-                          f"— geroutet wird nach dem Link ({label}).[/yellow]")
+            melder.text(f"[yellow]Hinweis: Der Link ist eine {label}-Route "
+                        f"— geroutet wird nach dem Link ({label}).[/yellow]")
 
-    waypoints = _resolve(g.waypoints, console, interactive)
-    console.print(f"  [bold]Route ({MODE_LABEL[mode]}):[/bold] "
-                  + " → ".join(w.name for w in waypoints))
-    if interactive and not _q(questionary.confirm(
-            "Route so berechnen?", default=True, style=ui.QSTYLE)):
+    waypoints = _resolve(g.waypoints, melder, interactive)
+    melder.text(f"  [bold]Route ({MODE_LABEL[mode]}):[/bold] "
+                + " → ".join(w.name for w in waypoints))
+    if interactive and not melder.frage_ja("Route so berechnen?"):
         raise KeyboardInterrupt
-    route = route_waypoints(waypoints, mode, warn=_warn(console))
+    route = route_waypoints(waypoints, mode, warn=_warn(melder))
     zone = f"{_short_name(waypoints[0].name)}-{_short_name(waypoints[-1].name)}"
     return route, zone
 
 
-def _route_from_komoot(link: str, console: Console,
+def _route_from_komoot(link: str, melder: Melder,
                        interactive: bool) -> tuple[Route, str]:
     tour = fetch_tour(parse_komoot_url(link), page_url=link)
     sport = SPORT_LABEL.get(tour.sport, tour.sport)
-    console.print(f"  [bold]Komoot-Tour:[/bold] {tour.name} "
-                  f"({sport}, {tour.distance_km:.1f} km, "
-                  f"{len(tour.points)} Punkte)")
-    if interactive and not _q(questionary.confirm(
-            "Diese Tour verwenden?", default=True, style=ui.QSTYLE)):
+    melder.text(f"  [bold]Komoot-Tour:[/bold] {tour.name} "
+                f"({sport}, {tour.distance_km:.1f} km, "
+                f"{len(tour.points)} Punkte)")
+    if interactive and not melder.frage_ja("Diese Tour verwenden?"):
         raise KeyboardInterrupt
     route = route_from_track(
         tour.points, f"Komoot-Tour „{tour.name}“ ({sport}, "
@@ -154,10 +149,10 @@ def _route_from_komoot(link: str, console: Console,
     return route, tour.name
 
 
-def _route_from_gpx(path: Path, console: Console) -> tuple[Route, str]:
+def _route_from_gpx(path: Path, melder: Melder) -> tuple[Route, str]:
     track = read_gpx(path)
-    console.print(f"  [bold]GPX:[/bold] {track.name} "
-                  f"({len(track.points)} Punkte)")
+    melder.text(f"  [bold]GPX:[/bold] {track.name} "
+                f"({len(track.points)} Punkte)")
     route = route_from_track(track.points, f"GPX-Import „{track.name}“")
     return route, track.name
 
@@ -252,6 +247,7 @@ def main(profile: str, *, gui_start: bool = True) -> int:
         if code is not None:
             return code
     interactive = False
+    melder = TerminalMelder(console)
     try:
         if not (args.link or args.gpx or (args.origin and args.destination)):
             if sys.stdin.isatty():
@@ -263,22 +259,22 @@ def main(profile: str, *, gui_start: bool = True) -> int:
                          "starten.")
 
         if args.gpx:
-            route, zone = _route_from_gpx(args.gpx, console)
+            route, zone = _route_from_gpx(args.gpx, melder)
         elif args.link and is_komoot_url(args.link):
-            route, zone = _route_from_komoot(args.link, console, interactive)
+            route, zone = _route_from_komoot(args.link, melder, interactive)
         elif args.link:
-            route, zone = _route_from_gmaps(args.link, args, console,
+            route, zone = _route_from_gmaps(args.link, args, melder,
                                             profile, interactive)
         else:
             names = [args.origin, *args.via, args.destination]
-            waypoints = _resolve(names, console, interactive)
-            console.print(f"  [bold]Route ({MODE_LABEL[profile]}):[/bold] "
-                          + " → ".join(w.name for w in waypoints))
-            route = route_waypoints(waypoints, profile, warn=_warn(console))
+            waypoints = _resolve(names, melder, interactive)
+            melder.text(f"  [bold]Route ({MODE_LABEL[profile]}):[/bold] "
+                        + " → ".join(w.name for w in waypoints))
+            route = route_waypoints(waypoints, profile, warn=_warn(melder))
             zone = (f"{_short_name(waypoints[0].name)}-"
                     f"{_short_name(waypoints[-1].name)}")
 
-        console.print(f"  {', '.join(route.legs)}")
+        melder.text(f"  {', '.join(route.legs)}")
         # Letzte Frage des Assistenten, bewusst NACH Routenaufbau samt
         # Geocoding-Rückfragen und Bestätigung (Nutzerwunsch 2026-07-15:
         # Modus am Ende, nie mittendrin)
@@ -286,7 +282,7 @@ def main(profile: str, *, gui_start: bool = True) -> int:
             args.modus = _q(ui.modus_frage(args.modus))
         out_dir = args.out or Path("out") / slug(zone)
         return run_pipeline(
-            route, console=console, out_dir=out_dir,
+            route, melder=melder, out_dir=out_dir,
             corridor_km=args.corridor, no_terrain=args.no_terrain,
             open_browser=args.open, zone=zone,
             route_label=route_label, waypoint_icon=icon,

@@ -195,7 +195,29 @@
   <p class="meldung" id="meldung" hidden></p>
 </section>
 
+<!-- Lauf-Ansicht (G4): ersetzt Formulare und Tabs während der Suche -->
+<section id="lauf" hidden>
+  <h2 id="lauf-titel">Suche läuft …</h2>
+  <div id="lauf-balken"></div>
+  <p id="lauf-status" hidden></p>
+  <div id="lauf-log" aria-live="polite"></div>
+  <div class="lauf-knoepfe">
+    <button type="button" id="lauf-abbrechen" class="neben">Abbrechen</button>
+    <button type="button" id="lauf-zurueck" class="start"
+            hidden>Neue Suche</button>
+  </div>
+</section>
+
 </main>
+
+<!-- Frage-Dialog (G4): Verbindungs-/Geocoding-Auswahl, Bestätigungen -->
+<div id="dialog-hintergrund" hidden>
+  <div id="dialog" role="dialog" aria-modal="true">
+    <p id="dialog-frage"></p>
+    <div id="dialog-optionen"></div>
+    <div class="dialog-knoepfe" id="dialog-knoepfe"></div>
+  </div>
+</div>
 
 <footer>
   <p>Terminal-Modus: <code>bmtools --terminal</code> · Daten:

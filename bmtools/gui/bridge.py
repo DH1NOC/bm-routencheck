@@ -2,8 +2,10 @@
 
 Alle öffentlichen Methoden sind im Frontend als
 window.pywebview.api.<name>() aufrufbar und geben JSON-fähige Dicts
-zurück. G3: Startzustand, Feld-/Formular-Validierung und der native
-GPX-Dateidialog; der echte Pipeline-Lauf folgt in G4.
+zurück: Startzustand, Feld-/Formular-Validierung, der native
+GPX-Dateidialog (G3) sowie Start/Abbruch des Pipeline-Laufs und die
+Zustellung von Dialog-Antworten (G4). Ereignisse in Gegenrichtung
+laufen als bmEreignis()-Aufrufe über evaluate_js.
 
 Die Validierung nutzt dieselben Parser wie der Terminal-Assistent
 (bahn_link.extract_vbid, rail.cli-Zeitformate) — GUI und Terminal
@@ -12,10 +14,14 @@ dürfen nicht unterschiedlich urteilen.
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 from typing import Any
 
 from bmtools.rail.bahn_link import BahnLinkError, extract_vbid
+
+from .lauf import Lauf
+from .melder import Ereignis
 
 # Feldschlüssel im Fehler-Dict, der sich nicht auf ein einzelnes
 # Eingabefeld bezieht (das Frontend zeigt ihn unter dem Formular).
@@ -95,6 +101,13 @@ class Bridge:
     def __init__(self, tool: str | None = None) -> None:
         self._tool = tool
         self._fenster: Any = None
+        self._lauf: Lauf | None = None
+
+    def _sende_ereignis(self, ereignis: Ereignis) -> None:
+        """Ereignis an das Frontend (threadsicher via evaluate_js)."""
+        if self._fenster is not None:
+            self._fenster.evaluate_js(
+                f"bmEreignis({json.dumps(ereignis, ensure_ascii=False)})")
 
     def init_zustand(self) -> dict[str, Any]:
         """Startzustand fürs Frontend (aufgerufen bei pywebviewready)."""
@@ -126,10 +139,25 @@ class Bridge:
         return {"pfad": str(auswahl[0])}
 
     def start_lauf(self, tool: str, daten: dict[str, Any]) -> dict[str, Any]:
-        """Formular prüfen; der eigentliche Lauf folgt in G4."""
+        """Formular prüfen und den Lauf im Hintergrund-Thread starten."""
+        if self._lauf is not None and self._lauf.laeuft():
+            return {"ok": False,
+                    "hinweis": "Es läuft bereits eine Suche — erst "
+                               "abbrechen oder abwarten."}
         fehler = pruefe_formular(tool, daten)
         if fehler:
             return {"ok": False, "fehler": fehler}
-        return {"ok": False,
-                "hinweis": "Eingaben sind gültig — der Pipeline-Lauf "
-                           "wird in Meilenstein G4 verdrahtet."}
+        self._lauf = Lauf(self._sende_ereignis)
+        self._lauf.starten(tool, daten)
+        return {"ok": True}
+
+    def antwort(self, frage_id: int, wert: Any) -> None:
+        """Dialog-Antwort ans wartende Pipeline-Thread durchstellen;
+        wert=null bedeutet: Dialog abgebrochen."""
+        if self._lauf is not None:
+            self._lauf.melder.antwort(int(frage_id), wert)
+
+    def abbrechen(self) -> None:
+        """Laufende Suche abbrechen (wirkt an der nächsten Meldestelle)."""
+        if self._lauf is not None:
+            self._lauf.abbrechen()

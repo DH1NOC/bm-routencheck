@@ -10,11 +10,12 @@ eigenen Melder mit (Events über die pywebview-Bridge).
 """
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import AbstractContextManager, contextmanager
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
 import questionary
+from questionary import Choice
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, TaskID, track
@@ -48,7 +49,8 @@ class Melder(Protocol):
 
     def balken(self) -> AbstractContextManager[Balken]: ...
 
-    def status(self, text: str) -> AbstractContextManager[None]: ...
+    def status(self, text: str) -> AbstractContextManager[Callable[[str], None]]:
+        """Kurze Wartephase; der gelieferte Updater ersetzt den Text."""
 
     def spur(self, elemente: Iterable[T], beschreibung: str) -> Iterator[T]:
         """Elemente durchreichen und dabei einen Balken zeigen."""
@@ -61,6 +63,15 @@ class Melder(Protocol):
 
     def ja_nein(self, frage: str) -> bool:
         """Rückfrage mit Default Nein; Abbruch (Ctrl-C/ESC) zählt als Nein."""
+
+    def frage_ja(self, frage: str, default: bool = True) -> bool:
+        """Verbindliche Rückfrage im Ablauf (z. B. »Route so berechnen?«);
+        Abbruch wirft KeyboardInterrupt — wie _q im Assistenten."""
+
+    def auswahl(self, frage: str, optionen: list[str],
+                default: int | None = None) -> int:
+        """Eine Option wählen lassen (Verbindungs-/Geocoding-Auswahl);
+        liefert den Index. Abbruch wirft KeyboardInterrupt."""
 
 
 class _TerminalBalken:
@@ -102,9 +113,9 @@ class TerminalMelder:
             yield _TerminalBalken(p)
 
     @contextmanager
-    def status(self, text: str) -> Iterator[None]:
-        with self.console.status(text):
-            yield
+    def status(self, text: str) -> Iterator[Callable[[str], None]]:
+        with self.console.status(text) as s:
+            yield s.update
 
     def spur(self, elemente: Iterable[T], beschreibung: str) -> Iterator[T]:
         yield from track(elemente, description=beschreibung,
@@ -121,3 +132,21 @@ class TerminalMelder:
     def ja_nein(self, frage: str) -> bool:
         return bool(questionary.confirm(frage, default=False,
                                         style=ui.QSTYLE).ask())
+
+    def frage_ja(self, frage: str, default: bool = True) -> bool:
+        antwort = questionary.confirm(frage, default=default,
+                                      style=ui.QSTYLE).ask()
+        if antwort is None:
+            raise KeyboardInterrupt
+        return bool(antwort)
+
+    def auswahl(self, frage: str, optionen: list[str],
+                default: int | None = None) -> int:
+        choices = [Choice(text, value=i) for i, text in enumerate(optionen)]
+        antwort = questionary.select(
+            frage, choices=choices,
+            default=None if default is None else choices[default],
+            style=ui.QSTYLE, pointer=ui.POINTER).ask()
+        if antwort is None:
+            raise KeyboardInterrupt
+        return int(antwort)

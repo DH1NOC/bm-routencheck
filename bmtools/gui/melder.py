@@ -1,0 +1,204 @@
+"""GuiMelder: die Melder-Implementierung des Fensters (G4).
+
+Statt rich/questionary schickt er JSON-Ereignisse über einen
+sende-Callback (Bridge → evaluate_js → bmEreignis() im Frontend) und
+blockiert bei Rückfragen den Pipeline-Thread, bis die Antwort über
+Bridge.antwort() eintrifft. rich-Markup wird zu Klartext gestrippt —
+die Texte selbst bleiben dieselben wie im Terminal.
+
+Abbruch: Das Abbruch-Event setzt die Bridge; geprüft wird an den
+Melder-Aufrufen des Pipeline-Threads (text, balken, status, spur,
+Fragen). task-Updates prüfen bewusst NICHT — sie kommen auch aus
+Download-Threads, ein Raise dort würde nur den Helfer-Thread töten.
+"""
+from __future__ import annotations
+
+import itertools
+import threading
+import time
+from collections.abc import Callable, Iterable, Iterator
+from typing import Any, TypeVar
+
+from rich.text import Text
+
+from bmtools.routelib.melden import Balken
+
+T = TypeVar("T")
+
+Ereignis = dict[str, Any]
+
+# Ab dieser geschätzten Restzeit zeigt das Frontend eine ETA an
+# (gleiche Regel wie ui.EtaSpalte im Terminal; sticky macht sie das JS)
+ETA_AB_SEKUNDEN = 10.0
+
+
+def _plain(markup: str) -> str:
+    return Text.from_markup(markup).plain
+
+
+class _GuiBalken:
+    """Balken-Implementierung: Task-Ereignisse mit ETA-Schätzung."""
+
+    def __init__(self, sende: Callable[[Ereignis], None],
+                 ids: Iterator[int]) -> None:
+        self._sende = sende
+        self._ids = ids
+        self._lock = threading.Lock()
+        self._start: dict[int, float] = {}
+        # Sticky-Regel wie ui.EtaSpalte: einmal über der Schwelle,
+        # bleibt die ETA bis zum Task-Ende sichtbar (kein Flackern)
+        self._eta_sichtbar: set[int] = set()
+
+    def task(self, beschreibung: str, *, sichtbar: bool = True) -> int:
+        task_id = next(self._ids)
+        with self._lock:
+            self._start[task_id] = time.monotonic()
+        self._sende({"typ": "task_neu", "task": task_id,
+                     "beschreibung": beschreibung, "sichtbar": sichtbar})
+        return task_id
+
+    def update(self, task: int, *, fertig: int | None = None,
+               gesamt: int | None = None, sichtbar: bool | None = None,
+               beschreibung: str | None = None) -> None:
+        eta_s: float | None = None
+        if fertig is not None and gesamt:
+            with self._lock:
+                start = self._start.get(task)
+                if beschreibung is not None:
+                    # Neustart des Balkens (z. B. Fallback Horizontmodell)
+                    self._start[task] = time.monotonic()
+                    start = None
+            if start is not None and 0 < fertig < gesamt:
+                laufzeit = time.monotonic() - start
+                eta_s = laufzeit / fertig * (gesamt - fertig)
+        ereignis: Ereignis = {"typ": "task_update", "task": task}
+        if fertig is not None:
+            ereignis["fertig"] = fertig
+        if gesamt is not None:
+            ereignis["gesamt"] = gesamt
+        if sichtbar is not None:
+            ereignis["sichtbar"] = sichtbar
+        if beschreibung is not None:
+            ereignis["beschreibung"] = beschreibung
+        if eta_s is not None:
+            with self._lock:
+                if eta_s > ETA_AB_SEKUNDEN:
+                    self._eta_sichtbar.add(task)
+                if task in self._eta_sichtbar:
+                    ereignis["eta_s"] = round(eta_s)
+        self._sende(ereignis)
+
+
+class _BalkenKontext:
+    def __init__(self, melder: GuiMelder) -> None:
+        self._m = melder
+
+    def __enter__(self) -> Balken:
+        self._m._pruefe_abbruch()
+        return _GuiBalken(self._m._sende, self._m._task_ids)
+
+    def __exit__(self, *exc: object) -> None:
+        self._m._sende({"typ": "balken_ende"})
+
+
+class _StatusKontext:
+    def __init__(self, melder: GuiMelder, text: str) -> None:
+        self._m = melder
+        self._text = text
+
+    def __enter__(self) -> Callable[[str], None]:
+        self._m._pruefe_abbruch()
+        self._m._sende({"typ": "status", "text": self._text})
+        return lambda neu: self._m._sende({"typ": "status", "text": neu})
+
+    def __exit__(self, *exc: object) -> None:
+        self._m._sende({"typ": "status", "text": None})
+
+
+class GuiMelder:
+    """Erfüllt melden.Melder; läuft im Pipeline-Hintergrund-Thread."""
+
+    def __init__(self, sende: Callable[[Ereignis], None],
+                 abbruch: threading.Event) -> None:
+        self._sende = sende
+        self._abbruch = abbruch
+        self._task_ids = itertools.count(1)
+        self._frage_ids = itertools.count(1)
+        self._antworten: dict[int, Any] = {}
+        self._antwort_da: dict[int, threading.Event] = {}
+
+    # ------------------------------------------------------ Abbruch
+
+    def _pruefe_abbruch(self) -> None:
+        if self._abbruch.is_set():
+            raise KeyboardInterrupt
+
+    # ------------------------------------------------------- Melder
+
+    def text(self, markup: str) -> None:
+        self._pruefe_abbruch()
+        self._sende({"typ": "text", "text": _plain(markup)})
+
+    def balken(self) -> _BalkenKontext:
+        return _BalkenKontext(self)
+
+    def status(self, text: str) -> _StatusKontext:
+        return _StatusKontext(self, text)
+
+    def spur(self, elemente: Iterable[T], beschreibung: str) -> Iterator[T]:
+        liste = list(elemente)
+        with self.balken() as b:
+            task = b.task(beschreibung)
+            for i, element in enumerate(liste, 1):
+                self._pruefe_abbruch()
+                yield element
+                b.update(task, fertig=i, gesamt=len(liste))
+
+    def tabelle(self, results: list[Any]) -> None:
+        # Interim bis G5 (Ergebnisansicht im Fenster): nur die Anzahl —
+        # die vollständige Tabelle steht in bericht.html.
+        self._sende({"typ": "text",
+                     "text": f"{len(results)} Relais im Ergebnis — "
+                             f"Details in bericht.html."})
+
+    def erfolg(self, zeilen: list[str]) -> None:
+        self._sende({"typ": "erfolg",
+                     "zeilen": [_plain(z) for z in zeilen]})
+
+    # ------------------------------------------------------- Fragen
+
+    def ja_nein(self, frage: str) -> bool:
+        # Die Abschluss-Rückfrage (»Ausgabeordner öffnen?«) hat im
+        # Fenster keinen Platz als Dialog — G5 ersetzt sie durch Buttons.
+        return False
+
+    def frage_ja(self, frage: str, default: bool = True) -> bool:
+        return bool(self._frage({"typ": "frage", "art": "ja_nein",
+                                 "frage": frage, "default": default}))
+
+    def auswahl(self, frage: str, optionen: list[str],
+                default: int | None = None) -> int:
+        return int(self._frage({"typ": "frage", "art": "auswahl",
+                                "frage": frage, "optionen": optionen,
+                                "default": default}))
+
+    def _frage(self, ereignis: Ereignis) -> Any:
+        self._pruefe_abbruch()
+        frage_id = next(self._frage_ids)
+        da = threading.Event()
+        self._antwort_da[frage_id] = da
+        self._sende({**ereignis, "id": frage_id})
+        # Polling statt blockem wait: Abbrechen muss die Frage lösen
+        while not da.wait(0.2):
+            self._pruefe_abbruch()
+        antwort = self._antworten.pop(frage_id)
+        del self._antwort_da[frage_id]
+        if antwort is None:  # Dialog abgebrochen
+            raise KeyboardInterrupt
+        return antwort
+
+    def antwort(self, frage_id: int, wert: Any) -> None:
+        """Von der Bridge aufgerufen (JS-Thread): Antwort zustellen."""
+        if frage_id in self._antwort_da:
+            self._antworten[frage_id] = wert
+            self._antwort_da[frage_id].set()

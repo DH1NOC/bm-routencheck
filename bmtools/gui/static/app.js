@@ -114,7 +114,9 @@ $("#start").addEventListener("click", async () => {
   meldung(null);
   const r = await window.pywebview.api.start_lauf(
     aktiverTab, formulardaten(aktiverTab));
-  if (r.fehler) {
+  if (r.ok) {
+    zeigeLaufansicht();
+  } else if (r.fehler) {
     let allgemein = [];
     for (const [feld, text] of Object.entries(r.fehler)) {
       if (feld === "_formular") allgemein.push(text);
@@ -126,6 +128,203 @@ $("#start").addEventListener("click", async () => {
     meldung(r.hinweis, false);
   }
 });
+
+/* ------------------------------------------------ Lauf-Ansicht (G4) */
+
+const TOOL_TITEL = { bahn: "🚆 Bahnstrecke", auto: "🚗 Autoroute",
+                     rad: "🚴 Radroute" };
+
+function zeigeLaufansicht() {
+  $(".tabs").hidden = true;
+  $$(".formular").forEach((f) => (f.hidden = true));
+  $(".abschluss").hidden = true;
+  $("#lauf-balken").replaceChildren();
+  $("#lauf-log").replaceChildren();
+  $("#lauf-status").hidden = true;
+  $("#lauf-titel").textContent =
+    (TOOL_TITEL[aktiverTab] || "") + " — Suche läuft …";
+  $("#lauf-abbrechen").hidden = false;
+  $("#lauf-abbrechen").disabled = false;
+  $("#lauf-zurueck").hidden = true;
+  $("#lauf").hidden = false;
+}
+
+function zeigeFormulare() {
+  $("#lauf").hidden = true;
+  $(".tabs").hidden = false;
+  $(".abschluss").hidden = false;
+  waehleTab(aktiverTab);
+}
+
+function logZeile(text, istFehler) {
+  if (!text.trim()) return;
+  const p = document.createElement("p");
+  p.textContent = text;
+  if (istFehler) p.classList.add("fehler");
+  const log = $("#lauf-log");
+  log.appendChild(p);
+  log.scrollTop = log.scrollHeight;
+}
+
+/* Fortschrittsbalken: task-id -> DOM-Referenzen */
+const tasks = {};
+
+function taskNeu(e) {
+  const wrap = document.createElement("div");
+  wrap.className = "task aktiv unbestimmt";
+  wrap.hidden = !e.sichtbar;
+  wrap.innerHTML =
+    '<span class="task-text"></span>' +
+    '<div class="task-balken"><div class="task-fuellung"></div></div>' +
+    '<span class="task-zaehler"></span><span class="task-eta"></span>';
+  wrap.querySelector(".task-text").textContent = e.beschreibung;
+  $("#lauf-balken").appendChild(wrap);
+  tasks[e.task] = wrap;
+}
+
+function taskUpdate(e) {
+  const wrap = tasks[e.task];
+  if (!wrap) return;
+  if (e.sichtbar !== undefined) wrap.hidden = !e.sichtbar;
+  if (e.beschreibung !== undefined)
+    wrap.querySelector(".task-text").textContent = e.beschreibung;
+  if (e.fertig !== undefined && e.gesamt) {
+    wrap.classList.remove("unbestimmt");
+    const pct = Math.min(100, Math.round((e.fertig / e.gesamt) * 100));
+    wrap.querySelector(".task-fuellung").style.width = pct + "%";
+    wrap.querySelector(".task-zaehler").textContent =
+      e.fertig + "/" + e.gesamt + " · " + pct + " %";
+  }
+  // ETA-Regel wie im Terminal (ui.EtaSpalte): erscheint ab > 10 s
+  // Restzeit — sticky macht das der GuiMelder, hier nur anzeigen
+  wrap.querySelector(".task-eta").textContent =
+    e.eta_s !== undefined ? "noch ~" + etaText(e.eta_s) : "";
+}
+
+function etaText(s) {
+  if (s < 60) return s + " s";
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") + " min";
+}
+
+function balkenEnde() {
+  $$("#lauf-balken .task.aktiv").forEach((t) => {
+    t.classList.remove("aktiv", "unbestimmt");
+    t.classList.add("fertig");
+    t.querySelector(".task-eta").textContent = "";
+  });
+}
+
+function statusZeile(text) {
+  const el = $("#lauf-status");
+  el.hidden = !text;
+  el.textContent = text ? "⏳ " + text : "";
+}
+
+function erfolgBlock(zeilen) {
+  const div = document.createElement("div");
+  div.className = "erfolg";
+  zeilen.forEach((z) => {
+    const p = document.createElement("p");
+    p.textContent = z;
+    div.appendChild(p);
+  });
+  const log = $("#lauf-log");
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function laufFertig(code) {
+  balkenEnde();
+  statusZeile(null);
+  schliesseDialog();
+  $("#lauf-titel").textContent =
+    (TOOL_TITEL[aktiverTab] || "") +
+    (code === 0 ? " — fertig" : code === 130 ? " — abgebrochen"
+                                             : " — fehlgeschlagen");
+  $("#lauf-abbrechen").hidden = true;
+  $("#lauf-zurueck").hidden = false;
+}
+
+$("#lauf-abbrechen").addEventListener("click", () => {
+  $("#lauf-abbrechen").disabled = true;
+  window.pywebview.api.abbrechen();
+});
+
+$("#lauf-zurueck").addEventListener("click", zeigeFormulare);
+
+/* ------------------------------------------------ Frage-Dialog (G4) */
+
+let dialogFrageId = null;
+
+function antworte(wert) {
+  if (dialogFrageId === null) return;
+  const id = dialogFrageId;
+  schliesseDialog();
+  window.pywebview.api.antwort(id, wert);
+}
+
+function schliesseDialog() {
+  dialogFrageId = null;
+  $("#dialog-hintergrund").hidden = true;
+}
+
+function knopf(text, klasse, handler) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = klasse;
+  b.textContent = text;
+  b.addEventListener("click", handler);
+  return b;
+}
+
+function zeigeDialog(e) {
+  dialogFrageId = e.id;
+  $("#dialog-frage").textContent = e.frage;
+  const optionen = $("#dialog-optionen");
+  const knoepfe = $("#dialog-knoepfe");
+  optionen.replaceChildren();
+  knoepfe.replaceChildren();
+
+  if (e.art === "auswahl") {
+    e.optionen.forEach((text, i) => {
+      const label = document.createElement("label");
+      label.className = "dialog-option";
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = "dialog-auswahl";
+      radio.value = i;
+      radio.checked = i === (e.default ?? 0);
+      label.appendChild(radio);
+      label.appendChild(document.createTextNode(" " + text));
+      optionen.appendChild(label);
+    });
+    knoepfe.appendChild(knopf("Übernehmen", "start", () =>
+      antworte(Number($('input[name="dialog-auswahl"]:checked').value))));
+    knoepfe.appendChild(knopf("Abbrechen", "neben", () => antworte(null)));
+  } else {  // ja_nein
+    knoepfe.appendChild(knopf("Ja", e.default ? "start" : "neben",
+                              () => antworte(true)));
+    knoepfe.appendChild(knopf("Nein", e.default ? "neben" : "start",
+                              () => antworte(false)));
+  }
+  $("#dialog-hintergrund").hidden = false;
+}
+
+/* --------------------------------------- Ereignisse aus Python (G4) */
+
+window.bmEreignis = (e) => {
+  switch (e.typ) {
+    case "text": logZeile(e.text); break;
+    case "task_neu": taskNeu(e); break;
+    case "task_update": taskUpdate(e); break;
+    case "balken_ende": balkenEnde(); break;
+    case "status": statusZeile(e.text); break;
+    case "frage": zeigeDialog(e); break;
+    case "erfolg": erfolgBlock(e.zeilen); break;
+    case "fehler": logZeile("Fehler: " + e.text, true); break;
+    case "fertig": laufFertig(e.code); break;
+  }
+};
 
 /* -------------------------------------------------------- Start */
 

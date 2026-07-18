@@ -148,6 +148,104 @@ input.fehlerhaft { border-color: var(--fehler); }
 .meldung.fehler { border-color: var(--fehler);
                   background: #fdf3f2; color: var(--fehler); }
 
+/* --------------------------------------------- Lauf-Ansicht (G4) */
+#lauf h2 { margin: .2rem 0 1rem; font-size: 1.15rem; }
+
+.task {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  grid-template-areas: "text zaehler eta" "balken balken balken";
+  gap: .15rem .8rem;
+  margin-bottom: .7rem;
+}
+.task-text { grid-area: text; }
+.task-zaehler { grid-area: zaehler; color: var(--gedimmt);
+                font-variant-numeric: tabular-nums; }
+.task-eta { grid-area: eta; color: var(--orange);
+            font-variant-numeric: tabular-nums; }
+.task-balken {
+  grid-area: balken;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--flaeche);
+  overflow: hidden;
+}
+.task-fuellung {
+  height: 100%;
+  width: 0;
+  border-radius: 4px;
+  background: var(--hellblau);
+  transition: width .25s ease;
+}
+.task.fertig .task-fuellung { background: var(--blau); width: 100%; }
+.task.fertig { opacity: .65; }
+.task.unbestimmt .task-fuellung {
+  width: 40%;
+  background: var(--orange);
+  animation: pulsieren 1.2s ease-in-out infinite alternate;
+}
+@keyframes pulsieren {
+  from { margin-left: 0; }
+  to   { margin-left: 60%; }
+}
+
+#lauf-status { color: var(--gedimmt); }
+
+#lauf-log {
+  max-height: 16rem;
+  overflow-y: auto;
+  border: 1px solid var(--rand);
+  border-radius: 8px;
+  padding: .6rem .9rem;
+  margin: .8rem 0;
+  background: var(--flaeche);
+}
+#lauf-log p { margin: .15rem 0; }
+#lauf-log p.fehler { color: var(--fehler); font-weight: 600; }
+#lauf-log .erfolg {
+  border-left: 4px solid var(--blau);
+  padding-left: .7rem;
+  margin-top: .5rem;
+}
+
+.lauf-knoepfe { display: flex; gap: .8rem; }
+
+/* --------------------------------------------- Frage-Dialog (G4) */
+#dialog-hintergrund {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 35, 50, .45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#dialog {
+  background: #fff;
+  border-radius: 10px;
+  border-top: 4px solid var(--blau);
+  padding: 1.2rem 1.5rem;
+  max-width: 34rem;
+  width: min(90vw, 34rem);
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .25);
+}
+#dialog-frage { font-weight: 600; margin: 0 0 .8rem; }
+.dialog-option {
+  display: block;
+  padding: .45rem .6rem;
+  border: 1px solid var(--rand);
+  border-radius: 6px;
+  margin-bottom: .4rem;
+  cursor: pointer;
+}
+.dialog-option:has(input:checked) {
+  border-color: var(--blau);
+  background: var(--flaeche);
+}
+.dialog-option input { accent-color: var(--blau); }
+.dialog-knoepfe { display: flex; gap: .8rem; margin-top: 1rem; }
+
 footer {
   padding: .8rem 1.6rem;
   border-top: 1px solid var(--rand);

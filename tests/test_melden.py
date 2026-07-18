@@ -48,6 +48,47 @@ def test_ja_nein_ja(monkeypatch):
     assert m.ja_nein("Wirklich?") is True
 
 
+def test_frage_ja_abbruch_wirft(monkeypatch):
+    monkeypatch.setattr(questionary, "confirm",
+                        lambda *a, **k: _Antwort(None))
+    m, _ = _melder()
+    try:
+        m.frage_ja("Weiter?")
+        raise AssertionError("KeyboardInterrupt erwartet")
+    except KeyboardInterrupt:
+        pass
+
+
+def test_auswahl_liefert_index(monkeypatch):
+    erhaltene = {}
+
+    def fake_select(frage, choices, **kwargs):
+        erhaltene["labels"] = [c.title for c in choices]
+        return _Antwort(choices[1].value)
+
+    monkeypatch.setattr(questionary, "select", fake_select)
+    m, _ = _melder()
+    assert m.auswahl("Welcher?", ["A", "B", "C"]) == 1
+    assert erhaltene["labels"] == ["A", "B", "C"]
+
+
+def test_auswahl_abbruch_wirft(monkeypatch):
+    monkeypatch.setattr(questionary, "select",
+                        lambda *a, **k: _Antwort(None))
+    m, _ = _melder()
+    try:
+        m.auswahl("Welcher?", ["A", "B"])
+        raise AssertionError("KeyboardInterrupt erwartet")
+    except KeyboardInterrupt:
+        pass
+
+
+def test_status_liefert_updater():
+    m, _ = _melder()
+    with m.status("Strecke auflösen …") as update:
+        update("Abschnitt 2 …")  # darf nicht werfen
+
+
 def test_spur_reicht_elemente_durch():
     m, _ = _melder()
     assert list(m.spur([1, 2, 3], "laden …")) == [1, 2, 3]
