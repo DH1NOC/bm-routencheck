@@ -42,7 +42,8 @@ und Konsistenz der Ausgaben.
 ## Meilensteine (ein Commit je Schritt)
 
 - [x] **G0 — Plan:** Branch `feature/gui-umbau`, dieses Dokument.
-- [ ] **G1 — Startlogik:** `pywebview`-Abhängigkeit; Desktop-Erkennung
+- [x] **G1 — Startlogik** *(abgenommen 2026-07-18: Fenster auf macOS,
+      Terminal-Menü mit `--terminal`, Vorauswahl via `bm-bahn --gui`)*: `pywebview`-Abhängigkeit; Desktop-Erkennung
       (macOS/Windows: ja außer SSH-Sitzung; Linux: `DISPLAY`/
       `WAYLAND_DISPLAY`); Flags `--gui`/`--terminal` in allen vier
       Kommandos; ohne Argumente + Desktop → leeres GUI-Fenster
