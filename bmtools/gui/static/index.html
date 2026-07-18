@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>BM-Routencheck</title>
+<link rel="stylesheet" href="stil.css">
+</head>
+<body>
+
+<header>
+  <h1>📡 BM-Routencheck</h1>
+  <p>Welche DMR- und FM-Relais erreichst du unterwegs? — Bericht, Karte,
+     CSV und Codeplug je Route</p>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button type="button" data-tab="bahn" role="tab">🚆 Bahn</button>
+  <button type="button" data-tab="auto" role="tab">🚗 Auto</button>
+  <button type="button" data-tab="rad"  role="tab">🚴 Rad</button>
+</nav>
+
+<main>
+
+<!-- ======================================================= Bahn -->
+<section class="formular" id="tab-bahn" hidden>
+  <div class="feld">
+    <label for="bahn-link">bahn.de-Verbindungslink</label>
+    <input type="url" id="bahn-link" data-feld="link"
+           placeholder="https://www.bahn.de/buchung/start?vbid=…"
+           spellcheck="false">
+    <p class="feldfehler" data-fuer="bahn-link"></p>
+    <p class="feldhinweis">Die dort gewählte Verbindung wird direkt
+       übernommen — die Felder unten entfallen dann.</p>
+  </div>
+
+  <p class="oder">— oder Verbindung hier suchen —</p>
+
+  <div class="manuell" data-tool="bahn">
+    <div class="zeile">
+      <div class="feld">
+        <label for="bahn-von">Startbahnhof</label>
+        <input type="text" id="bahn-von" data-feld="von"
+               placeholder="z. B. Nürnberg Hbf">
+      </div>
+      <div class="feld">
+        <label for="bahn-nach">Zielbahnhof</label>
+        <input type="text" id="bahn-nach" data-feld="nach"
+               placeholder="z. B. Berlin Hbf">
+      </div>
+    </div>
+    <div class="feld">
+      <label for="bahn-via">Zwischenhalte <small>(optional,
+        Komma-getrennt)</small></label>
+      <input type="text" id="bahn-via" data-feld="via"
+             placeholder="z. B. Leipzig Hbf, Halle (Saale) Hbf">
+    </div>
+    <div class="zeile">
+      <div class="feld">
+        <label for="bahn-zuggattung">Zuggattung</label>
+        <select id="bahn-zuggattung" data-feld="zuggattung">
+          <option value="alle">alle — Fern- und Nahverkehr</option>
+          <option value="fern">fern — ICE/IC/EC und Nachtzüge</option>
+          <option value="nah">nah — RE/RB/S-Bahn</option>
+        </select>
+      </div>
+      <div class="feld">
+        <label for="bahn-zeit">Abfahrtszeit <small>(leer =
+          jetzt)</small></label>
+        <input type="text" id="bahn-zeit" data-feld="zeit"
+               placeholder="z. B. 2026-07-19 08:00 oder 08:00">
+        <p class="feldfehler" data-fuer="bahn-zeit"></p>
+      </div>
+    </div>
+    <div class="zeile">
+      <label class="haken"><input type="checkbox" id="bahn-direkt"
+        data-feld="direkt"> Nur Direktverbindungen (ohne Umstieg)</label>
+      <label class="haken"><input type="checkbox" id="bahn-ankunft"
+        data-feld="ankunft"> Zeit ist die Ankunftszeit (statt
+        Abfahrt)</label>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================= Auto -->
+<section class="formular" id="tab-auto" hidden>
+  <div class="feld">
+    <label for="auto-link">Routen-Link <small>(Google Maps oder
+      Komoot)</small></label>
+    <input type="url" id="auto-link" data-feld="link"
+           placeholder="https://maps.app.goo.gl/… oder https://www.komoot.com/tour/…"
+           spellcheck="false">
+    <p class="feldfehler" data-fuer="auto-link"></p>
+  </div>
+
+  <div class="feld">
+    <label>GPX-Datei <small>(z. B. Komoot-Export)</small></label>
+    <div class="gpxwahl">
+      <button type="button" class="neben" data-gpx="auto">Datei
+        wählen …</button>
+      <span class="gpxpfad" id="auto-gpx" data-feld="gpx"
+            data-pfad=""></span>
+      <button type="button" class="neben leer" data-gpx-leeren="auto"
+              hidden>✕</button>
+    </div>
+    <p class="feldfehler" data-fuer="auto-gpx"></p>
+  </div>
+
+  <p class="oder">— oder Start/Ziel eingeben —</p>
+
+  <div class="manuell" data-tool="auto">
+    <div class="zeile">
+      <div class="feld">
+        <label for="auto-von">Start <small>(Ort oder
+          Adresse)</small></label>
+        <input type="text" id="auto-von" data-feld="von"
+               placeholder="z. B. Koblenz">
+      </div>
+      <div class="feld">
+        <label for="auto-nach">Ziel</label>
+        <input type="text" id="auto-nach" data-feld="nach"
+               placeholder="z. B. Nürnberg Zollhaus">
+      </div>
+    </div>
+    <div class="feld">
+      <label for="auto-via">Zwischenpunkte <small>(optional,
+        Komma-getrennt)</small></label>
+      <input type="text" id="auto-via" data-feld="via">
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================== Rad -->
+<section class="formular" id="tab-rad" hidden>
+  <div class="feld">
+    <label for="rad-link">Routen-Link <small>(Google Maps oder
+      Komoot)</small></label>
+    <input type="url" id="rad-link" data-feld="link"
+           placeholder="https://maps.app.goo.gl/… oder https://www.komoot.com/tour/…"
+           spellcheck="false">
+    <p class="feldfehler" data-fuer="rad-link"></p>
+  </div>
+
+  <div class="feld">
+    <label>GPX-Datei <small>(z. B. Komoot-Export)</small></label>
+    <div class="gpxwahl">
+      <button type="button" class="neben" data-gpx="rad">Datei
+        wählen …</button>
+      <span class="gpxpfad" id="rad-gpx" data-feld="gpx"
+            data-pfad=""></span>
+      <button type="button" class="neben leer" data-gpx-leeren="rad"
+              hidden>✕</button>
+    </div>
+    <p class="feldfehler" data-fuer="rad-gpx"></p>
+  </div>
+
+  <p class="oder">— oder Start/Ziel eingeben —</p>
+
+  <div class="manuell" data-tool="rad">
+    <div class="zeile">
+      <div class="feld">
+        <label for="rad-von">Start <small>(Ort oder
+          Adresse)</small></label>
+        <input type="text" id="rad-von" data-feld="von"
+               placeholder="z. B. Koblenz">
+      </div>
+      <div class="feld">
+        <label for="rad-nach">Ziel</label>
+        <input type="text" id="rad-nach" data-feld="nach"
+               placeholder="z. B. Bendorf">
+      </div>
+    </div>
+    <div class="feld">
+      <label for="rad-via">Zwischenpunkte <small>(optional,
+        Komma-getrennt)</small></label>
+      <input type="text" id="rad-via" data-feld="via">
+    </div>
+  </div>
+</section>
+
+<!-- Modus-Frage zuletzt (Assistenten-Reihenfolge, Nutzerwunsch
+     2026-07-15) + Start — gilt für den jeweils aktiven Tab -->
+<section class="abschluss">
+  <div class="zeile">
+    <div class="feld">
+      <label for="modus">Welche Relais?</label>
+      <select id="modus">
+        <option value="beide">beide — DMR und analoge FM-Relais</option>
+        <option value="dmr">dmr — nur Brandmeister-DMR</option>
+        <option value="fm">fm — nur analoge FM-Relais</option>
+      </select>
+    </div>
+    <button type="button" id="start" class="start">Relais
+      suchen</button>
+  </div>
+  <p class="meldung" id="meldung" hidden></p>
+</section>
+
+</main>
+
+<footer>
+  <p>Terminal-Modus: <code>bmtools --terminal</code> · Daten:
+     Brandmeister-API &amp; relaislisten.darc.de (keyless)</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

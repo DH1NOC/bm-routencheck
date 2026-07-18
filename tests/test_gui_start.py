@@ -102,14 +102,21 @@ def test_erzwungener_start_macht_fehler_hart(monkeypatch, capsys):
 
 
 # ---------------------------------------------------------------------------
-# Platzhalter-Fenster (G1)
+# Frontend-Dateien (G3): lokal gebündelt, keine CDN-Zugriffe (Keyless)
 # ---------------------------------------------------------------------------
 
-def test_platzhalter_nennt_vorausgewaehltes_tool():
-    html = fenster._platzhalter_html("bahn")
-    assert "Bahnstrecke" in html
-    assert "BM-Routencheck" in html
+def test_frontend_dateien_vorhanden():
+    for name in ("index.html", "stil.css", "app.js"):
+        assert (fenster.STATIC / name).is_file()
 
 
-def test_platzhalter_ohne_tool_ohne_vorauswahl():
-    assert "Vorausgewähltes Tool" not in fenster._platzhalter_html(None)
+def test_frontend_ohne_externe_urls():
+    for name in ("index.html", "stil.css", "app.js"):
+        inhalt = (fenster.STATIC / name).read_text()
+        # Links dürfen nur in Platzhaltertexten (placeholder=…) stehen,
+        # nie als geladene Ressource (src/href auf http…)
+        for zeile in inhalt.splitlines():
+            if "placeholder" in zeile or zeile.strip().startswith("*"):
+                continue
+            assert "http://" not in zeile and "https://" not in zeile, \
+                f"{name}: externe Ressource? {zeile.strip()}"

@@ -1,0 +1,162 @@
+/* BM-Routencheck GUI — Farbwelt wie Karten/CLI (CVD-sicher, ui.py):
+   Blau #0072B2/#56B4E9 primär, Orange #E69F00 als Akzent. */
+
+:root {
+  --blau: #0072B2;
+  --hellblau: #56B4E9;
+  --orange: #E69F00;
+  --text: #1c2733;
+  --gedimmt: #5a6a7a;
+  --rand: #c7d3de;
+  --flaeche: #f4f8fb;
+  --fehler: #b3261e;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  color: var(--text);
+  background: #fff;
+  font-size: 15px;
+}
+
+header {
+  padding: 1.1rem 1.6rem 0.9rem;
+  border-bottom: 3px solid var(--blau);
+  background: var(--flaeche);
+}
+header h1 { margin: 0; font-size: 1.35rem; }
+header p { margin: .25rem 0 0; color: var(--gedimmt); }
+
+/* ------------------------------------------------------------ Tabs */
+.tabs {
+  display: flex;
+  gap: .4rem;
+  padding: .8rem 1.6rem 0;
+  border-bottom: 1px solid var(--rand);
+}
+.tabs button {
+  font: inherit;
+  font-weight: 600;
+  padding: .55rem 1.1rem;
+  border: 1px solid var(--rand);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: var(--flaeche);
+  color: var(--gedimmt);
+  cursor: pointer;
+}
+.tabs button.aktiv {
+  background: #fff;
+  color: var(--blau);
+  border-color: var(--blau);
+  border-bottom: 2px solid #fff;
+  margin-bottom: -1px;
+}
+
+/* ------------------------------------------------------- Formulare */
+main { max-width: 46rem; margin: 0 auto; padding: 1.2rem 1.6rem 2rem; }
+
+.feld { margin-bottom: .9rem; flex: 1; }
+.feld label { display: block; font-weight: 600; margin-bottom: .3rem; }
+.feld small { font-weight: 400; color: var(--gedimmt); }
+
+input[type=text], input[type=url], select {
+  font: inherit;
+  width: 100%;
+  padding: .5rem .65rem;
+  border: 1px solid var(--rand);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text);
+}
+input:focus, select:focus {
+  outline: 2px solid var(--hellblau);
+  outline-offset: 0;
+  border-color: var(--blau);
+}
+input.fehlerhaft { border-color: var(--fehler); }
+
+.zeile { display: flex; gap: 1rem; flex-wrap: wrap; }
+.zeile .haken { flex: 1; white-space: nowrap; }
+
+.haken { display: flex; align-items: center; gap: .45rem;
+         margin: .2rem 0 .8rem; }
+.haken input { accent-color: var(--blau); }
+
+.oder {
+  text-align: center;
+  color: var(--gedimmt);
+  margin: 1.1rem 0;
+}
+
+/* Link/GPX gesetzt -> manuelle Felder treten zurück (und umgekehrt) */
+.gedimmt { opacity: .45; pointer-events: none; }
+
+.feldhinweis { color: var(--gedimmt); font-size: .85rem;
+               margin: .3rem 0 0; }
+.feldfehler { color: var(--fehler); font-size: .85rem;
+              margin: .3rem 0 0; min-height: 0; }
+.feldfehler:empty { display: none; }
+
+/* ------------------------------------------------------ GPX-Wahl */
+.gpxwahl { display: flex; align-items: center; gap: .6rem; }
+.neben {
+  font: inherit;
+  padding: .45rem .9rem;
+  border: 1px solid var(--blau);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--blau);
+  cursor: pointer;
+}
+.neben:hover { background: var(--flaeche); }
+.neben.leer { border-color: var(--rand); color: var(--gedimmt);
+              padding: .45rem .6rem; }
+.gpxpfad { color: var(--gedimmt); overflow-wrap: anywhere; }
+.gpxpfad:not(:empty) { color: var(--text); }
+
+/* ------------------------------------------------------ Abschluss */
+.abschluss {
+  border-top: 1px solid var(--rand);
+  padding-top: 1.1rem;
+  margin-top: .4rem;
+}
+.abschluss .zeile { align-items: flex-end; }
+
+.start {
+  font: inherit;
+  font-weight: 700;
+  padding: .6rem 1.6rem;
+  margin-bottom: .9rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--blau);
+  color: #fff;
+  cursor: pointer;
+}
+.start:hover { background: #005a8e; }
+
+.meldung {
+  padding: .6rem .9rem;
+  border-radius: 6px;
+  border: 1px solid var(--hellblau);
+  background: var(--flaeche);
+}
+.meldung.fehler { border-color: var(--fehler);
+                  background: #fdf3f2; color: var(--fehler); }
+
+footer {
+  padding: .8rem 1.6rem;
+  border-top: 1px solid var(--rand);
+  color: var(--gedimmt);
+  font-size: .85rem;
+}
+footer p { margin: 0; }
+code {
+  background: var(--flaeche);
+  padding: .1rem .35rem;
+  border-radius: 4px;
+}
