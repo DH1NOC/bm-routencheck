@@ -51,11 +51,15 @@ und Konsistenz der Ausgaben.
       *Abnahme:* `bmtools --terminal` verhält sich exakt wie heute;
       `bmtools` auf dem Desktop öffnet ein Fenster; Aufruf mit
       Argumenten bleibt Terminal.
-- [ ] **G2 — Pipeline entkoppeln:** Melde-/Fortschritts-Hooks in
-      `run_pipeline` injizierbar machen (Interface + Terminal-
-      Implementierung); Konsolen-Ausgaben bleiben byte-identisch.
-      *Abnahme:* `make qs` grün; ein Terminal-Referenzlauf zeigt
-      unveränderte Ausgabe.
+- [x] **G2 — Pipeline entkoppeln** *(2026-07-18)*: Melde-/Fortschritts-
+      Hooks in `run_pipeline` injizierbar (`routelib/melden.py`:
+      `Melder`-Protocol + `TerminalMelder`); Konsolen-Ausgaben bleiben
+      byte-identisch. *Abnahme:* `make qs` grün (167 Tests, neu:
+      Melder-Verhalten + Pipeline-Integrationslauf mit Fake-Clients);
+      deterministischer Referenzlauf vor/nach Umbau per `diff`
+      byte-identisch (einzige gewollte Abweichung: der Profil-Balken
+      läuft jetzt über die übergebene Konsole statt implizit stdout —
+      im Terminal dasselbe Bild).
 - [ ] **G3 — Fenster-Grundgerüst:** Tabs Bahn/Auto/Rad, deutsche
       Formulare mit den Assistenten-Feldern (inkl. Link-/GPX-Eingabe),
       JS-Bridge mit Formular-Validierung; noch ohne Pipeline-Lauf.
