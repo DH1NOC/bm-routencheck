@@ -18,7 +18,7 @@ import questionary
 from questionary import Choice
 from rich.console import Console
 
-from bmtools import ui
+from bmtools import gui, ui
 from bmtools.routelib.model import Route, Station
 from bmtools.routelib.pipeline import run_pipeline, slug
 
@@ -239,7 +239,9 @@ def _run_link(link: str, args: argparse.Namespace, console: Console,
     return _pipeline(route, args, console, interactive)
 
 
-def main() -> int:
+def main(*, gui_start: bool = True) -> int:
+    """gui_start=False: nur Terminal (das bmtools-Menü ruft die Tools so
+    auf — wer schon im Terminal-Menü ist, will kein Fenster)."""
     ui.argparse_deutsch()
     ap = argparse.ArgumentParser(
         description="Findet DMR-Relais (Brandmeister) und analoge FM-Relais "
@@ -276,6 +278,7 @@ def main() -> int:
     ap.add_argument("--direkt", "--direct", dest="direct",
                     action="store_true",
                     help="Nur Direktverbindungen (ohne Umstieg)")
+    ui.add_start_arguments(ap)
     ui.add_fm_arguments(ap)
     ap.add_argument("--korridor", "--corridor", dest="corridor", type=float,
                     default=None, metavar="KM",
@@ -302,6 +305,17 @@ def main() -> int:
     args = ap.parse_args()
 
     console = Console()
+    # GUI-Entscheidung (GUI-UMBAU.md): nur ohne Strecken-Argumente —
+    # Skript-Aufrufe mit Flags laufen unverändert im Terminal.
+    strecken_args = bool(args.link or args.stations
+                         or args.origin or args.destination or args.via)
+    if args.gui and strecken_args:
+        ap.error("--gui kann nicht mit Strecken-Argumenten kombiniert "
+                 "werden — die Eingaben macht man dann im Fenster")
+    if gui_start and not args.terminal and not strecken_args:
+        code = gui.start_oder_none(console, "bahn", erzwungen=args.gui)
+        if code is not None:
+            return code
     interactive = False
     planner = RoutePlanner()
     try:

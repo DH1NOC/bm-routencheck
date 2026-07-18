@@ -20,7 +20,7 @@ import questionary
 from questionary import Choice
 from rich.console import Console
 
-from bmtools import ui
+from bmtools import gui, ui
 from bmtools.routelib.model import Route, Waypoint
 from bmtools.routelib.pipeline import run_pipeline, slug
 
@@ -41,6 +41,8 @@ PROFILES = {
     "car": ("Auto", "Autoroute", "car", "bm-auto"),
     "bike": ("Rad", "Radroute", "bicycle", "bm-rad"),
 }
+# profil -> GUI-Toolname (deutsche Tab-Namen wie im bmtools-Menü)
+GUI_TOOL = {"car": "auto", "bike": "rad"}
 BANNER_ICON = {"car": "🚗", "bike": "🚴"}
 
 EXAMPLES = """\
@@ -188,7 +190,9 @@ def _interactive(console: Console, args: argparse.Namespace,
     args.open = True
 
 
-def main(profile: str) -> int:
+def main(profile: str, *, gui_start: bool = True) -> int:
+    """gui_start=False: nur Terminal (das bmtools-Menü ruft die Tools so
+    auf — wer schon im Terminal-Menü ist, will kein Fenster)."""
     ui.argparse_deutsch()
     label, route_label, icon, cmd = PROFILES[profile]
     ap = argparse.ArgumentParser(
@@ -210,6 +214,7 @@ def main(profile: str) -> int:
                     help="Ziel")
     ap.add_argument("--via", action="append", default=[], metavar="ORT",
                     help="Zwischenpunkt (mehrfach möglich)")
+    ui.add_start_arguments(ap)
     ui.add_fm_arguments(ap)
     ap.add_argument("--korridor", "--corridor", dest="corridor", type=float,
                     default=None, metavar="KM",
@@ -234,6 +239,18 @@ def main(profile: str) -> int:
     args.profile = profile
 
     console = Console()
+    # GUI-Entscheidung (GUI-UMBAU.md): nur ohne Routen-Argumente —
+    # Skript-Aufrufe mit Flags laufen unverändert im Terminal.
+    routen_args = bool(args.link or args.gpx
+                       or args.origin or args.destination or args.via)
+    if args.gui and routen_args:
+        ap.error("--gui kann nicht mit Routen-Argumenten kombiniert "
+                 "werden — die Eingaben macht man dann im Fenster")
+    if gui_start and not args.terminal and not routen_args:
+        code = gui.start_oder_none(console, GUI_TOOL[profile],
+                                   erzwungen=args.gui)
+        if code is not None:
+            return code
     interactive = False
     try:
         if not (args.link or args.gpx or (args.origin and args.destination)):
@@ -287,12 +304,12 @@ def main(profile: str) -> int:
         return 1
 
 
-def main_car() -> int:
-    return main("car")
+def main_car(*, gui_start: bool = True) -> int:
+    return main("car", gui_start=gui_start)
 
 
-def main_bike() -> int:
-    return main("bike")
+def main_bike(*, gui_start: bool = True) -> int:
+    return main("bike", gui_start=gui_start)
 
 
 if __name__ == "__main__":
