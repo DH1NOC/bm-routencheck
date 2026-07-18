@@ -60,10 +60,11 @@ und Konsistenz der Ausgaben.
       byte-identisch (einzige gewollte Abweichung: der Profil-Balken
       läuft jetzt über die übergebene Konsole statt implizit stdout —
       im Terminal dasselbe Bild).
-- [ ] **G3 — Fenster-Grundgerüst:** Tabs Bahn/Auto/Rad, deutsche
-      Formulare mit den Assistenten-Feldern (inkl. Link-/GPX-Eingabe),
-      JS-Bridge mit Formular-Validierung; noch ohne Pipeline-Lauf.
-      *Abnahme:* Sichtprüfung aller drei Formulare auf macOS.
+- [x] **G3 — Fenster-Grundgerüst** *(abgenommen 2026-07-18; Vorbehalt:
+      Formular-Layout wird später überarbeitet → G5b)*: Tabs
+      Bahn/Auto/Rad, deutsche Formulare mit den Assistenten-Feldern
+      (inkl. Link-/GPX-Eingabe), JS-Bridge mit Formular-Validierung
+      über dieselben Parser wie der Assistent; noch ohne Pipeline-Lauf.
 - [ ] **G4 — Lauf + Fortschritt:** Start aus dem Formular, Pipeline im
       Hintergrund-Thread, Fortschrittsbalken (X/Y, Prozent, ETA-Regel
       wie im Terminal: erst ab > 10 s Restzeit) im Fenster; Abbrechen
@@ -75,6 +76,11 @@ und Konsistenz der Ausgaben.
       auf CSV/Codeplug-Dateien; Cache-leeren-Funktion im GUI-Menü.
       *Abnahme:* Ergebnis eines Laufs vollständig im Fenster geprüft,
       Dateien identisch zu einem Terminal-Lauf derselben Route.
+- [ ] **G5b — Formular-Layout-Politur:** Das G3-Layout ist funktional
+      abgenommen, gestalterisch aber ausdrücklich vorläufig
+      (Nutzerwunsch 2026-07-18). Überarbeitung von Aufteilung,
+      Abständen und visueller Führung der drei Formulare, wenn die
+      Funktionalität (G4/G5) steht. *Abnahme:* Sichtprüfung.
 - [ ] **G6 — QS + Doku:** `make qs` grün (Lint, mypy strict, Tests;
       GUI-Logik so weit wie sinnvoll unit-getestet, Webview-Teile
       ausgenommen wie bisher Karten-Rendering), README (Endnutzer:
