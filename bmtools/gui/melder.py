@@ -6,10 +6,14 @@ blockiert bei Rückfragen den Pipeline-Thread, bis die Antwort über
 Bridge.antwort() eintrifft. rich-Markup wird zu Klartext gestrippt —
 die Texte selbst bleiben dieselben wie im Terminal.
 
-Abbruch: Das Abbruch-Event setzt die Bridge; geprüft wird an den
-Melder-Aufrufen des Pipeline-Threads (text, balken, status, spur,
-Fragen). task-Updates prüfen bewusst NICHT — sie kommen auch aus
-Download-Threads, ein Raise dort würde nur den Helfer-Thread töten.
+Abbruch: Das Abbruch-Event setzt die Bridge; geprüft wird an allen
+Melder-Aufrufen, die im Pipeline-Thread laufen — auch task-Updates,
+denn lange Schritte (FM-Stützpunkte, Erreichbarkeit) melden zwischen
+zwei Texten minutenlang nur Fortschritt (G4-Abnahmebefund 2026-07-19:
+Abbrechen bei 2/21 wirkte tot). Updates aus Helfer-Threads (Kachel-
+Downloads) werfen bewusst NICHT — ein Raise dort würde nur den
+Download-Thread töten; darum merkt sich der Melder den Lauf-Thread
+(markiere_lauf_thread) und wirft nur in diesem.
 """
 from __future__ import annotations
 
@@ -39,10 +43,10 @@ def _plain(markup: str) -> str:
 class _GuiBalken:
     """Balken-Implementierung: Task-Ereignisse mit ETA-Schätzung."""
 
-    def __init__(self, sende: Callable[[Ereignis], None],
-                 ids: Iterator[int]) -> None:
-        self._sende = sende
-        self._ids = ids
+    def __init__(self, melder: GuiMelder) -> None:
+        self._melder = melder
+        self._sende = melder._sende
+        self._ids = melder._task_ids
         self._lock = threading.Lock()
         self._start: dict[int, float] = {}
         # Sticky-Regel wie ui.EtaSpalte: einmal über der Schwelle,
@@ -60,6 +64,9 @@ class _GuiBalken:
     def update(self, task: int, *, fertig: int | None = None,
                gesamt: int | None = None, sichtbar: bool | None = None,
                beschreibung: str | None = None) -> None:
+        # Abbruch greift auch zwischen zwei Fortschrittsschritten —
+        # aber nur im Lauf-Thread (Download-Threads laufen weiter)
+        self._melder._pruefe_abbruch_im_lauf_thread()
         eta_s: float | None = None
         if fertig is not None and gesamt:
             with self._lock:
@@ -95,7 +102,7 @@ class _BalkenKontext:
 
     def __enter__(self) -> Balken:
         self._m._pruefe_abbruch()
-        return _GuiBalken(self._m._sende, self._m._task_ids)
+        return _GuiBalken(self._m)
 
     def __exit__(self, *exc: object) -> None:
         self._m._sende({"typ": "balken_ende"})
@@ -126,11 +133,22 @@ class GuiMelder:
         self._frage_ids = itertools.count(1)
         self._antworten: dict[int, Any] = {}
         self._antwort_da: dict[int, threading.Event] = {}
+        self._lauf_thread: threading.Thread | None = None
 
     # ------------------------------------------------------ Abbruch
 
+    def markiere_lauf_thread(self) -> None:
+        """Vom Lauf-Thread bei Start aufrufen: nur er darf bei Abbruch
+        aus task-Updates heraus KeyboardInterrupt bekommen."""
+        self._lauf_thread = threading.current_thread()
+
     def _pruefe_abbruch(self) -> None:
         if self._abbruch.is_set():
+            raise KeyboardInterrupt
+
+    def _pruefe_abbruch_im_lauf_thread(self) -> None:
+        if (self._abbruch.is_set()
+                and threading.current_thread() is self._lauf_thread):
             raise KeyboardInterrupt
 
     # ------------------------------------------------------- Melder

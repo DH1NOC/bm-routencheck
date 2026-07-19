@@ -68,6 +68,7 @@ class Lauf:
     # ------------------------------------------------------------------
 
     def _lauf(self, tool: str, daten: dict[str, Any]) -> None:
+        self.melder.markiere_lauf_thread()
         code = 1
         try:
             if tool == "bahn":

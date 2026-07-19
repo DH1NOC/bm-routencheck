@@ -139,3 +139,38 @@ def test_abbruch_wirft_bei_text():
     abbruch.set()
     with pytest.raises(KeyboardInterrupt):
         m.text("weiter")
+
+
+def test_abbruch_wirft_bei_task_update_im_lauf_thread():
+    # G4-Abnahmebefund 2026-07-19: Während der FM-Stützpunkte (2/21)
+    # kommen minutenlang nur task-Updates — Abbrechen muss dort greifen.
+    m, _, abbruch = _melder()
+    m.markiere_lauf_thread()  # dieser Testthread spielt den Lauf-Thread
+    with m.balken() as b:
+        t = b.task("Stützpunkte abfragen")
+        b.update(t, fertig=2, gesamt=21)
+        abbruch.set()
+        with pytest.raises(KeyboardInterrupt):
+            b.update(t, fertig=3, gesamt=21)
+
+
+def test_abbruch_wirft_nicht_aus_helfer_threads():
+    # Kachel-Downloads melden aus eigenen Threads — die dürfen bei
+    # Abbruch nicht sterben, sonst hinge estimate_coverage.
+    m, _, abbruch = _melder()
+    m.markiere_lauf_thread()
+    fehler: list[BaseException] = []
+    with m.balken() as b:
+        t = b.task("Höhenkacheln laden")
+        abbruch.set()
+
+        def helfer():
+            try:
+                b.update(t, fertig=1, gesamt=4)
+            except BaseException as e:
+                fehler.append(e)
+
+        th = threading.Thread(target=helfer)
+        th.start()
+        th.join(2)
+    assert fehler == []

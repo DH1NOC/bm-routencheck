@@ -71,6 +71,35 @@ def test_fehler_erzeugt_fehler_und_fertig(monkeypatch):
     assert ereignisse[-1]["code"] == 1
 
 
+def test_abbruch_waehrend_fortschrittsschleife_liefert_130(monkeypatch):
+    """Abbrechen muss greifen, während ein Schritt nur task-Updates
+    meldet (FM-Stützpunkte-Szenario, Abnahmebefund 2026-07-19)."""
+    monkeypatch.setattr(road_cli, "geocode_candidates",
+                        lambda name: [Waypoint(name, 50.0, 8.0)])
+    monkeypatch.setattr("bmtools.road.cli.route_waypoints",
+                        lambda wps, mode, warn=None: _route())
+
+    def fake_pipeline(route, *, melder, **kwargs):
+        with melder.balken() as b:
+            t = b.task("Stützpunkte abfragen")
+            for i in range(1, 200):
+                time.sleep(0.02)
+                b.update(t, fertig=i, gesamt=200)
+        return 0
+
+    import bmtools.routelib.pipeline as pipeline_mod
+    monkeypatch.setattr(pipeline_mod, "run_pipeline", fake_pipeline)
+
+    ereignisse: list[dict[str, Any]] = []
+    lauf = lauf_mod.Lauf(ereignisse.append)
+    lauf.starten("auto", {"von": "A", "nach": "B", "modus": "beide"})
+    time.sleep(0.3)
+    lauf.abbrechen()
+    _warten(lauf)
+    assert ereignisse[-1] == {"typ": "fertig", "code": 130}
+    assert any(e.get("text") == "Abgebrochen." for e in ereignisse)
+
+
 def test_abbruch_liefert_code_130(monkeypatch):
     def langsam(name):
         time.sleep(10)
