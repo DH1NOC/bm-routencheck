@@ -211,15 +211,21 @@ Kartenbild), Abhängigkeit `reportlab>=4.0`.
 
 ## Meilensteine (ein Commit je Schritt)
 
-- [ ] **U0 — Plan:** dieses Dokument (ersetzt den Plan vom 2026-07-18);
-      `GUI-UMBAU.md` committet. *Abnahme:* Nutzer bestätigt den Plan.
-- [ ] **U1 — Workspace-Grundgerüst:** Split-Pane-Layout (Control Panel /
-      Main View / Statusleiste), Theme-Token Hell/Dunkel inkl.
-      System-Erkennung, Material-Symbols-Teilmenge gebündelt, Emojis
-      entfernt. Control Panel mit Segmented Button und Feldwechsel je
-      Modus, Validierung über die bestehende Bridge; Leerzustand der
-      Main View. Noch ohne Lauf. *Abnahme:* Sichtprüfung aller drei
-      Modi, Hell und Dunkel.
+- [x] **U0 — Plan** *(abgenommen 2026-07-19)*: dieses Dokument
+      (ersetzt den Plan vom 2026-07-18); `GUI-UMBAU.md` committet.
+- [x] **U1 — Workspace-Grundgerüst** *(abgenommen 2026-07-20 nach vier
+      Befunden: Selects nativ ohne Padding → appearance:none + eigener
+      Chevron; Etikett-Chip stand dunkel auf hellerer Feldfläche →
+      zweifarbiger Chip; Trennlinie vor dem Relais-Filter; Fenster
+      780→860 hoch, Zahnrad vom Panel-Fuß in die Statusleiste)*:
+      Split-Pane-Layout (Control Panel / Main View / Statusleiste),
+      Theme-Token Hell/Dunkel inkl. System-Erkennung,
+      Material-Symbols-Teilmenge gebündelt (Sprite via
+      packaging/sprite_erzeugen.py, Quellen + Apache-2.0-Lizenz unter
+      static/vendor/), Emojis entfernt. Control Panel mit Segmented
+      Button und Feldwechsel je Modus, Validierung über die Bridge
+      (neu: pruefe_eingaben); Leerzustand der Main View. Noch ohne
+      Lauf.
 - [ ] **U2 — Fortschrittsansicht:** Lauf aus dem Control Panel,
       Fortschritts-Karte (Spinner + Phasen-Balken) oben, Log-Konsole
       unten, Berechnen↔Abbrechen-Wechsel, Statusleisten-Schritt.

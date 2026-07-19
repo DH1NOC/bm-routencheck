@@ -1,24 +1,31 @@
-/* BM-Routencheck GUI — Tab-Logik, Formulardaten, Bridge-Aufrufe.
-   Kein Framework, kein CDN (Keyless/offlinefähig, GUI-UMBAU.md). */
+/* BM-Routencheck GUI — Workspace-Logik (U1): Modus-Wahl, Formulare,
+   Validierung über die Bridge. Kein Framework, kein CDN
+   (Keyless/offlinefähig, GUI-UMBAU.md). Lauf/Fortschritt folgt U2. */
 "use strict";
 
-let aktiverTab = "bahn";
+let aktiverModus = "bahn";
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-/* ----------------------------------------------------------- Tabs */
+/* ----------------------------------------------------- Modus-Wahl */
 
-function waehleTab(tab) {
-  aktiverTab = tab;
-  $$(".tabs button").forEach((b) =>
-    b.classList.toggle("aktiv", b.dataset.tab === tab));
-  $$(".formular").forEach((f) => (f.hidden = f.id !== "tab-" + tab));
+const MODUS_UNTERTITEL = { bahn: "Bahnstrecke prüfen",
+                           auto: "Autoroute prüfen",
+                           rad: "Radroute prüfen" };
+
+function waehleModus(modus) {
+  aktiverModus = modus;
+  $$(".segment").forEach((b) =>
+    b.classList.toggle("aktiv", b.dataset.modus === modus));
+  $$(".formular").forEach((f) => (f.hidden = f.id !== "form-" + modus));
+  $("#berechnen-untertitel").textContent =
+    MODUS_UNTERTITEL[modus] || "Route berechnen";
   meldung(null);
 }
 
-$$(".tabs button").forEach((b) =>
-  b.addEventListener("click", () => waehleTab(b.dataset.tab)));
+$$(".segment").forEach((b) =>
+  b.addEventListener("click", () => waehleModus(b.dataset.modus)));
 
 /* ------------------------------------------- Link/GPX vs. manuell */
 
@@ -89,11 +96,11 @@ $$("[data-gpx]").forEach((b) =>
 $$("[data-gpx-leeren]").forEach((b) =>
   b.addEventListener("click", () => zeigeGpx(b.dataset.gpxLeeren, "")));
 
-/* -------------------------------------------------------- Start */
+/* ------------------------------------------------------ Berechnen */
 
 function formulardaten(tool) {
   const daten = { modus: $("#modus").value };
-  $$("#tab-" + tool + " [data-feld]").forEach((el) => {
+  $$("#form-" + tool + " [data-feld]").forEach((el) => {
     const feld = el.dataset.feld;
     if (el.matches("input[type=checkbox]")) daten[feld] = el.checked;
     else if (feld === "gpx") daten[feld] = el.dataset.pfad;
@@ -109,197 +116,43 @@ function meldung(text, istFehler) {
   el.classList.toggle("fehler", Boolean(istFehler));
 }
 
-$("#start").addEventListener("click", async () => {
+function zeigeFormularfehler(fehler) {
+  const allgemein = [];
+  for (const [feld, text] of Object.entries(fehler)) {
+    if (feld === "_formular") allgemein.push(text);
+    else zeigeFeldfehler(feld, text);
+  }
+  meldung(allgemein.join(" ") ||
+          "Bitte die markierten Felder korrigieren.", true);
+}
+
+/* U1: Berechnen validiert vollständig über die Bridge; der Lauf
+   selbst (Fortschrittsansicht) kommt mit U2. */
+$("#berechnen").addEventListener("click", async () => {
   alleFeldfehlerLoeschen();
   meldung(null);
-  // Ansicht VOR dem Start leeren und umschalten: der Lauf-Thread
-  // sendet seine ersten Ereignisse sonst schneller, als die
-  // start_lauf-Antwort hier ankommt (erste Log-Zeile ging verloren)
-  zeigeLaufansicht();
-  const r = await window.pywebview.api.start_lauf(
-    aktiverTab, formulardaten(aktiverTab));
-  if (r.ok) return;
-  zeigeFormulare();
-  if (r.fehler) {
-    let allgemein = [];
-    for (const [feld, text] of Object.entries(r.fehler)) {
-      if (feld === "_formular") allgemein.push(text);
-      else zeigeFeldfehler(feld, text);
-    }
-    meldung(allgemein.join(" ") ||
-            "Bitte die markierten Felder korrigieren.", true);
-  } else if (r.hinweis) {
-    meldung(r.hinweis, false);
+  const r = await window.pywebview.api.pruefe_eingaben(
+    aktiverModus, formulardaten(aktiverModus));
+  if (r.ok) {
+    meldung("Eingaben vollständig — die Berechnung folgt mit " +
+            "Meilenstein U2.");
+  } else {
+    zeigeFormularfehler(r.fehler || {});
   }
 });
 
-/* ------------------------------------------------ Lauf-Ansicht (G4) */
+/* -------------------------------------------------- Einstellungen */
 
-const TOOL_TITEL = { bahn: "🚆 Bahnstrecke", auto: "🚗 Autoroute",
-                     rad: "🚴 Radroute" };
+$("#einstellungen").addEventListener("click", () =>
+  meldung("Einstellungen (Theme, Cache) folgen mit Meilenstein U6."));
 
-function zeigeLaufansicht() {
-  $(".tabs").hidden = true;
-  $$(".formular").forEach((f) => (f.hidden = true));
-  $(".abschluss").hidden = true;
-  $("#lauf-balken").replaceChildren();
-  $("#lauf-log").replaceChildren();
-  Object.keys(tasks).forEach((k) => delete tasks[k]);
-  $("#lauf-status").hidden = true;
-  ergebnisDaten = null;
-  Object.keys(ergebnisInhalte).forEach((k) => delete ergebnisInhalte[k]);
-  $("#ergebnis").hidden = true;
-  $("#ergebnis-rahmen").removeAttribute("srcdoc");
-  $("#ergebnis-rahmen").src = "about:blank";
-  document.body.classList.remove("breit");
-  $("#lauf-titel").textContent =
-    (TOOL_TITEL[aktiverTab] || "") + " — Suche läuft …";
-  $("#lauf-abbrechen").hidden = false;
-  $("#lauf-abbrechen").disabled = false;
-  $("#lauf-zurueck").hidden = true;
-  $("#lauf").hidden = false;
+/* ---------------------------------------------------- Statusleiste */
+
+function statusLinks(text) {
+  $("#status-links").textContent = text || "Bereit";
 }
 
-function zeigeFormulare() {
-  $("#lauf").hidden = true;
-  document.body.classList.remove("breit");
-  $(".tabs").hidden = false;
-  $(".abschluss").hidden = false;
-  waehleTab(aktiverTab);
-}
-
-function logZeile(text, istFehler) {
-  if (!text.trim()) return;
-  const p = document.createElement("p");
-  p.textContent = text;
-  if (istFehler) p.classList.add("fehler");
-  const log = $("#lauf-log");
-  log.appendChild(p);
-  log.scrollTop = log.scrollHeight;
-}
-
-/* Fortschrittsbalken: task-id -> DOM-Referenzen */
-const tasks = {};
-
-function taskNeu(e) {
-  const wrap = document.createElement("div");
-  wrap.className = "task aktiv unbestimmt";
-  wrap.hidden = !e.sichtbar;
-  wrap.innerHTML =
-    '<span class="task-text"></span>' +
-    '<div class="task-balken"><div class="task-fuellung"></div></div>' +
-    '<span class="task-zaehler"></span><span class="task-eta"></span>';
-  wrap.querySelector(".task-text").textContent = e.beschreibung;
-  $("#lauf-balken").appendChild(wrap);
-  tasks[e.task] = wrap;
-}
-
-function taskUpdate(e) {
-  const wrap = tasks[e.task];
-  if (!wrap) return;
-  if (e.sichtbar !== undefined) wrap.hidden = !e.sichtbar;
-  if (e.beschreibung !== undefined)
-    wrap.querySelector(".task-text").textContent = e.beschreibung;
-  if (e.fertig !== undefined && e.gesamt) {
-    wrap.classList.remove("unbestimmt");
-    const pct = Math.min(100, Math.round((e.fertig / e.gesamt) * 100));
-    wrap.querySelector(".task-fuellung").style.width = pct + "%";
-    wrap.querySelector(".task-zaehler").textContent =
-      e.fertig + "/" + e.gesamt + " · " + pct + " %";
-  }
-  // ETA-Regel wie im Terminal (ui.EtaSpalte): erscheint ab > 10 s
-  // Restzeit — sticky macht das der GuiMelder, hier nur anzeigen
-  wrap.querySelector(".task-eta").textContent =
-    e.eta_s !== undefined ? "noch ~" + etaText(e.eta_s) : "";
-}
-
-function etaText(s) {
-  if (s < 60) return s + " s";
-  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") + " min";
-}
-
-function balkenEnde() {
-  $$("#lauf-balken .task.aktiv").forEach((t) => {
-    t.classList.remove("aktiv", "unbestimmt");
-    t.classList.add("fertig");
-    t.querySelector(".task-eta").textContent = "";
-  });
-}
-
-function statusZeile(text) {
-  const el = $("#lauf-status");
-  el.hidden = !text;
-  el.textContent = text ? "⏳ " + text : "";
-}
-
-function erfolgBlock(zeilen) {
-  const div = document.createElement("div");
-  div.className = "erfolg";
-  zeilen.forEach((z) => {
-    const p = document.createElement("p");
-    p.textContent = z;
-    div.appendChild(p);
-  });
-  const log = $("#lauf-log");
-  log.appendChild(div);
-  log.scrollTop = log.scrollHeight;
-}
-
-function laufFertig(code) {
-  balkenEnde();
-  statusZeile(null);
-  schliesseDialog();
-  $("#lauf-titel").textContent =
-    (TOOL_TITEL[aktiverTab] || "") +
-    (code === 0 ? " — fertig" : code === 130 ? " — abgebrochen"
-                                             : " — fehlgeschlagen");
-  $("#lauf-abbrechen").hidden = true;
-  $("#lauf-zurueck").hidden = false;
-  if (code === 0 && ergebnisDaten) zeigeErgebnis();
-}
-
-/* ---------------------------------------------- Ergebnisansicht (G5) */
-
-let ergebnisDaten = null;
-const ergebnisInhalte = {};  // ansicht -> geladenes HTML (Cache)
-
-function zeigeErgebnis() {
-  document.body.classList.add("breit");
-  $("#ergebnis").hidden = false;
-  ansichtWaehlen("bericht");
-}
-
-async function ansichtWaehlen(ansicht) {
-  if (!ergebnisDaten) return;
-  $$(".ergebnis-knoepfe .ansicht").forEach((b) =>
-    b.classList.toggle("aktiv", b.dataset.ansicht === ansicht));
-  // Inhalt über die Bridge statt file-URL: WKWebView blockiert
-  // file-iframes außerhalb des static-Verzeichnisses
-  if (!(ansicht in ergebnisInhalte)) {
-    const r = await window.pywebview.api.lade_ergebnis(ansicht);
-    if (!r) return;
-    ergebnisInhalte[ansicht] = r.html;
-  }
-  $("#ergebnis-rahmen").srcdoc = ergebnisInhalte[ansicht];
-}
-
-$$(".ergebnis-knoepfe .ansicht").forEach((b) =>
-  b.addEventListener("click", () => ansichtWaehlen(b.dataset.ansicht)));
-
-$("#ordner-oeffnen").addEventListener("click", () =>
-  window.pywebview.api.oeffne_ordner());
-
-$("#browser-oeffnen").addEventListener("click", () =>
-  window.pywebview.api.oeffne_ergebnis());
-
-$("#lauf-abbrechen").addEventListener("click", () => {
-  $("#lauf-abbrechen").disabled = true;
-  window.pywebview.api.abbrechen();
-});
-
-$("#lauf-zurueck").addEventListener("click", zeigeFormulare);
-
-/* ------------------------------------------------ Frage-Dialog (G4) */
+/* ------------------------------------------------------- Dialog */
 
 let dialogHandler = null;
 
@@ -356,31 +209,12 @@ function zeigeDialog(e, handler) {
   $("#dialog-hintergrund").hidden = false;
 }
 
-/* --------------------------------------- Ereignisse aus Python (G4) */
-
-window.bmEreignis = (e) => {
-  switch (e.typ) {
-    case "text": logZeile(e.text); break;
-    case "task_neu": taskNeu(e); break;
-    case "task_update": taskUpdate(e); break;
-    case "balken_ende": balkenEnde(); break;
-    case "status": statusZeile(e.text); break;
-    case "frage":
-      zeigeDialog(e, (wert) => window.pywebview.api.antwort(e.id, wert));
-      break;
-    case "ergebnis": ergebnisDaten = e; break;
-    case "erfolg": erfolgBlock(e.zeilen); break;
-    case "fehler": logZeile("Fehler: " + e.text, true); break;
-    case "fertig": laufFertig(e.code); break;
-  }
-};
-
-/* ------------------------------------------------ Cache leeren (G5) */
+/* --------------------------------------------------- Cache leeren */
 
 $("#cache-leeren").addEventListener("click", async () => {
   const info = await window.pywebview.api.cache_info();
   if (info.leer) {
-    meldung("Der Cache ist bereits leer.");
+    statusLinks("Der Cache ist bereits leer.");
     return;
   }
   zeigeDialog(
@@ -391,16 +225,27 @@ $("#cache-leeren").addEventListener("click", async () => {
     async (wert) => {
       if (!wert) return;
       const r = await window.pywebview.api.cache_leeren();
-      meldung("Cache geleert — " + r.frei + " freigegeben.");
+      statusLinks("Cache geleert — " + r.frei + " freigegeben.");
     });
 });
+
+/* --------------------------------------- Ereignisse aus Python */
+/* U1 startet noch keinen Lauf; der Handler nimmt Dialog-Fragen an
+   und ignoriert Lauf-Ereignisse defensiv (kein JS-Fehler, falls
+   doch eines eintrifft). Voller Umfang folgt mit U2. */
+
+window.bmEreignis = (e) => {
+  if (e.typ === "frage") {
+    zeigeDialog(e, (wert) => window.pywebview.api.antwort(e.id, wert));
+  }
+};
 
 /* -------------------------------------------------------- Start */
 
 window.addEventListener("pywebviewready", async () => {
   const z = await window.pywebview.api.init_zustand();
-  waehleTab(z.tab || "bahn");
+  waehleModus(z.tab || "bahn");
 });
 
 /* Fallback für Ansicht im Browser (Entwicklung ohne Bridge) */
-if (!window.pywebview) waehleTab("bahn");
+if (!window.pywebview) waehleModus("bahn");

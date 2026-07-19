@@ -47,8 +47,10 @@ build-backend = "setuptools.build_meta"
 include = ["bmtools*"]
 
 [tool.setuptools.package-data]
-# GUI-Frontend (lokal gebündelt, keine CDN-Zugriffe)
-"bmtools.gui" = ["static/*"]
+# GUI-Frontend (lokal gebündelt, keine CDN-Zugriffe) inkl.
+# Material-Symbols-Quellen samt Lizenz (static/vendor/)
+"bmtools.gui" = ["static/*", "static/vendor/material-symbols/*",
+                 "static/vendor/material-symbols/svg/*"]
 
 # ---------------------------------------------------------------------------
 # Qualitätssicherung: `make qs` führt Lint, Typprüfung und Tests aus.

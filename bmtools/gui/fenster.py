@@ -84,7 +84,11 @@ def gui_starten(tool: str | None = None) -> int:
     bridge = Bridge(tool)
     fenster = webview.create_window(
         FENSTER_TITEL, url=str(STATIC / "index.html"), js_api=bridge,
-        width=1100, height=780, min_size=(880, 600))
+        # 860: das Bahn-Formular (längster Feldsatz) passt samt
+        # Relais-Filter und Berechnen-Knopf ohne Scrollen ins Panel
+        # (Abnahmebefund U1, 2026-07-20: bei 780 lag der Filter unter
+        # der Falz) und bleibt unter den 900 px kleiner Laptop-Displays.
+        width=1100, height=860, min_size=(880, 640))
     bridge._fenster = fenster
     try:
         webview.start(_macos_aktivierung_nachfassen)

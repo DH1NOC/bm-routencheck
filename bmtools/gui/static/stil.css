@@ -1,308 +1,477 @@
-/* BM-Routencheck GUI — Farbwelt wie Karten/CLI (CVD-sicher, ui.py):
-   Blau #0072B2/#56B4E9 primär, Orange #E69F00 als Akzent. */
+/* BM-Routencheck GUI — Single-Window Workspace (GUI-UMBAU.md).
+   Custom Theme statt OS-Mimikry: identische Abstände, Schriften und
+   Komponenten auf macOS/Windows/Linux. Icons: Material Symbols
+   (Inline-Sprite in index.html). Statusfarben Grün/Amber/Rot gelten
+   projektweit (GUI, Karte, PDF). */
 
+/* ------------------------------------------------- Theme-Token */
+/* Hell ist der Grundzustand; Dunkel kommt über das Systemschema
+   (prefers-color-scheme) oder — ab U6 — erzwungen per
+   data-theme="dark" auf <html>. data-theme="light" gewinnt
+   umgekehrt gegen ein dunkles Systemschema. */
 :root {
-  --blau: #0072B2;
-  --hellblau: #56B4E9;
-  --orange: #E69F00;
+  --primaer: #0072B2;        /* Projektblau (CVD-sicher, wie CLI/Karte) */
+  --primaer-tief: #005a8e;
+  --fokus: #56B4E9;
+  --gruen: #10B981;
+  --amber: #F59E0B;
+  --rot: #EF4444;
+
+  --flaeche: #ffffff;        /* Main View */
+  --flaeche-2: #f4f6f8;      /* Panel, Statusleiste */
+  --feld: #eef1f4;           /* Eingabefelder */
   --text: #1c2733;
-  --gedimmt: #5a6a7a;
-  --rand: #c7d3de;
-  --flaeche: #f4f8fb;
+  --text-2: #5a6a7a;
+  --linie: #c9d2db;
+  --hover: rgba(0, 0, 0, .04);
   --fehler: #b3261e;
+  --fehler-flaeche: #fdf3f2;
+  --schatten: rgba(15, 30, 45, .18);
+  color-scheme: light;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --primaer: #1c88c9;
+    --primaer-tief: #3aa0dd;
+    --flaeche: #15191d;
+    --flaeche-2: #1d2329;
+    --feld: #262d35;
+    --text: #e6ebf0;
+    --text-2: #9aa7b3;
+    --linie: #3a434d;
+    --hover: rgba(255, 255, 255, .06);
+    --fehler: #f2b8b5;
+    --fehler-flaeche: #3a2224;
+    --schatten: rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+}
+/* U6 setzt data-theme; die Blöcke müssen mit dem Media-Query oben
+   identisch bleiben. */
+:root[data-theme="dark"] {
+  --primaer: #1c88c9;
+  --primaer-tief: #3aa0dd;
+  --flaeche: #15191d;
+  --flaeche-2: #1d2329;
+  --feld: #262d35;
+  --text: #e6ebf0;
+  --text-2: #9aa7b3;
+  --linie: #3a434d;
+  --hover: rgba(255, 255, 255, .06);
+  --fehler: #f2b8b5;
+  --fehler-flaeche: #3a2224;
+  --schatten: rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+
+/* ------------------------------------------------- Grundlagen */
 * { box-sizing: border-box; }
 
-/* Das hidden-Attribut wirkt nur über das UA-Stylesheet (display:none)
-   und verliert gegen jede Autoren-display-Regel (.tabs und
-   #dialog-hintergrund sind flex!) — ohne diese Regel läge der leere
-   Dialog-Hintergrund dauerhaft über der Oberfläche (G4-Abnahmebefund
-   2026-07-19). */
+/* [hidden] muss jede Autoren-display-Regel schlagen (G4-Befund
+   2026-07-19: display:flex gewann sonst gegen das UA-Stylesheet). */
 [hidden] { display: none !important; }
+
+html, body { height: 100%; }
 
 body {
   margin: 0;
-  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
   color: var(--text);
-  background: #fff;
-  font-size: 15px;
-}
-
-header {
-  padding: 1.1rem 1.6rem 0.9rem;
-  border-bottom: 3px solid var(--blau);
   background: var(--flaeche);
 }
-header h1 { margin: 0; font-size: 1.35rem; }
-header p { margin: .25rem 0 0; color: var(--gedimmt); }
 
-/* ------------------------------------------------------------ Tabs */
-.tabs {
+.icon {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  flex: none;
+  vertical-align: -4px;
+}
+.icon.riesig { width: 56px; height: 56px; }
+
+button { font: inherit; color: inherit; cursor: pointer; }
+
+/* ------------------------------------------------- Werkbank-Raster */
+.werkbank {
+  display: grid;
+  grid-template-columns: 330px 1fr;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100vh;
+}
+
+/* ================================================= Control Panel */
+.panel {
+  grid-row: 1;
   display: flex;
-  gap: .4rem;
-  padding: .8rem 1.6rem 0;
-  border-bottom: 1px solid var(--rand);
+  flex-direction: column;
+  min-height: 0;
+  background: var(--flaeche-2);
+  border-right: 1px solid var(--linie);
 }
-.tabs button {
-  font: inherit;
+
+.panel-inhalt {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem 1.1rem .5rem;
+}
+
+.ueberzeile {
+  margin: 0 0 .45rem;
+  font-size: .72rem;
   font-weight: 600;
-  padding: .55rem 1.1rem;
-  border: 1px solid var(--rand);
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+/* Segmented Button (Modus-Wahl) */
+.segmente {
+  display: flex;
+  margin-bottom: 1.2rem;
+  border: 1px solid var(--linie);
+  border-radius: 8px;
+  overflow: hidden;
   background: var(--flaeche);
-  color: var(--gedimmt);
-  cursor: pointer;
 }
-.tabs button.aktiv {
-  background: #fff;
-  color: var(--blau);
-  border-color: var(--blau);
-  border-bottom: 2px solid #fff;
-  margin-bottom: -1px;
+.segment {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .15rem;
+  padding: .5rem .3rem .4rem;
+  border: none;
+  background: none;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--text-2);
 }
+.segment + .segment { border-left: 1px solid var(--linie); }
+.segment:hover { background: var(--hover); }
+.segment.aktiv {
+  background: var(--primaer);
+  color: #fff;
+}
+.segment .icon { width: 22px; height: 22px; }
 
-/* ------------------------------------------------------- Formulare */
-main { max-width: 46rem; margin: 0 auto; padding: 1.2rem 1.6rem 2rem; }
+/* Felder: Outlined-Stil mit stehendem Etikett auf dem Rand */
+.feld { position: relative; margin: 0 0 1.05rem; }
 
-.feld { margin-bottom: .9rem; flex: 1; }
-.feld label { display: block; font-weight: 600; margin-bottom: .3rem; }
-.feld small { font-weight: 400; color: var(--gedimmt); }
+.etikett {
+  position: absolute;
+  top: -7px;
+  left: 10px;
+  z-index: 1;
+  padding: 0 4px;
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--text-2);
+  /* Der Chip ragt 7px (= top-Versatz) in die Feldfläche hinein: oben
+     Panel-, unten Feldfarbe — mit einfarbigem Panel-Hintergrund stand
+     er im Dunkelmodus als dunkler Kasten auf dem helleren Feld
+     (Abnahmebefund U1, 2026-07-20). */
+  background: linear-gradient(var(--flaeche-2) 7px, var(--feld) 7px);
+  border-radius: 3px;
+  white-space: nowrap;
+}
 
 input[type=text], input[type=url], select {
   font: inherit;
   width: 100%;
-  padding: .5rem .65rem;
-  border: 1px solid var(--rand);
-  border-radius: 6px;
-  background: #fff;
+  padding: .62rem .7rem .5rem;
+  border: 1px solid var(--linie);
+  border-radius: 8px;
+  background: var(--feld);
   color: var(--text);
 }
+input::placeholder { color: var(--text-2); opacity: .75; }
 input:focus, select:focus {
-  outline: 2px solid var(--hellblau);
-  outline-offset: 0;
-  border-color: var(--blau);
+  outline: 2px solid var(--fokus);
+  outline-offset: -1px;
+  border-color: var(--primaer);
 }
 input.fehlerhaft { border-color: var(--fehler); }
 
-.zeile { display: flex; gap: 1rem; flex-wrap: wrap; }
-.zeile .haken { flex: 1; white-space: nowrap; }
+/* Selects ohne native Optik: WKWebView verwarf sonst das Padding
+   (paddingLeft 0 statt 11px — Abnahmebefund U1, 2026-07-20), und
+   jedes OS zeichnete einen anderen Pfeil. Eigener Chevron per
+   CSS-Rahmen, folgt der Textfarbe in beiden Themes. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2.1rem;
+}
+.feld:has(> select)::after {
+  content: "";
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--text-2);
+  border-bottom: 2px solid var(--text-2);
+  transform: translateY(-65%) rotate(45deg);
+  pointer-events: none;
+}
 
-.haken { display: flex; align-items: center; gap: .45rem;
-         margin: .2rem 0 .8rem; }
-.haken input { accent-color: var(--blau); }
+.haken {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin: .15rem 0 .55rem;
+  color: var(--text);
+}
+.haken input { accent-color: var(--primaer); margin: 0; }
 
 .oder {
-  text-align: center;
-  color: var(--gedimmt);
-  margin: 1.1rem 0;
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  margin: 1rem 0;
+  font-size: .78rem;
+  color: var(--text-2);
+}
+.oder::before, .oder::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--linie);
 }
 
 /* Link/GPX gesetzt -> manuelle Felder treten zurück (und umgekehrt) */
 .gedimmt { opacity: .45; pointer-events: none; }
 
-.feldhinweis { color: var(--gedimmt); font-size: .85rem;
-               margin: .3rem 0 0; }
-.feldfehler { color: var(--fehler); font-size: .85rem;
-              margin: .3rem 0 0; min-height: 0; }
+.feldhinweis { margin: .35rem 2px 0; font-size: .78rem;
+               color: var(--text-2); }
+.feldfehler { margin: .35rem 2px 0; font-size: .78rem;
+              color: var(--fehler); }
 .feldfehler:empty { display: none; }
 
-/* ------------------------------------------------------ GPX-Wahl */
-.gpxwahl { display: flex; align-items: center; gap: .6rem; }
-.neben {
-  font: inherit;
-  padding: .45rem .9rem;
-  border: 1px solid var(--blau);
-  border-radius: 6px;
-  background: #fff;
-  color: var(--blau);
-  cursor: pointer;
-}
-.neben:hover { background: var(--flaeche); }
-.neben.leer { border-color: var(--rand); color: var(--gedimmt);
-              padding: .45rem .6rem; }
-.gpxpfad { color: var(--gedimmt); overflow-wrap: anywhere; }
-.gpxpfad:not(:empty) { color: var(--text); }
-
-/* ------------------------------------------------------ Abschluss */
-.abschluss {
-  border-top: 1px solid var(--rand);
-  padding-top: 1.1rem;
-  margin-top: .4rem;
-}
-.abschluss .zeile { align-items: flex-end; }
-
-.start {
-  font: inherit;
-  font-weight: 700;
-  padding: .6rem 1.6rem;
-  margin-bottom: .9rem;
-  border: none;
-  border-radius: 8px;
-  background: var(--blau);
-  color: #fff;
-  cursor: pointer;
-}
-.start:hover { background: #005a8e; }
-
-.meldung {
-  padding: .6rem .9rem;
-  border-radius: 6px;
-  border: 1px solid var(--hellblau);
-  background: var(--flaeche);
-}
-.meldung.fehler { border-color: var(--fehler);
-                  background: #fdf3f2; color: var(--fehler); }
-
-/* --------------------------------------------- Lauf-Ansicht (G4) */
-#lauf h2 { margin: .2rem 0 1rem; font-size: 1.15rem; }
-
-.task {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  grid-template-areas: "text zaehler eta" "balken balken balken";
-  gap: .15rem .8rem;
-  margin-bottom: .7rem;
-}
-.task-text { grid-area: text; }
-.task-zaehler { grid-area: zaehler; color: var(--gedimmt);
-                font-variant-numeric: tabular-nums; }
-.task-eta { grid-area: eta; color: var(--orange);
-            font-variant-numeric: tabular-nums; }
-.task-balken {
-  grid-area: balken;
-  height: 8px;
-  border-radius: 4px;
-  background: var(--flaeche);
-  overflow: hidden;
-}
-.task-fuellung {
-  height: 100%;
-  width: 0;
-  border-radius: 4px;
-  background: var(--hellblau);
-  transition: width .25s ease;
-}
-.task.fertig .task-fuellung { background: var(--blau); width: 100%; }
-.task.fertig { opacity: .65; }
-.task.unbestimmt .task-fuellung {
-  width: 40%;
-  background: var(--orange);
-  animation: pulsieren 1.2s ease-in-out infinite alternate;
-}
-@keyframes pulsieren {
-  from { margin-left: 0; }
-  to   { margin-left: 60%; }
-}
-
-#lauf-status { color: var(--gedimmt); }
-
-#lauf-log {
-  max-height: 16rem;
-  overflow-y: auto;
-  border: 1px solid var(--rand);
-  border-radius: 8px;
-  padding: .6rem .9rem;
-  margin: .8rem 0;
-  background: var(--flaeche);
-}
-#lauf-log p { margin: .15rem 0; }
-#lauf-log p.fehler { color: var(--fehler); font-weight: 600; }
-#lauf-log .erfolg {
-  border-left: 4px solid var(--blau);
-  padding-left: .7rem;
-  margin-top: .5rem;
-}
-
-.lauf-knoepfe { display: flex; gap: .8rem; }
-
-/* ------------------------------------------- Ergebnisansicht (G5) */
-/* Bericht/Karte brauchen Platz — im Ergebnismodus wird main breit */
-body.breit main { max-width: 78rem; }
-
-.ergebnis-knoepfe {
-  display: flex;
-  gap: .6rem;
-  margin: .2rem 0 .6rem;
-  flex-wrap: wrap;
-}
-.ergebnis-knoepfe .ansicht.aktiv {
-  background: var(--blau);
-  color: #fff;
-  border-color: var(--blau);
-}
-#ordner-oeffnen { margin-left: auto; }
-
-#ergebnis-rahmen {
-  width: 100%;
-  height: 58vh;
-  border: 1px solid var(--rand);
-  border-radius: 8px;
-  background: #fff;
-  margin-bottom: .8rem;
-}
-
-/* Im Ergebnismodus schrumpft das Log auf eine kompakte Zusammenfassung */
-body.breit #lauf-log { max-height: 7rem; }
-body.breit .task { display: none; }
-
-/* --------------------------------------------- Frage-Dialog (G4) */
-#dialog-hintergrund {
-  position: fixed;
-  inset: 0;
-  background: rgba(20, 35, 50, .45);
+/* GPX-Import */
+.umriss {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: .5rem;
+  width: 100%;
+  padding: .55rem .8rem;
+  border: 1px solid var(--linie);
+  border-radius: 8px;
+  background: var(--flaeche);
+  font-weight: 600;
+  color: var(--text);
+}
+.umriss:hover { background: var(--hover); }
+.umriss .icon { width: 18px; height: 18px; }
+
+.gpxwahl {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  margin-top: .3rem;
+}
+.gpxwahl:not(:has(.gpxpfad:not(:empty))) { display: none; }
+.gpxpfad {
+  flex: 1;
+  min-width: 0;
+  font-size: .82rem;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.rund {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: .45rem;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-2);
+}
+.rund:hover { background: var(--hover); color: var(--text); }
+.rund.klein { padding: .25rem; }
+.rund.klein .icon { width: 15px; height: 15px; }
+
+/* Trennung Routen-Eingabe ↔ Relais-Filter: eigene Linie statt
+   border-top am Feld — das Etikett sitzt bei top:-7px und läge sonst
+   auf der Linie. */
+.trennung {
+  border: none;
+  border-top: 1px solid var(--linie);
+  margin: 1.5rem 0 1.4rem;
+}
+.filterfeld { margin-bottom: .35rem; }
+
+/* Panel-Fuß: Meldung + Berechnen + Einstellungen */
+.panel-fuss {
+  padding: .8rem 1.1rem;
+  border-top: 1px solid var(--linie);
+}
+
+.meldung {
+  margin: 0 0 .7rem;
+  padding: .55rem .75rem;
+  font-size: .82rem;
+  border: 1px solid var(--fokus);
+  border-radius: 8px;
+  background: var(--flaeche);
+}
+.meldung.fehler {
+  border-color: var(--fehler);
+  background: var(--fehler-flaeche);
+  color: var(--fehler);
+}
+
+.primaer {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  width: 100%;
+  padding: .55rem .9rem;
+  border: none;
+  border-radius: 10px;
+  background: var(--primaer);
+  color: #fff;
+  text-align: left;
+}
+.primaer:hover { background: var(--primaer-tief); }
+.primaer .icon { width: 22px; height: 22px; }
+.primaer-text {
+  display: flex;
+  flex-direction: column;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.primaer-text small {
+  font-size: .72rem;
+  font-weight: 400;
+  opacity: .85;
+}
+
+
+/* ==================================================== Main View */
+.hauptbereich {
+  grid-row: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--flaeche);
+}
+
+.hauptkopf {
+  padding: .85rem 1.4rem;
+  border-bottom: 1px solid var(--linie);
+}
+.hauptkopf h1 { margin: 0; font-size: 1.25rem; font-weight: 650; }
+
+.leerzustand {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-2);
+}
+.leerzustand .icon { color: var(--linie); }
+.leerzustand h2 {
+  margin: 1rem 0 .4rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.leerzustand p { margin: 0; max-width: 34rem; }
+
+/* ================================================= Statusleiste */
+.statusleiste {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  padding: .3rem 1.1rem;
+  font-size: .78rem;
+  color: var(--text-2);
+  background: var(--flaeche-2);
+  border-top: 1px solid var(--linie);
+}
+.trenner { opacity: .6; }
+#status-rechts { margin-left: auto; }
+
+/* Zahnrad ganz rechts in der Statusleiste (Spezifikation §1.3) —
+   negativer Rand, damit die schmale Leiste nicht wächst */
+.statusleiste .rund.klein { margin: -.2rem 0; }
+
+.fusslink {
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: inherit;
+  color: var(--primaer);
+  text-decoration: underline;
+}
+
+/* ====================================== Dialog (Politur folgt U3) */
+#dialog-hintergrund {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 25, 35, .5);
 }
 #dialog {
-  background: #fff;
-  border-radius: 10px;
-  border-top: 4px solid var(--blau);
-  padding: 1.2rem 1.5rem;
-  max-width: 34rem;
   width: min(90vw, 34rem);
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, .25);
+  padding: 1.2rem 1.4rem;
+  border-radius: 14px;
+  background: var(--flaeche);
+  box-shadow: 0 12px 40px var(--schatten);
 }
-#dialog-frage { font-weight: 600; margin: 0 0 .8rem; }
+#dialog-frage { margin: 0 0 .8rem; font-weight: 600; }
+
 .dialog-option {
   display: block;
-  padding: .45rem .6rem;
-  border: 1px solid var(--rand);
-  border-radius: 6px;
   margin-bottom: .4rem;
+  padding: .5rem .65rem;
+  border: 1px solid var(--linie);
+  border-radius: 8px;
   cursor: pointer;
 }
+.dialog-option:hover { background: var(--hover); }
 .dialog-option:has(input:checked) {
-  border-color: var(--blau);
-  background: var(--flaeche);
+  border-color: var(--primaer);
+  background: var(--hover);
 }
-.dialog-option input { accent-color: var(--blau); }
-.dialog-knoepfe { display: flex; gap: .8rem; margin-top: 1rem; }
+.dialog-option input { accent-color: var(--primaer); }
 
-footer {
-  padding: .8rem 1.6rem;
-  border-top: 1px solid var(--rand);
-  color: var(--gedimmt);
-  font-size: .85rem;
+.dialog-knoepfe {
+  display: flex;
+  justify-content: flex-end;
+  gap: .6rem;
+  margin-top: 1rem;
 }
-footer p { margin: 0; }
-code {
-  background: var(--flaeche);
-  padding: .1rem .35rem;
-  border-radius: 4px;
-}
-
-.fusslink {
-  font: inherit;
-  font-size: .85rem;
+.dialog-knoepfe .start {
+  padding: .5rem 1.1rem;
   border: none;
-  background: none;
-  color: var(--blau);
-  cursor: pointer;
-  padding: 0;
-  text-decoration: underline;
+  border-radius: 8px;
+  background: var(--primaer);
+  color: #fff;
+  font-weight: 600;
 }
+.dialog-knoepfe .start:hover { background: var(--primaer-tief); }
+.dialog-knoepfe .neben {
+  padding: .5rem 1.1rem;
+  border: 1px solid var(--linie);
+  border-radius: 8px;
+  background: none;
+  font-weight: 600;
+}
+.dialog-knoepfe .neben:hover { background: var(--hover); }

@@ -122,8 +122,11 @@ def test_frontend_ohne_externe_urls():
     for name in ("index.html", "stil.css", "app.js"):
         inhalt = (fenster.STATIC / name).read_text()
         # Links dürfen nur in Platzhaltertexten (placeholder=…) stehen,
-        # nie als geladene Ressource (src/href auf http…)
+        # nie als geladene Ressource (src/href auf http…). Die
+        # xmlns-Kennung des Icon-Sprites (U1) ist ein XML-Namespace —
+        # sie wird nie geladen.
         for zeile in inhalt.splitlines():
+            zeile = zeile.replace('xmlns="http://www.w3.org/2000/svg"', "")
             if "placeholder" in zeile or zeile.strip().startswith("*"):
                 continue
             assert "http://" not in zeile and "https://" not in zeile, \
