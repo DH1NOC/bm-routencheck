@@ -7,6 +7,7 @@ Terminal-Modus bleibt frei von GUI-Importen (und deren Startzeit).
 """
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from . import GuiStartFehler
@@ -14,6 +15,32 @@ from .bridge import Bridge
 
 FENSTER_TITEL = "BM-Routencheck"
 STATIC = Path(__file__).parent / "static"
+
+
+def _macos_erster_klick_zaehlt() -> None:
+    """WKWebView schluckt standardmäßig den App-aktivierenden Klick
+    (acceptsFirstMouse = NO): Nach jedem Wechsel aus einer anderen App
+    brauchte jede Bedienung einen Doppelklick, und der erste Klick in
+    ein Textfeld setzte keinen Fokus — die Tastendrücke landeten in der
+    vorherigen App (Abnahmebefund 2026-07-19, per CGEventPost
+    reproduziert). Die Override lässt den ersten Klick normal wirken,
+    wie es native macOS-Controls auch tun."""
+    if sys.platform != "darwin":
+        return
+    try:
+        import objc
+        import WebKit
+
+        def acceptsFirstMouse_(self: object, event: object) -> bool:
+            return True
+
+        objc.classAddMethod(
+            WebKit.WKWebView, b"acceptsFirstMouse:",
+            objc.selector(acceptsFirstMouse_,
+                          selector=b"acceptsFirstMouse:",
+                          signature=objc._C_NSBOOL + b"@:@"))
+    except Exception:
+        pass  # reine Bedienkomfort-Härtung — darf den Start nie verhindern
 
 
 def gui_starten(tool: str | None = None) -> int:
@@ -28,6 +55,7 @@ def gui_starten(tool: str | None = None) -> int:
         raise GuiStartFehler(
             "pywebview ist nicht installiert — nachrüsten mit "
             "'pip install pywebview'") from e
+    _macos_erster_klick_zaehlt()
     bridge = Bridge(tool)
     fenster = webview.create_window(
         FENSTER_TITEL, url=str(STATIC / "index.html"), js_api=bridge,
