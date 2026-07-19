@@ -162,6 +162,40 @@ class Bridge:
             self._lauf.melder.antwort(int(frage_id), wert)
 
     def abbrechen(self) -> None:
-        """Laufende Suche abbrechen (wirkt an der nächsten Meldestelle)."""
+        """Laufende Suche abbrechen (Oberfläche sofort frei)."""
         if self._lauf is not None:
             self._lauf.abbrechen()
+
+    def oeffne_ordner(self) -> None:
+        """Ausgabeordner des letzten erfolgreichen Laufs im Dateimanager
+        öffnen — der Pfad kommt aus dem Melder, nicht aus JS."""
+        if (self._lauf is not None
+                and self._lauf.melder.ergebnis_ordner is not None):
+            from bmtools.routelib.oeffnen import system_oeffnen
+            system_oeffnen(self._lauf.melder.ergebnis_ordner)
+
+    def lade_ergebnis(self, ansicht: str) -> dict[str, str] | None:
+        """HTML-Inhalt von Bericht oder Karte fürs iframe (srcdoc);
+        None, wenn (noch) kein Ergebnis vorliegt."""
+        if self._lauf is None:
+            return None
+        datei = self._lauf.melder.ergebnis_dateien.get(ansicht)
+        if datei is None or not datei.is_file():
+            return None
+        return {"html": datei.read_text()}
+
+    def cache_info(self) -> dict[str, Any]:
+        """Belegter Disk-Cache für die Rückfrage vor dem Leeren."""
+        from bmtools import cache_admin
+        liste = cache_admin.bereiche()
+        gesamt = sum(b.groesse_bytes for b in liste)
+        return {"gesamt": cache_admin.groesse_mensch(gesamt),
+                "dateien": sum(b.dateien for b in liste),
+                "leer": gesamt == 0}
+
+    def cache_leeren(self) -> dict[str, str]:
+        """Alle gecachten Daten löschen (Gegenstück zu bmtools cache
+        --leeren); der nächste Lauf lädt sie automatisch neu."""
+        from bmtools import cache_admin
+        frei = cache_admin.leeren(cache_admin.bereiche())
+        return {"frei": cache_admin.groesse_mensch(frei)}

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import AbstractContextManager, contextmanager
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
 import questionary
@@ -60,6 +61,11 @@ class Melder(Protocol):
 
     def erfolg(self, zeilen: list[str]) -> None:
         """Abschlussmeldung (Terminal: grünes Panel)."""
+
+    def ergebnis(self, out_dir: Path, bericht: Path, karte: Path) -> None:
+        """Fertige Ausgabedateien melden (G5): Das Terminal nennt sie
+        schon im erfolg()-Panel (No-op), die GUI zeigt Bericht und
+        Karte damit direkt im Fenster an."""
 
     def ja_nein(self, frage: str) -> bool:
         """Rückfrage mit Default Nein; Abbruch (Ctrl-C/ESC) zählt als Nein."""
@@ -128,6 +134,9 @@ class TerminalMelder:
     def erfolg(self, zeilen: list[str]) -> None:
         self.console.print(Panel.fit("\n".join(zeilen),
                                      border_style="green"))
+
+    def ergebnis(self, out_dir: Path, bericht: Path, karte: Path) -> None:
+        pass  # das erfolg()-Panel nennt die Dateien bereits
 
     def ja_nein(self, frage: str) -> bool:
         return bool(questionary.confirm(frage, default=False,

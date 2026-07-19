@@ -253,6 +253,7 @@ def run_pipeline(route: Route, *, console: Console | None = None,
     ]
     if chirp_path:
         lines.append("  chirp.csv      CHIRP-Import (nur die FM-Kanäle)")
+    m.ergebnis(out_dir, html_path, map_path)
     m.erfolg(lines)
 
     if open_browser:

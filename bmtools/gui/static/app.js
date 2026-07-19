@@ -146,6 +146,12 @@ function zeigeLaufansicht() {
   $("#lauf-log").replaceChildren();
   Object.keys(tasks).forEach((k) => delete tasks[k]);
   $("#lauf-status").hidden = true;
+  ergebnisDaten = null;
+  Object.keys(ergebnisInhalte).forEach((k) => delete ergebnisInhalte[k]);
+  $("#ergebnis").hidden = true;
+  $("#ergebnis-rahmen").removeAttribute("srcdoc");
+  $("#ergebnis-rahmen").src = "about:blank";
+  document.body.classList.remove("breit");
   $("#lauf-titel").textContent =
     (TOOL_TITEL[aktiverTab] || "") + " — Suche läuft …";
   $("#lauf-abbrechen").hidden = false;
@@ -156,6 +162,7 @@ function zeigeLaufansicht() {
 
 function zeigeFormulare() {
   $("#lauf").hidden = true;
+  document.body.classList.remove("breit");
   $(".tabs").hidden = false;
   $(".abschluss").hidden = false;
   waehleTab(aktiverTab);
@@ -248,7 +255,39 @@ function laufFertig(code) {
                                              : " — fehlgeschlagen");
   $("#lauf-abbrechen").hidden = true;
   $("#lauf-zurueck").hidden = false;
+  if (code === 0 && ergebnisDaten) zeigeErgebnis();
 }
+
+/* ---------------------------------------------- Ergebnisansicht (G5) */
+
+let ergebnisDaten = null;
+const ergebnisInhalte = {};  // ansicht -> geladenes HTML (Cache)
+
+function zeigeErgebnis() {
+  document.body.classList.add("breit");
+  $("#ergebnis").hidden = false;
+  ansichtWaehlen("bericht");
+}
+
+async function ansichtWaehlen(ansicht) {
+  if (!ergebnisDaten) return;
+  $$(".ergebnis-knoepfe .ansicht").forEach((b) =>
+    b.classList.toggle("aktiv", b.dataset.ansicht === ansicht));
+  // Inhalt über die Bridge statt file-URL: WKWebView blockiert
+  // file-iframes außerhalb des static-Verzeichnisses
+  if (!(ansicht in ergebnisInhalte)) {
+    const r = await window.pywebview.api.lade_ergebnis(ansicht);
+    if (!r) return;
+    ergebnisInhalte[ansicht] = r.html;
+  }
+  $("#ergebnis-rahmen").srcdoc = ergebnisInhalte[ansicht];
+}
+
+$$(".ergebnis-knoepfe .ansicht").forEach((b) =>
+  b.addEventListener("click", () => ansichtWaehlen(b.dataset.ansicht)));
+
+$("#ordner-oeffnen").addEventListener("click", () =>
+  window.pywebview.api.oeffne_ordner());
 
 $("#lauf-abbrechen").addEventListener("click", () => {
   $("#lauf-abbrechen").disabled = true;
@@ -259,17 +298,16 @@ $("#lauf-zurueck").addEventListener("click", zeigeFormulare);
 
 /* ------------------------------------------------ Frage-Dialog (G4) */
 
-let dialogFrageId = null;
+let dialogHandler = null;
 
 function antworte(wert) {
-  if (dialogFrageId === null) return;
-  const id = dialogFrageId;
+  const handler = dialogHandler;
   schliesseDialog();
-  window.pywebview.api.antwort(id, wert);
+  if (handler) handler(wert);
 }
 
 function schliesseDialog() {
-  dialogFrageId = null;
+  dialogHandler = null;
   $("#dialog-hintergrund").hidden = true;
 }
 
@@ -282,8 +320,8 @@ function knopf(text, klasse, handler) {
   return b;
 }
 
-function zeigeDialog(e) {
-  dialogFrageId = e.id;
+function zeigeDialog(e, handler) {
+  dialogHandler = handler;
   $("#dialog-frage").textContent = e.frage;
   const optionen = $("#dialog-optionen");
   const knoepfe = $("#dialog-knoepfe");
@@ -324,12 +362,35 @@ window.bmEreignis = (e) => {
     case "task_update": taskUpdate(e); break;
     case "balken_ende": balkenEnde(); break;
     case "status": statusZeile(e.text); break;
-    case "frage": zeigeDialog(e); break;
+    case "frage":
+      zeigeDialog(e, (wert) => window.pywebview.api.antwort(e.id, wert));
+      break;
+    case "ergebnis": ergebnisDaten = e; break;
     case "erfolg": erfolgBlock(e.zeilen); break;
     case "fehler": logZeile("Fehler: " + e.text, true); break;
     case "fertig": laufFertig(e.code); break;
   }
 };
+
+/* ------------------------------------------------ Cache leeren (G5) */
+
+$("#cache-leeren").addEventListener("click", async () => {
+  const info = await window.pywebview.api.cache_info();
+  if (info.leer) {
+    meldung("Der Cache ist bereits leer.");
+    return;
+  }
+  zeigeDialog(
+    { art: "ja_nein", default: false,
+      frage: "Alle gecachten Daten löschen (" + info.gesamt + ", " +
+             info.dateien + " Dateien)? Der nächste Lauf lädt " +
+             "Relais-Daten und Höhenkacheln neu herunter." },
+    async (wert) => {
+      if (!wert) return;
+      const r = await window.pywebview.api.cache_leeren();
+      meldung("Cache geleert — " + r.frei + " freigegeben.");
+    });
+});
 
 /* -------------------------------------------------------- Start */
 

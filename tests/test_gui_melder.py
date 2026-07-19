@@ -72,6 +72,16 @@ def test_erfolg_strippt_markup():
     assert ereignisse[0]["zeilen"] == ["Fertig. Ausgaben in out/"]
 
 
+def test_ergebnis_merkt_dateien_und_meldet_ereignis(tmp_path):
+    m, ereignisse, _ = _melder()
+    bericht = tmp_path / "bericht.html"
+    karte = tmp_path / "karte.html"
+    m.ergebnis(tmp_path, bericht, karte)
+    assert m.ergebnis_ordner == tmp_path
+    assert m.ergebnis_dateien == {"bericht": bericht, "karte": karte}
+    assert ereignisse[0] == {"typ": "ergebnis", "ordner": str(tmp_path)}
+
+
 def test_ja_nein_im_fenster_immer_nein():
     m, ereignisse, _ = _melder()
     assert m.ja_nein("Ausgabeordner im Dateimanager öffnen?") is False

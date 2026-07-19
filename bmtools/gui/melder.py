@@ -21,6 +21,7 @@ import itertools
 import threading
 import time
 from collections.abc import Callable, Iterable, Iterator
+from pathlib import Path
 from typing import Any, TypeVar
 
 from rich.text import Text
@@ -135,6 +136,10 @@ class GuiMelder:
         self._antworten: dict[int, Any] = {}
         self._antwort_da: dict[int, threading.Event] = {}
         self._lauf_thread: threading.Thread | None = None
+        # Vom letzten erfolgreichen Lauf: Ordner für »Ausgabeordner
+        # öffnen«, Dateien für Bridge.lade_ergebnis (srcdoc-Anzeige)
+        self.ergebnis_ordner: Path | None = None
+        self.ergebnis_dateien: dict[str, Path] = {}
 
     # ------------------------------------------------------ Abbruch
 
@@ -190,6 +195,17 @@ class GuiMelder:
     def erfolg(self, zeilen: list[str]) -> None:
         self._sende_aktiv({"typ": "erfolg",
                            "zeilen": [_plain(z) for z in zeilen]})
+
+    def ergebnis(self, out_dir: Path, bericht: Path, karte: Path) -> None:
+        """Fertige Dateien ans Fenster melden (G5-Ergebnisansicht).
+
+        Die Inhalte holt sich das Frontend über Bridge.lade_ergebnis
+        und zeigt sie per iframe.srcdoc — file-URLs im iframe blockiert
+        WKWebView außerhalb des static-Verzeichnisses (Befund E2E-Test
+        2026-07-19)."""
+        self.ergebnis_ordner = out_dir
+        self.ergebnis_dateien = {"bericht": bericht, "karte": karte}
+        self._sende_aktiv({"typ": "ergebnis", "ordner": str(out_dir)})
 
     # ------------------------------------------------------- Fragen
 

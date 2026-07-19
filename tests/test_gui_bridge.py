@@ -151,3 +151,69 @@ def test_start_lauf_erlaubt_neue_suche_nach_abbruch(monkeypatch):
 
 def test_waehle_gpx_ohne_fenster_ist_none():
     assert Bridge().waehle_gpx() is None
+
+
+# ---------------------------------------------------------------------------
+# G5: Ausgabeordner öffnen und Cache leeren
+# ---------------------------------------------------------------------------
+
+def test_oeffne_ordner_nur_mit_ergebnis(monkeypatch, tmp_path):
+    geoeffnet: list[object] = []
+    monkeypatch.setattr("bmtools.routelib.oeffnen.system_oeffnen",
+                        geoeffnet.append)
+    monkeypatch.setattr("bmtools.gui.bridge.Lauf", _FakeLauf)
+    b = Bridge()
+    b.oeffne_ordner()  # kein Lauf -> kein Aufruf
+    assert geoeffnet == []
+
+    class _FakeMelder:
+        ergebnis_ordner = tmp_path
+
+    b.start_lauf("auto", {"von": "A", "nach": "B"})
+    assert isinstance(b._lauf, _FakeLauf)
+    b._lauf.melder = _FakeMelder()
+    b.oeffne_ordner()
+    assert geoeffnet == [tmp_path]
+
+
+def test_lade_ergebnis_liefert_dateiinhalt(monkeypatch, tmp_path):
+    monkeypatch.setattr("bmtools.gui.bridge.Lauf", _FakeLauf)
+    b = Bridge()
+    assert b.lade_ergebnis("bericht") is None  # noch kein Lauf
+
+    bericht = tmp_path / "bericht.html"
+    bericht.write_text("<h1>Testbericht</h1>")
+
+    class _FakeMelder:
+        def __init__(self):
+            self.ergebnis_dateien = {"bericht": bericht}
+
+    b.start_lauf("auto", {"von": "A", "nach": "B"})
+    assert isinstance(b._lauf, _FakeLauf)
+    b._lauf.melder = _FakeMelder()
+    assert b.lade_ergebnis("bericht") == {"html": "<h1>Testbericht</h1>"}
+    assert b.lade_ergebnis("karte") is None  # nicht vorhanden
+
+
+def test_cache_info_und_leeren(monkeypatch):
+    from bmtools import cache_admin
+
+    class _Bereich:
+        def __init__(self, groesse, dateien):
+            self.groesse_bytes = groesse
+            self.dateien = dateien
+
+    monkeypatch.setattr(cache_admin, "bereiche",
+                        lambda: [_Bereich(1024, 2), _Bereich(2048, 3)])
+    monkeypatch.setattr(cache_admin, "leeren",
+                        lambda liste: sum(b.groesse_bytes for b in liste))
+    b = Bridge()
+    info = b.cache_info()
+    assert info["dateien"] == 5 and info["leer"] is False
+    assert b.cache_leeren()["frei"] == cache_admin.groesse_mensch(3072)
+
+
+def test_cache_info_leer(monkeypatch):
+    from bmtools import cache_admin
+    monkeypatch.setattr(cache_admin, "bereiche", lambda: [])
+    assert Bridge().cache_info()["leer"] is True

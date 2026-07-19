@@ -201,6 +201,20 @@
   <div id="lauf-balken"></div>
   <p id="lauf-status" hidden></p>
   <div id="lauf-log" aria-live="polite"></div>
+
+  <!-- Ergebnisansicht (G5): Bericht und Karte direkt im Fenster -->
+  <div id="ergebnis" hidden>
+    <div class="ergebnis-knoepfe">
+      <button type="button" class="neben ansicht aktiv"
+              data-ansicht="bericht">📄 Bericht</button>
+      <button type="button" class="neben ansicht"
+              data-ansicht="karte">🗺️ Karte</button>
+      <button type="button" class="neben" id="ordner-oeffnen">📂
+        Ausgabeordner öffnen</button>
+    </div>
+    <iframe id="ergebnis-rahmen" title="Ergebnis"></iframe>
+  </div>
+
   <div class="lauf-knoepfe">
     <button type="button" id="lauf-abbrechen" class="neben">Abbrechen</button>
     <button type="button" id="lauf-zurueck" class="start"
@@ -221,7 +235,9 @@
 
 <footer>
   <p>Terminal-Modus: <code>bmtools --terminal</code> · Daten:
-     Brandmeister-API &amp; relaislisten.darc.de (keyless)</p>
+     Brandmeister-API &amp; relaislisten.darc.de (keyless) ·
+     <button type="button" id="cache-leeren" class="fusslink">🧹 Cache
+       leeren …</button></p>
 </footer>
 
 <script src="app.js"></script>
