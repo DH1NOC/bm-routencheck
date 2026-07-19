@@ -14,6 +14,13 @@
 
 * { box-sizing: border-box; }
 
+/* Das hidden-Attribut wirkt nur über das UA-Stylesheet (display:none)
+   und verliert gegen jede Autoren-display-Regel (.tabs und
+   #dialog-hintergrund sind flex!) — ohne diese Regel läge der leere
+   Dialog-Hintergrund dauerhaft über der Oberfläche (G4-Abnahmebefund
+   2026-07-19). */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   font-family: -apple-system, "Segoe UI", system-ui, sans-serif;

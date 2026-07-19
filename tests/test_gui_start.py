@@ -110,6 +110,14 @@ def test_frontend_dateien_vorhanden():
         assert (fenster.STATIC / name).is_file()
 
 
+def test_hidden_schlaegt_display_regeln():
+    # Regression G4-Abnahmebefund 2026-07-19: .tabs/#dialog-hintergrund
+    # sind display:flex — ohne globale [hidden]-Regel überdeckte der
+    # leere Dialog-Hintergrund dauerhaft die Oberfläche.
+    css = (fenster.STATIC / "stil.css").read_text()
+    assert "[hidden] { display: none !important; }" in css
+
+
 def test_frontend_ohne_externe_urls():
     for name in ("index.html", "stil.css", "app.js"):
         inhalt = (fenster.STATIC / name).read_text()
