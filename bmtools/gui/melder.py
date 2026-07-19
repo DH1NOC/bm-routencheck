@@ -36,6 +36,13 @@ Ereignis = dict[str, Any]
 # (gleiche Regel wie ui.EtaSpalte im Terminal; sticky macht sie das JS)
 ETA_AB_SEKUNDEN = 10.0
 
+# Höchstens ~10 Fortschritts-Ereignisse pro Sekunde und Balken: jedes
+# Ereignis ist ein evaluate_js auf dem UI-Thread — ungedrosselt fluten
+# die Sample-Callbacks langer Routen das Fenster, bis Klicks verloren
+# gehen (Befund 2026-07-19: »UI gesperrt, Tabwechsel nur Doppelklick«).
+# rich drosselt im Terminal genauso (feste Refresh-Rate).
+SENDETAKT_S = 0.1
+
 
 def _plain(markup: str) -> str:
     return Text.from_markup(markup).plain
@@ -53,6 +60,7 @@ class _GuiBalken:
         # Sticky-Regel wie ui.EtaSpalte: einmal über der Schwelle,
         # bleibt die ETA bis zum Task-Ende sichtbar (kein Flackern)
         self._eta_sichtbar: set[int] = set()
+        self._letzte_sendung: dict[int, float] = {}
 
     def task(self, beschreibung: str, *, sichtbar: bool = True) -> int:
         task_id = next(self._ids)
@@ -66,8 +74,20 @@ class _GuiBalken:
                gesamt: int | None = None, sichtbar: bool | None = None,
                beschreibung: str | None = None) -> None:
         # Abbruch greift auch zwischen zwei Fortschrittsschritten —
-        # aber nur im Lauf-Thread (Download-Threads laufen weiter)
+        # aber nur im Lauf-Thread (Download-Threads laufen weiter).
+        # Die Prüfung steht VOR der Sendedrossel: abbrechen können
+        # muss man an jedem Callback, senden nicht.
         self._melder._pruefe_abbruch_im_lauf_thread()
+        strukturell = sichtbar is not None or beschreibung is not None
+        final = (fertig is not None and gesamt is not None
+                 and fertig >= gesamt)
+        jetzt = time.monotonic()
+        with self._lock:
+            if (not strukturell and not final
+                    and jetzt - self._letzte_sendung.get(task, 0.0)
+                    < SENDETAKT_S):
+                return
+            self._letzte_sendung[task] = jetzt
         eta_s: float | None = None
         if fertig is not None and gesamt:
             with self._lock:

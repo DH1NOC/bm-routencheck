@@ -43,12 +43,35 @@ def test_eta_erst_ab_schwelle_dann_sticky(monkeypatch):
         t = b.task("rechnen")
         zeit["t"] = 1.0
         b.update(t, fertig=50, gesamt=100)   # ETA 1 s -> keine Anzeige
-        b.update(t, fertig=2, gesamt=100)    # ETA 49 s -> Anzeige
+        zeit["t"] = 2.0
+        b.update(t, fertig=2, gesamt=100)    # ETA 98 s -> Anzeige
+        zeit["t"] = 3.0
         b.update(t, fertig=95, gesamt=100)   # ETA klein, aber sticky
     updates = [e for e in ereignisse if e["typ"] == "task_update"]
     assert "eta_s" not in updates[0]
-    assert updates[1]["eta_s"] == 49
+    assert updates[1]["eta_s"] == 98
     assert "eta_s" in updates[2]
+
+
+def test_updates_werden_gedrosselt(monkeypatch):
+    # Sample-Callbacks feuern hunderte Male pro Sekunde — gesendet wird
+    # höchstens alle SENDETAKT_S, sonst flutet evaluate_js den UI-Thread
+    # (Befund 2026-07-19: UI gesperrt, Tabwechsel nur per Doppelklick)
+    zeit = {"t": 100.0}
+    monkeypatch.setattr("bmtools.gui.melder.time.monotonic",
+                        lambda: zeit["t"])
+    m, ereignisse, _ = _melder()
+    with m.balken() as b:
+        t = b.task("Erreichbarkeit berechnen")
+        for i in range(1, 51):               # 50 Callbacks, Zeit steht
+            b.update(t, fertig=i, gesamt=100)
+        zeit["t"] = 100.2                    # Takt abgelaufen
+        b.update(t, fertig=60, gesamt=100)
+        b.update(t, fertig=61, gesamt=100)   # wieder gedrosselt
+        b.update(t, fertig=100, gesamt=100)  # final: geht immer durch
+        b.update(t, sichtbar=False)          # strukturell: geht immer
+    updates = [e for e in ereignisse if e["typ"] == "task_update"]
+    assert [u.get("fertig") for u in updates] == [1, 60, 100, None]
 
 
 def test_spur_sendet_fortschritt():
