@@ -140,7 +140,11 @@ class Bridge:
 
     def start_lauf(self, tool: str, daten: dict[str, Any]) -> dict[str, Any]:
         """Formular prüfen und den Lauf im Hintergrund-Thread starten."""
-        if self._lauf is not None and self._lauf.laeuft():
+        # Ein abgebrochener Lauf zählt nicht mehr als laufend — sein
+        # Thread darf im Hintergrund auslaufen (Ereignisse verschluckt
+        # der GuiMelder), die Oberfläche ist sofort wieder frei.
+        if (self._lauf is not None and self._lauf.laeuft()
+                and not self._lauf.abgebrochen()):
             return {"ok": False,
                     "hinweis": "Es läuft bereits eine Suche — erst "
                                "abbrechen oder abwarten."}

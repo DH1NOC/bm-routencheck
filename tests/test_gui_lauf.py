@@ -95,12 +95,22 @@ def test_abbruch_waehrend_fortschrittsschleife_liefert_130(monkeypatch):
     lauf.starten("auto", {"von": "A", "nach": "B", "modus": "beide"})
     time.sleep(0.3)
     lauf.abbrechen()
-    _warten(lauf)
+    # SOFORT gemeldet (Nutzererwartung 2026-07-19), nicht erst wenn
+    # der Arbeiter-Thread seinen aktuellen Schritt beendet hat
     assert ereignisse[-1] == {"typ": "fertig", "code": 130}
     assert any(e.get("text") == "Abgebrochen." for e in ereignisse)
+    _warten(lauf)
+    # Der auslaufende Thread darf weder ein zweites fertig noch
+    # weitere Ereignisse nachschieben
+    assert [e for e in ereignisse if e["typ"] == "fertig"] == [
+        {"typ": "fertig", "code": 130}]
+    assert ereignisse[-1] == {"typ": "fertig", "code": 130}
 
 
-def test_abbruch_liefert_code_130(monkeypatch):
+def test_abbruch_meldet_sofort_auch_bei_haengendem_schritt(monkeypatch):
+    """Selbst wenn der Arbeiter-Thread in einem langen Request steckt
+    (hier: 10-s-Fake), meldet abbrechen() das Ende sofort — der Thread
+    läuft als stiller Daemon aus."""
     def langsam(name):
         time.sleep(10)
         return [Waypoint(name, 50.0, 8.0)]
@@ -111,8 +121,8 @@ def test_abbruch_liefert_code_130(monkeypatch):
     lauf.starten("auto", {"von": "A", "nach": "B", "modus": "beide"})
     time.sleep(0.1)
     lauf.abbrechen()
-    # Der Abbruch greift an der nächsten Meldestelle (melder.text nach
-    # dem Geocoding) — der langsame Fake hält den Thread aber 10 s.
-    # Deshalb hier nur prüfen, dass abbrechen() gesetzt ist und der
-    # Thread als Daemon nicht blockiert.
-    assert lauf.melder._abbruch.is_set()
+    assert lauf.abgebrochen()
+    assert ereignisse[-1] == {"typ": "fertig", "code": 130}
+    # laeuft() ist noch True (Thread steckt im Fake), aber die Bridge
+    # lässt wegen abgebrochen() trotzdem eine neue Suche zu
+    assert lauf.laeuft()

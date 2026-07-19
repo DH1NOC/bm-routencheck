@@ -108,9 +108,13 @@ class _FakeLauf:
     def __init__(self, sende):
         self.gestartet = None
         self._laeuft = False
+        self._abgebrochen = False
 
     def laeuft(self):
         return self._laeuft
+
+    def abgebrochen(self):
+        return self._abgebrochen
 
     def starten(self, tool, daten):
         self.gestartet = (tool, daten)
@@ -132,6 +136,17 @@ def test_start_lauf_verweigert_zweiten_lauf(monkeypatch):
     assert b.start_lauf("auto", {"von": "A", "nach": "B"})["ok"] is True
     r = b.start_lauf("auto", {"von": "A", "nach": "B"})
     assert r["ok"] is False and "bereits" in r["hinweis"]
+
+
+def test_start_lauf_erlaubt_neue_suche_nach_abbruch(monkeypatch):
+    # Der abgebrochene Alt-Thread darf noch auslaufen — die Oberfläche
+    # ist trotzdem sofort wieder frei (Nutzererwartung 2026-07-19)
+    monkeypatch.setattr("bmtools.gui.bridge.Lauf", _FakeLauf)
+    b = Bridge()
+    assert b.start_lauf("auto", {"von": "A", "nach": "B"})["ok"] is True
+    assert isinstance(b._lauf, _FakeLauf)
+    b._lauf._abgebrochen = True  # laeuft() bleibt True
+    assert b.start_lauf("auto", {"von": "A", "nach": "B"})["ok"] is True
 
 
 def test_waehle_gpx_ohne_fenster_ist_none():

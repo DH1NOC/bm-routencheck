@@ -45,16 +45,29 @@ def _via_liste(daten: dict[str, Any]) -> list[str]:
 
 
 class Lauf:
-    """Ein laufender (oder beendeter) Pipeline-Lauf des Fensters."""
+    """Ein laufender (oder beendeter) Pipeline-Lauf des Fensters.
+
+    Abbrechen (Nutzererwartung 2026-07-19: SOFORT, nicht erst am
+    nächsten Fortschrittsschritt): abbrechen() meldet das Ende direkt
+    aus dem Bridge-Thread — die Oberfläche ist augenblicklich frei.
+    Der Arbeiter-Thread lässt sich mitten in einem Netzwerk-Request
+    nicht töten; er stirbt still an seinem nächsten Kontrollpunkt
+    (GuiMelder wirft KeyboardInterrupt und verschluckt ab dann alle
+    Ereignisse), _melde_ende dedupliziert das fertig-Ereignis."""
 
     def __init__(self, sende: Callable[[Ereignis], None]) -> None:
         self._sende = sende
         self._abbruch = threading.Event()
         self.melder = GuiMelder(sende, self._abbruch)
         self._thread: threading.Thread | None = None
+        self._ende_lock = threading.Lock()
+        self._ende_gemeldet = False
 
     def laeuft(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
+
+    def abgebrochen(self) -> bool:
+        return self._abbruch.is_set()
 
     def starten(self, tool: str, daten: dict[str, Any]) -> None:
         self._thread = threading.Thread(
@@ -64,12 +77,27 @@ class Lauf:
 
     def abbrechen(self) -> None:
         self._abbruch.set()
+        self._melde_ende(130)
+
+    def _melde_ende(self, code: int, fehler: str | None = None) -> None:
+        """Genau EIN Abschluss pro Lauf — egal ob vom Abbrechen-Klick
+        (Bridge-Thread) oder vom auslaufenden Arbeiter-Thread gemeldet."""
+        with self._ende_lock:
+            if self._ende_gemeldet:
+                return
+            self._ende_gemeldet = True
+        if fehler is not None:
+            self._sende({"typ": "fehler", "text": fehler})
+        if code == 130:
+            self._sende({"typ": "text", "text": "Abgebrochen."})
+        self._sende({"typ": "fertig", "code": code})
 
     # ------------------------------------------------------------------
 
     def _lauf(self, tool: str, daten: dict[str, Any]) -> None:
         self.melder.markiere_lauf_thread()
         code = 1
+        fehler: str | None = None
         try:
             if tool == "bahn":
                 code = self._bahn(daten)
@@ -77,17 +105,12 @@ class Lauf:
                 code = self._strasse(tool, daten)
         except KeyboardInterrupt:
             code = 130
-            self._sende({"typ": "text", "text": "Abgebrochen."})
-        except (BahnLinkError, RouteInputError) as e:
-            self._sende({"typ": "fehler", "text": str(e)})
-        except RuntimeError as e:
-            self._sende({"typ": "fehler", "text": str(e)})
+        except (BahnLinkError, RouteInputError, RuntimeError) as e:
+            fehler = str(e)
         except Exception as e:  # Schutznetz: das Fenster braucht IMMER
             # ein fertig-Ereignis, sonst bleibt es im Lauf-Zustand hängen
-            self._sende({"typ": "fehler",
-                         "text": f"Unerwarteter Fehler: {e!r}"})
-        finally:
-            self._sende({"typ": "fertig", "code": code})
+            fehler = f"Unerwarteter Fehler: {e!r}"
+        self._melde_ende(code, fehler)
 
     def _bahn(self, daten: dict[str, Any]) -> int:
         # Vorbild: rail.cli.main() — Link-Weg bzw. Stationsauflösung

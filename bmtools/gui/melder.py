@@ -45,7 +45,7 @@ class _GuiBalken:
 
     def __init__(self, melder: GuiMelder) -> None:
         self._melder = melder
-        self._sende = melder._sende
+        self._sende = melder._sende_aktiv
         self._ids = melder._task_ids
         self._lock = threading.Lock()
         self._start: dict[int, float] = {}
@@ -105,7 +105,7 @@ class _BalkenKontext:
         return _GuiBalken(self._m)
 
     def __exit__(self, *exc: object) -> None:
-        self._m._sende({"typ": "balken_ende"})
+        self._m._sende_aktiv({"typ": "balken_ende"})
 
 
 class _StatusKontext:
@@ -115,11 +115,12 @@ class _StatusKontext:
 
     def __enter__(self) -> Callable[[str], None]:
         self._m._pruefe_abbruch()
-        self._m._sende({"typ": "status", "text": self._text})
-        return lambda neu: self._m._sende({"typ": "status", "text": neu})
+        self._m._sende_aktiv({"typ": "status", "text": self._text})
+        return lambda neu: self._m._sende_aktiv({"typ": "status",
+                                                 "text": neu})
 
     def __exit__(self, *exc: object) -> None:
-        self._m._sende({"typ": "status", "text": None})
+        self._m._sende_aktiv({"typ": "status", "text": None})
 
 
 class GuiMelder:
@@ -151,11 +152,18 @@ class GuiMelder:
                 and threading.current_thread() is self._lauf_thread):
             raise KeyboardInterrupt
 
+    def _sende_aktiv(self, ereignis: Ereignis) -> None:
+        """Senden, solange nicht abgebrochen — nach dem Abbruch hat die
+        Oberfläche bereits »fertig« gemeldet (Lauf.abbrechen), der
+        auslaufende Arbeiter-Thread darf sie nicht mehr übermalen."""
+        if not self._abbruch.is_set():
+            self._sende(ereignis)
+
     # ------------------------------------------------------- Melder
 
     def text(self, markup: str) -> None:
         self._pruefe_abbruch()
-        self._sende({"typ": "text", "text": _plain(markup)})
+        self._sende_aktiv({"typ": "text", "text": _plain(markup)})
 
     def balken(self) -> _BalkenKontext:
         return _BalkenKontext(self)
@@ -175,13 +183,13 @@ class GuiMelder:
     def tabelle(self, results: list[Any]) -> None:
         # Interim bis G5 (Ergebnisansicht im Fenster): nur die Anzahl —
         # die vollständige Tabelle steht in bericht.html.
-        self._sende({"typ": "text",
-                     "text": f"{len(results)} Relais im Ergebnis — "
-                             f"Details in bericht.html."})
+        self._sende_aktiv({"typ": "text",
+                           "text": f"{len(results)} Relais im Ergebnis — "
+                                   f"Details in bericht.html."})
 
     def erfolg(self, zeilen: list[str]) -> None:
-        self._sende({"typ": "erfolg",
-                     "zeilen": [_plain(z) for z in zeilen]})
+        self._sende_aktiv({"typ": "erfolg",
+                           "zeilen": [_plain(z) for z in zeilen]})
 
     # ------------------------------------------------------- Fragen
 
@@ -205,7 +213,7 @@ class GuiMelder:
         frage_id = next(self._frage_ids)
         da = threading.Event()
         self._antwort_da[frage_id] = da
-        self._sende({**ereignis, "id": frage_id})
+        self._sende_aktiv({**ereignis, "id": frage_id})
         # Polling statt blockem wait: Abbrechen muss die Frage lösen
         while not da.wait(0.2):
             self._pruefe_abbruch()

@@ -157,7 +157,7 @@ def test_abbruch_wirft_bei_task_update_im_lauf_thread():
 def test_abbruch_wirft_nicht_aus_helfer_threads():
     # Kachel-Downloads melden aus eigenen Threads — die dürfen bei
     # Abbruch nicht sterben, sonst hinge estimate_coverage.
-    m, _, abbruch = _melder()
+    m, ereignisse, abbruch = _melder()
     m.markiere_lauf_thread()
     fehler: list[BaseException] = []
     with m.balken() as b:
@@ -174,3 +174,6 @@ def test_abbruch_wirft_nicht_aus_helfer_threads():
         th.start()
         th.join(2)
     assert fehler == []
+    # … aber ihre Ereignisse werden verschluckt: die Oberfläche hat
+    # nach dem Abbrechen-Klick schon »fertig« gemeldet
+    assert [e["typ"] for e in ereignisse] == ["task_neu"]

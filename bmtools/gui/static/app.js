@@ -112,11 +112,15 @@ function meldung(text, istFehler) {
 $("#start").addEventListener("click", async () => {
   alleFeldfehlerLoeschen();
   meldung(null);
+  // Ansicht VOR dem Start leeren und umschalten: der Lauf-Thread
+  // sendet seine ersten Ereignisse sonst schneller, als die
+  // start_lauf-Antwort hier ankommt (erste Log-Zeile ging verloren)
+  zeigeLaufansicht();
   const r = await window.pywebview.api.start_lauf(
     aktiverTab, formulardaten(aktiverTab));
-  if (r.ok) {
-    zeigeLaufansicht();
-  } else if (r.fehler) {
+  if (r.ok) return;
+  zeigeFormulare();
+  if (r.fehler) {
     let allgemein = [];
     for (const [feld, text] of Object.entries(r.fehler)) {
       if (feld === "_formular") allgemein.push(text);
@@ -140,6 +144,7 @@ function zeigeLaufansicht() {
   $(".abschluss").hidden = true;
   $("#lauf-balken").replaceChildren();
   $("#lauf-log").replaceChildren();
+  Object.keys(tasks).forEach((k) => delete tasks[k]);
   $("#lauf-status").hidden = true;
   $("#lauf-titel").textContent =
     (TOOL_TITEL[aktiverTab] || "") + " — Suche läuft …";
