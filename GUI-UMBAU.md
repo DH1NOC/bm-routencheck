@@ -74,11 +74,14 @@ und Konsistenz der Ausgaben.
       im Fenster; Abbrechen sofort wirksam. Interaktive Rückfragen
       (Verbindungs-/Geocoding-Auswahl, Bestätigungen) als GUI-Dialoge;
       je ein kompletter Bahn-, Auto- und Rad-Lauf aus der GUI geprüft.
-- [ ] **G5 — Ergebnisanzeige:** Karte und Bericht im Fenster (Umschalter
-      oder geteilte Ansicht), Buttons »Ausgabeordner öffnen« und Hinweise
-      auf CSV/Codeplug-Dateien; Cache-leeren-Funktion im GUI-Menü.
-      *Abnahme:* Ergebnis eines Laufs vollständig im Fenster geprüft,
-      Dateien identisch zu einem Terminal-Lauf derselben Route.
+- [x] **G5 — Ergebnisanzeige** *(abgenommen 2026-07-19; Nachbesserungen
+      aus der Abnahme: srcdoc statt file-iframe (WKWebView), Anzeige
+      hart hell + App-Schrift injiziert, »Im Browser öffnen« öffnet
+      Bericht UND Karte, Ereignis-Drossel gegen UI-Blockade,
+      acceptsFirstMouse- und Aktivierungs-Härtung)*: Karte und Bericht
+      im Fenster (Umschalter), »Ausgabeordner öffnen«, Cache leeren im
+      Fenster; Dateien identisch zum Terminal-Lauf (Pipeline
+      unverändert, ergebnis()-Hook im Terminal No-op).
 - [ ] **G5b — Formular-Layout-Politur:** Das G3-Layout ist funktional
       abgenommen, gestalterisch aber ausdrücklich vorläufig
       (Nutzerwunsch 2026-07-18). Überarbeitung von Aufteilung,
