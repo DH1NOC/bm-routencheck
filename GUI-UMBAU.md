@@ -65,12 +65,15 @@ und Konsistenz der Ausgaben.
       Bahn/Auto/Rad, deutsche Formulare mit den Assistenten-Feldern
       (inkl. Link-/GPX-Eingabe), JS-Bridge mit Formular-Validierung
       über dieselben Parser wie der Assistent; noch ohne Pipeline-Lauf.
-- [ ] **G4 — Lauf + Fortschritt:** Start aus dem Formular, Pipeline im
-      Hintergrund-Thread, Fortschrittsbalken (X/Y, Prozent, ETA-Regel
-      wie im Terminal: erst ab > 10 s Restzeit) im Fenster; Abbrechen
-      möglich. Interaktive Rückfragen der Tools (Verbindungs-/
-      Geocoding-Auswahl, Modus zuletzt) als GUI-Schritte.
-      *Abnahme:* je ein kompletter Bahn-, Auto- und Rad-Lauf aus der GUI.
+- [x] **G4 — Lauf + Fortschritt** *(abgenommen 2026-07-19 nach drei
+      Befunden: leeres Modal — [hidden] verlor gegen display:flex;
+      Abbruch wirkte erst am Schritt- bzw. Task-Ende → Abbrechen
+      meldet jetzt sofort, der Arbeiter-Thread läuft still aus)*:
+      Start aus dem Formular, Pipeline im Hintergrund-Thread,
+      Fortschrittsbalken (X/Y, Prozent, ETA-Regel wie im Terminal)
+      im Fenster; Abbrechen sofort wirksam. Interaktive Rückfragen
+      (Verbindungs-/Geocoding-Auswahl, Bestätigungen) als GUI-Dialoge;
+      je ein kompletter Bahn-, Auto- und Rad-Lauf aus der GUI geprüft.
 - [ ] **G5 — Ergebnisanzeige:** Karte und Bericht im Fenster (Umschalter
       oder geteilte Ansicht), Buttons »Ausgabeordner öffnen« und Hinweise
       auf CSV/Codeplug-Dateien; Cache-leeren-Funktion im GUI-Menü.
