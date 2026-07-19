@@ -189,22 +189,30 @@ class Bridge:
         if datei is None or not datei.is_file():
             return None
         html = datei.read_text()
-        hell = "<style>:root { color-scheme: only light; }</style>"
+        # Zusätzlich zum Licht-Zwang dieselbe Schrift wie die App —
+        # -apple-system löst in srcdoc-iframes nicht zuverlässig auf,
+        # der Bericht fiel dort auf Helvetica zurück (Nutzerbefund
+        # 2026-07-19); system-ui greift auch dort.
+        anpassung = ("<style>:root { color-scheme: only light; } "
+                     "body { font-family: system-ui, -apple-system, "
+                     "'Segoe UI', sans-serif; }</style>")
         if "</head>" in html:
-            html = html.replace("</head>", hell + "</head>", 1)
+            html = html.replace("</head>", anpassung + "</head>", 1)
         else:
-            html += hell
+            html += anpassung
         return {"html": html}
 
-    def oeffne_ergebnis(self, ansicht: str) -> None:
-        """Bericht bzw. Karte im Standardbrowser öffnen (Nutzerwunsch
-        2026-07-19) — dort mit dem Farbschema des Systems."""
+    def oeffne_ergebnis(self) -> None:
+        """Bericht UND Karte im Standardbrowser öffnen — wie --oeffnen
+        im Terminal (Nutzerwunsch 2026-07-19: beide, nicht nur die
+        aktive Ansicht); dort gilt das Farbschema des Systems."""
         if self._lauf is None:
             return
-        datei = self._lauf.melder.ergebnis_dateien.get(ansicht)
-        if datei is not None and datei.is_file():
-            from bmtools.routelib.oeffnen import system_oeffnen
-            system_oeffnen(datei)
+        from bmtools.routelib.oeffnen import system_oeffnen
+        for ansicht in ("bericht", "karte"):
+            datei = self._lauf.melder.ergebnis_dateien.get(ansicht)
+            if datei is not None and datei.is_file():
+                system_oeffnen(datei)
 
     def cache_info(self) -> dict[str, Any]:
         """Belegter Disk-Cache für die Rückfrage vor dem Leeren."""

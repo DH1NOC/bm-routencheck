@@ -8,6 +8,7 @@ Terminal-Modus bleibt frei von GUI-Importen (und deren Startzeit).
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 
 from . import GuiStartFehler
@@ -43,6 +44,30 @@ def _macos_erster_klick_zaehlt() -> None:
         pass  # reine Bedienkomfort-Härtung — darf den Start nie verhindern
 
 
+def _macos_aktivierung_nachfassen() -> None:
+    """App-Aktivierung nach dem Start mehrfach nachfassen (nur macOS).
+
+    Die Aktivierung ist auf neueren macOS-Versionen ein kooperativer
+    Vorgang und scheitert aus Terminal-Kindprozessen sporadisch — dann
+    ist das Fenster vorn, aber die App inaktiv: kein Hover-Cursor,
+    kein Tastaturfokus (Befund 2026-07-19: »~50 % der Starts gesperrt,
+    Neustart hilft«). Mehrfaches Nachaktivieren ist harmlos und
+    gewinnt das Rennen; läuft als webview.start-Funktion im
+    Hintergrund-Thread, Fehler bleiben folgenlos."""
+    if sys.platform != "darwin":
+        return
+    try:
+        import AppKit
+        optionen = getattr(AppKit, "NSApplicationActivateIgnoringOtherApps",
+                           1 << 1)
+        app = AppKit.NSRunningApplication.currentApplication()
+        for _ in range(3):
+            time.sleep(0.4)
+            app.activateWithOptions_(optionen)
+    except Exception:
+        pass
+
+
 def gui_starten(tool: str | None = None) -> int:
     """Fenster öffnen und die pywebview-Hauptschleife laufen lassen.
 
@@ -62,7 +87,7 @@ def gui_starten(tool: str | None = None) -> int:
         width=1100, height=780, min_size=(880, 600))
     bridge._fenster = fenster
     try:
-        webview.start()
+        webview.start(_macos_aktivierung_nachfassen)
     except Exception as e:
         # Typischer Fall: Linux ohne Webview-Backend (GTK/WebKit2 oder
         # QtWebEngine) — pywebview meldet das erst beim Start.

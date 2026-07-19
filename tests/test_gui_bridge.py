@@ -217,28 +217,32 @@ def test_lade_ergebnis_hell_injektion_vor_head_ende(tmp_path, monkeypatch):
     assert geladen.index("only light") < geladen.index("</head>")
 
 
-def test_oeffne_ergebnis_im_browser(monkeypatch, tmp_path):
+def test_oeffne_ergebnis_beide_im_browser(monkeypatch, tmp_path):
+    # Wie --oeffnen im Terminal: Bericht UND Karte (Nutzerwunsch
+    # 2026-07-19), Bericht zuerst; fehlende Dateien überspringen
     geoeffnet: list[object] = []
     monkeypatch.setattr("bmtools.routelib.oeffnen.system_oeffnen",
                         geoeffnet.append)
     monkeypatch.setattr("bmtools.gui.bridge.Lauf", _FakeLauf)
     b = Bridge()
-    b.oeffne_ergebnis("bericht")  # kein Lauf -> kein Aufruf
+    b.oeffne_ergebnis()  # kein Lauf -> kein Aufruf
     assert geoeffnet == []
 
+    bericht = tmp_path / "bericht.html"
+    bericht.write_text("<p>Bericht</p>")
     karte = tmp_path / "karte.html"
     karte.write_text("<p>Karte</p>")
 
     class _FakeMelder:
         def __init__(self):
-            self.ergebnis_dateien = {"karte": karte}
+            self.ergebnis_dateien = {"bericht": bericht, "karte": karte,
+                                     "fehlt": tmp_path / "fehlt.html"}
 
     b.start_lauf("auto", {"von": "A", "nach": "B"})
     assert isinstance(b._lauf, _FakeLauf)
     b._lauf.melder = _FakeMelder()
-    b.oeffne_ergebnis("karte")
-    b.oeffne_ergebnis("bericht")  # nicht vorhanden -> kein Aufruf
-    assert geoeffnet == [karte]
+    b.oeffne_ergebnis()
+    assert geoeffnet == [bericht, karte]
 
 
 def test_cache_info_und_leeren(monkeypatch):

@@ -84,7 +84,7 @@ packages = ["bmtools", "tests"]
 [[tool.mypy.overrides]]
 # Bibliotheken ohne Typ-Stubs
 module = ["folium.*", "questionary.*", "PIL.*", "webview.*",
-          "objc.*", "WebKit.*"]
+          "objc.*", "WebKit.*", "AppKit.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
