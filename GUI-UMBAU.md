@@ -163,9 +163,13 @@ Ausgabeordner öffnen.
   zentrierten MDC-Dialog mit klickbarer Liste (Hover-Effekt); ein Klick
   wählt aus und schließt sofort. Die App friert nicht ein (Lauf im
   Hintergrund-Thread wartet auf die Antwort — Mechanik aus G4).
-- Gleiches Muster für die **Bahn-Verbindungswahl** und Bestätigungen;
-  die Assistenten-Reihenfolge-Regel (Modus-Frage zuletzt) gilt
-  unverändert.
+- Gleiches Muster für die **Bahn-Verbindungswahl**; die
+  Assistenten-Reihenfolge-Regel (Modus-Frage zuletzt) gilt unverändert.
+- **Ablauf-Bestätigungen entfallen im Fenster** (»Route so
+  berechnen?«, »Diese Verbindung verwenden?«, »Diese Tour verwenden?«):
+  Der Klick auf »Berechnen« ist die Bestätigung, der Kontext der Frage
+  stünde nur in der Log-Konsole — sie hielten den Workflow nur auf
+  (Abnahmebefund U2, 2026-07-20). Im Terminal bleiben sie erhalten.
 - Abbrechen im Dialog bricht den Lauf ab (wie bisher).
 
 ## 4. PDF-Export
@@ -226,15 +230,22 @@ Kartenbild), Abhängigkeit `reportlab>=4.0`.
       Button und Feldwechsel je Modus, Validierung über die Bridge
       (neu: pruefe_eingaben); Leerzustand der Main View. Noch ohne
       Lauf.
-- [ ] **U2 — Fortschrittsansicht:** Lauf aus dem Control Panel,
-      Fortschritts-Karte (Spinner + Phasen-Balken) oben, Log-Konsole
-      unten, Berechnen↔Abbrechen-Wechsel, Statusleisten-Schritt.
-      *Abnahme:* je ein Bahn-, Auto- und Rad-Lauf mit sichtbarem
-      Fortschritt und sofort wirksamem Abbruch.
-- [ ] **U3 — Material-Dialoge:** Geocoding-Auswahl, Bahn-Verbindungswahl
-      und Bestätigungen als zentrierte MDC-Dialoge mit klickbarer Liste
-      (Ein-Klick-Auswahl). *Abnahme:* mehrdeutiger Ort (»Hamburg«) und
-      Bahn-Verbindungswahl in der GUI.
+- [x] **U2 — Fortschrittsansicht** *(abgenommen 2026-07-20 nach drei
+      Befunden: Ablauf-Bestätigungen »Route so berechnen?« / »Diese
+      Verbindung/Tour verwenden?« entfielen im Fenster — der
+      Berechnen-Klick ist die Bestätigung, GuiMelder.frage_ja
+      antwortet automatisch Ja; Gesamt- + Einzelschritt-Balken statt
+      wachsender Phasen-Liste — neuer Melder-Hook schritt() meldet
+      die Grob-Phasen der Pipeline, Terminal No-op; Log-Konsole von
+      hälftig auf ~20 % Höhe)*: Lauf aus dem Control Panel,
+      Fortschritts-Karte (Spinner + Balken) oben, Log-Konsole unten,
+      Berechnen↔Abbrechen-Wechsel (Amber, sofort wirksam),
+      Statusleisten-Schritt, Abschluss-Karte mit Ausgaben-Liste und
+      Öffnen-Aktionen.
+- [ ] **U3 — Material-Dialoge:** Geocoding-Auswahl und
+      Bahn-Verbindungswahl als zentrierte MDC-Dialoge mit klickbarer
+      Liste (Ein-Klick-Auswahl). *Abnahme:* mehrdeutiger Ort
+      (»Hamburg«) und Bahn-Verbindungswahl in der GUI.
 - [ ] **U4 — Leaflet-Karte:** Leaflet lokal gebündelt; Route, Overlay,
       Marker, Legende, Layer-Umschalter aus den Bridge-Daten;
       funktional gleichwertig zur Folium-Karte. *Abnahme:*

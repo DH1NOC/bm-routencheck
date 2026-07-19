@@ -126,14 +126,6 @@ class Bridge:
                 fehler = _routen_link_fehler(wert)
         return {"ok": fehler is None, "fehler": fehler}
 
-    def pruefe_eingaben(self, tool: str,
-                        daten: dict[str, Any]) -> dict[str, Any]:
-        """Vollständige Formular-Prüfung ohne Lauf (U1: der
-        Berechnen-Button validiert, bis U2 die Fortschrittsansicht
-        bringt; danach nutzt ihn die Oberfläche vor start_lauf)."""
-        fehler = pruefe_formular(tool, daten)
-        return {"ok": not fehler, "fehler": fehler}
-
     def waehle_gpx(self) -> dict[str, str] | None:
         """Nativer Datei-Dialog für die GPX-Auswahl; None = abgebrochen."""
         if self._fenster is None:

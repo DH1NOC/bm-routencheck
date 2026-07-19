@@ -215,8 +215,8 @@
   <div class="panel-fuss">
     <p class="meldung" id="meldung" hidden></p>
     <button type="button" id="berechnen" class="primaer">
-      <svg class="icon"><use href="#i-route"/></svg>
-      <span class="primaer-text">Berechnen
+      <svg class="icon"><use id="berechnen-icon" href="#i-route"/></svg>
+      <span class="primaer-text"><span id="berechnen-text">Berechnen</span>
         <small id="berechnen-untertitel">Route berechnen</small></span>
     </button>
   </div>
@@ -237,7 +237,58 @@
        Bericht, Karte, CSV und Codeplug entstehen je Route.</p>
   </section>
 
-  <!-- U2: Fortschritt + Log-Konsole · U4/U5: Karte + Tabelle -->
+  <!-- Fortschrittsansicht (U2): oben die Fortschritts-Karte, unten
+       die Log-Konsole. Nach dem Lauf zeigt die Karte den Abschluss —
+       die Ergebnisansicht (Karte + Tabelle) folgt mit U4/U5. -->
+  <section id="lauf" class="laufansicht" hidden>
+    <div class="fortschritt-bereich">
+      <div class="fortschritt-karte">
+        <div class="lauf-kopf">
+          <div class="spinner" id="lauf-spinner"></div>
+          <svg class="icon lauf-icon" id="lauf-icon" hidden>
+            <use id="lauf-icon-use" href="#i-check_circle"/></svg>
+          <h2 id="lauf-titel">Routenberechnung läuft…</h2>
+        </div>
+        <!-- Zwei Balken (U2-Befund 2026-07-20): oben der Gesamt-
+             Fortschritt über die Pipeline-Schritte, darunter der
+             jeweils aktuelle Einzelschritt. -->
+        <div class="phasen">
+          <div class="phase">
+            <div class="phase-kopf">
+              <span class="phase-name" id="gesamt-name">Route
+                vorbereiten …</span>
+              <span class="phase-wert" id="gesamt-wert"></span>
+            </div>
+            <div class="phase-spur">
+              <div class="phase-fuellung" id="gesamt-fuellung"></div>
+            </div>
+          </div>
+          <div class="phase unter" id="phase-schritt" hidden>
+            <div class="phase-kopf">
+              <span class="phase-name" id="schritt-name"></span>
+              <span class="phase-wert" id="schritt-wert"></span>
+            </div>
+            <div class="phase-spur">
+              <div class="phase-fuellung" id="schritt-fuellung"></div>
+            </div>
+          </div>
+        </div>
+        <p class="lauf-hinweis" id="lauf-hinweis" hidden></p>
+        <pre class="lauf-erfolg" id="lauf-erfolg" hidden></pre>
+        <div class="lauf-aktionen" id="lauf-aktionen" hidden>
+          <button type="button" class="umriss" id="lauf-bericht">
+            <svg class="icon"><use href="#i-open_in_browser"/></svg>
+            Bericht &amp; Karte im Browser öffnen
+          </button>
+          <button type="button" class="umriss" id="lauf-ordner">
+            <svg class="icon"><use href="#i-folder_open"/></svg>
+            Ausgabeordner öffnen
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="konsole" id="konsole"></div>
+  </section>
 </main>
 
 <!-- =============================================== Statusleiste -->

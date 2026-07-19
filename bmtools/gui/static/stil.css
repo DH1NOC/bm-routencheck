@@ -352,6 +352,11 @@ select {
   opacity: .85;
 }
 
+/* Während des Laufs: Abbrechen in Amber (Spezifikation §1.1); dunkler
+   Text, weil Weiß auf Amber zu wenig Kontrast hat. */
+.primaer.abbruch { background: var(--amber); color: #402c00; }
+.primaer.abbruch:hover { background: #d97706; }
+
 
 /* ==================================================== Main View */
 .hauptbereich {
@@ -387,6 +392,150 @@ select {
   color: var(--text);
 }
 .leerzustand p { margin: 0; max-width: 34rem; }
+
+/* ====================================== Fortschrittsansicht (U2) */
+/* Oben die Fortschritts-Karte, unten die Log-Konsole mit ~20 %
+   Höhe (Abnahmebefund U2, 2026-07-20 — vorher hälftig);
+   minmax(0, …) hält beide Bereiche scrollbar. */
+.laufansicht {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 4fr) minmax(0, 1fr);
+}
+
+.fortschritt-bereich {
+  display: flex;
+  min-height: 0;
+  padding: 1.2rem 1.4rem;
+  overflow-y: auto;
+}
+
+.fortschritt-karte {
+  /* margin:auto zentriert auch dann korrekt, wenn die Karte höher
+     wird als der Bereich (flex-Zentrierung schnitte oben ab) */
+  margin: auto;
+  width: min(100%, 30rem);
+  padding: 1.3rem 1.5rem 1.4rem;
+  border: 1px solid var(--linie);
+  border-radius: 14px;
+  background: var(--flaeche-2);
+}
+
+.lauf-kopf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .7rem;
+  text-align: center;
+}
+.lauf-kopf h2 { margin: 0; font-size: 1.02rem; font-weight: 650; }
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid var(--feld);
+  border-top-color: var(--primaer);
+  border-radius: 50%;
+  animation: drehung .9s linear infinite;
+}
+@keyframes drehung { to { transform: rotate(360deg); } }
+
+.lauf-icon { width: 34px; height: 34px; }
+.lauf-icon.gut { color: var(--gruen); }
+.lauf-icon.warnung { color: var(--amber); }
+.lauf-icon.schlecht { color: var(--rot); }
+
+/* Gesamt- und Einzelschritt-Balken: Beschriftung + Prozent/ETA
+   über schmaler Spur */
+.phasen {
+  display: flex;
+  flex-direction: column;
+  gap: .8rem;
+  margin-top: 1.15rem;
+}
+.phase-kopf {
+  display: flex;
+  justify-content: space-between;
+  gap: .8rem;
+  margin-bottom: .3rem;
+  font-size: .82rem;
+}
+.phase-name { overflow-wrap: anywhere; }
+.phase-wert {
+  color: var(--text-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.phase-spur {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--feld);
+  overflow: hidden;
+}
+.phase-fuellung {
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: var(--primaer);
+  transition: width .15s linear;
+}
+/* Einzelschritt unter dem Gesamt-Balken: hellerer Füllton und
+   gedämpfte Beschriftung — klar als Unterschritt erkennbar */
+.phase.unter .phase-fuellung { background: var(--fokus); }
+.phase.unter .phase-name { color: var(--text-2); }
+
+.lauf-hinweis {
+  margin: 1rem 0 0;
+  padding: .55rem .75rem;
+  font-size: .85rem;
+  border: 1px solid var(--fehler);
+  border-radius: 8px;
+  background: var(--fehler-flaeche);
+  color: var(--fehler);
+  overflow-wrap: anywhere;
+}
+
+.lauf-erfolg {
+  margin: 1rem 0 0;
+  padding: .6rem .75rem;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: .76rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-radius: 8px;
+  background: var(--feld);
+  color: var(--text);
+}
+
+.lauf-aktionen {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  margin-top: 1.1rem;
+}
+
+/* Log-Konsole: bewusst in BEIDEN Themes dunkel (Konsolen-Charakter,
+   Spezifikation §1.2) — daher Festfarben statt Token; color-scheme
+   dunkelt auch die Scrollbar im hellen Theme ab. */
+.konsole {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: .7rem .9rem;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: .78rem;
+  line-height: 1.5;
+  background: #10151a;
+  color: #c7d1da;
+  border-top: 1px solid var(--linie);
+  color-scheme: dark;
+}
+.kzeile { white-space: pre-wrap; overflow-wrap: anywhere; }
+.kpraefix { color: #6f8296; }
+.kzeile.kfehler { color: #ff8a80; }
+.kzeile.kfehler .kpraefix { color: #ff8a80; }
 
 /* ================================================= Statusleiste */
 .statusleiste {

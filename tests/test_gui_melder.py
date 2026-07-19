@@ -105,6 +105,21 @@ def test_ergebnis_merkt_dateien_und_meldet_ereignis(tmp_path):
     assert ereignisse[0] == {"typ": "ergebnis", "ordner": str(tmp_path)}
 
 
+def test_schritt_sendet_gesamtfortschritt():
+    # U2-Befund 2026-07-20: Gesamt-Balken statt Phasen-Liste
+    m, ereignisse, _ = _melder()
+    m.schritt(3, 6, "Erreichbarkeit berechnen")
+    assert ereignisse == [{"typ": "schritt", "nummer": 3, "gesamt": 6,
+                           "text": "Erreichbarkeit berechnen"}]
+
+
+def test_schritt_wirft_nach_abbruch():
+    m, _, abbruch = _melder()
+    abbruch.set()
+    with pytest.raises(KeyboardInterrupt):
+        m.schritt(1, 6, "Brandmeister-Geräteliste laden")
+
+
 def test_ja_nein_im_fenster_immer_nein():
     m, ereignisse, _ = _melder()
     assert m.ja_nein("Ausgabeordner im Dateimanager öffnen?") is False
@@ -143,16 +158,20 @@ def test_auswahl_wartet_auf_antwort():
     assert ergebnis["wert"] == 1
 
 
-def test_frage_ja_dialog_abbruch_wirft():
+def test_frage_ja_im_fenster_automatisch_ja():
+    # Abnahmebefund U2 (2026-07-20): »Route so berechnen?« / »Diese
+    # Verbindung verwenden?« hielten den Lauf nur auf — der Klick auf
+    # »Berechnen« ist die Bestätigung, es gibt keinen Dialog mehr.
     m, ereignisse, _ = _melder()
-    t, ergebnis = _frage_im_thread(lambda: m.frage_ja("Verwenden?"))
-    for _ in range(50):
-        if ereignisse:
-            break
-        t.join(0.05)
-    m.antwort(ereignisse[0]["id"], None)  # Dialog abgebrochen
-    t.join(2)
-    assert isinstance(ergebnis["fehler"], KeyboardInterrupt)
+    assert m.frage_ja("Diese Verbindung verwenden?") is True
+    assert ereignisse == []
+
+
+def test_frage_ja_wirft_nach_abbruch():
+    m, _, abbruch = _melder()
+    abbruch.set()
+    with pytest.raises(KeyboardInterrupt):
+        m.frage_ja("Route so berechnen?")
 
 
 def test_abbruch_loest_wartende_frage():

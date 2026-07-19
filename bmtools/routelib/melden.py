@@ -67,6 +67,11 @@ class Melder(Protocol):
         schon im erfolg()-Panel (No-op), die GUI zeigt Bericht und
         Karte damit direkt im Fenster an."""
 
+    def schritt(self, nummer: int, gesamt: int, text: str) -> None:
+        """Pipeline-Schritt nummer/gesamt beginnt (U2-Befund
+        2026-07-20): Die GUI speist daraus ihren Gesamt-Balken; das
+        Terminal zeigt mit Texten und Balken schon genug (No-op)."""
+
     def ja_nein(self, frage: str) -> bool:
         """Rückfrage mit Default Nein; Abbruch (Ctrl-C/ESC) zählt als Nein."""
 
@@ -137,6 +142,9 @@ class TerminalMelder:
 
     def ergebnis(self, out_dir: Path, bericht: Path, karte: Path) -> None:
         pass  # das erfolg()-Panel nennt die Dateien bereits
+
+    def schritt(self, nummer: int, gesamt: int, text: str) -> None:
+        pass  # Terminal: Texte und Balken zeigen den Fortschritt schon
 
     def ja_nein(self, frage: str) -> bool:
         return bool(questionary.confirm(frage, default=False,

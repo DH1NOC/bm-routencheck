@@ -216,6 +216,13 @@ class GuiMelder:
         self._sende_aktiv({"typ": "erfolg",
                            "zeilen": [_plain(z) for z in zeilen]})
 
+    def schritt(self, nummer: int, gesamt: int, text: str) -> None:
+        """Grober Gesamtfortschritt für den Gesamt-Balken der
+        Fortschritts-Karte (U2-Befund 2026-07-20)."""
+        self._pruefe_abbruch()
+        self._sende_aktiv({"typ": "schritt", "nummer": nummer,
+                           "gesamt": gesamt, "text": text})
+
     def ergebnis(self, out_dir: Path, bericht: Path, karte: Path) -> None:
         """Fertige Dateien ans Fenster melden (G5-Ergebnisansicht).
 
@@ -235,8 +242,13 @@ class GuiMelder:
         return False
 
     def frage_ja(self, frage: str, default: bool = True) -> bool:
-        return bool(self._frage({"typ": "frage", "art": "ja_nein",
-                                 "frage": frage, "default": default}))
+        # Ablauf-Bestätigungen (»Route so berechnen?«, »Diese Verbindung
+        # verwenden?«) entfallen im Fenster: Der Berechnen-Klick IST die
+        # Bestätigung, und der Kontext der Frage stünde nur in der
+        # Log-Konsole (Abnahmebefund U2, 2026-07-20). Abbrechen geht
+        # jederzeit über den Abbrechen-Knopf.
+        self._pruefe_abbruch()
+        return True
 
     def auswahl(self, frage: str, optionen: list[str],
                 default: int | None = None) -> int:

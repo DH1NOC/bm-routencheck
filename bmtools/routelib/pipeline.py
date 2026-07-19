@@ -81,17 +81,35 @@ def run_pipeline(route: Route, *, console: Console | None = None,
     m: Melder = melder if melder is not None else TerminalMelder(console)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # Grobe Schritte für den Gesamt-Balken der GUI (Melder.schritt,
+    # Terminal: No-op). Übersprungene Schritte (keine DMR-Treffer)
+    # lassen den Balken einfach vorspringen.
+    phasen: list[str] = []
+    if modus != "fm":
+        phasen.append("Brandmeister-Geräteliste laden")
+    if modus != "dmr":
+        phasen.append("FM-Relais laden")
+    phasen.append("Erreichbarkeit berechnen")
+    if modus != "fm":
+        phasen.append("Talkgroup-Profile laden")
+    phasen += ["Bericht und Karte erzeugen", "Codeplug schreiben"]
+
+    def schritt(text: str) -> None:
+        m.schritt(phasen.index(text) + 1, len(phasen), text)
+
     cache_note = " [dim](Cache wird ignoriert)[/dim]" if refresh else ""
     client: BrandmeisterClient | None = None
     repeaters: list[RepeaterLike] = []
     quellen_note = []
     if modus != "fm":
+        schritt("Brandmeister-Geräteliste laden")
         client = BrandmeisterClient(refresh=refresh)
         m.text(f"[bold]Lade Brandmeister-Geräteliste …[/bold]{cache_note}")
         repeaters += [d for d in client.repeaters() if _band_2m_70cm(d)]
         quellen_note.append(f"{len(repeaters)} DMR-Repeater (2 m/70 cm) "
                             "im Netz")
     if modus != "dmr":
+        schritt("FM-Relais laden")
         m.text("[bold]Lade FM-Relais entlang der Route "
                f"(relaislisten.darc.de) …[/bold]{cache_note}")
         with m.balken() as fm_b:
@@ -112,6 +130,7 @@ def run_pipeline(route: Route, *, console: Console | None = None,
 
     # Auswahlkriterium ist die rechnerische Erreichbarkeit von der Strecke
     # (Sichtkontakt zu >=1 Streckenpunkt), nicht ein fester Abstand.
+    schritt("Erreichbarkeit berechnen")
     terrain = None if no_terrain else TerrainModel()
     with m.balken() as cov_b:
         # Kachel-Balken bleibt unsichtbar, bis wirklich Kacheln fehlen
@@ -169,6 +188,7 @@ def run_pipeline(route: Route, *, console: Console | None = None,
     profiles: dict[int, DeviceProfile] = {}
     if dmr_hits:
         assert client is not None  # DMR-Treffer gibt es nur mit BM-Client
+        schritt("Talkgroup-Profile laden")
         profiles = {
             h.device.id: _with_local_tg(
                 client.profile(h.device.id),
@@ -200,6 +220,7 @@ def run_pipeline(route: Route, *, console: Console | None = None,
             f"({coverage.uncovered_km:.0f} von "
             f"{coverage.total_km:.0f} km; Horizontmodell, ohne Gelände)")
 
+    schritt("Bericht und Karte erzeugen")
     tg_names = client.talkgroup_names() if client else {}
     csv_path = out_dir / "relais.csv"
     html_path = out_dir / "bericht.html"
@@ -238,6 +259,7 @@ def run_pipeline(route: Route, *, console: Console | None = None,
                       route_label=route_label, waypoint_icon=waypoint_icon)
     # Codeplug: digitale und analoge Kanäle in derselben Zone; die
     # FM-Kanäle zusätzlich als generisches CHIRP-CSV
+    schritt("Codeplug schreiben")
     write_anytone(results, out_dir / "anytone", zone, tg_names,
                   bandbreite=bandbreite, ctcss_decode=ctcss_decode)
     chirp_path = write_chirp(results, out_dir / "chirp.csv",
