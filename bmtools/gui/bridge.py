@@ -176,13 +176,35 @@ class Bridge:
 
     def lade_ergebnis(self, ansicht: str) -> dict[str, str] | None:
         """HTML-Inhalt von Bericht oder Karte fürs iframe (srcdoc);
-        None, wenn (noch) kein Ergebnis vorliegt."""
+        None, wenn (noch) kein Ergebnis vorliegt.
+
+        Die eingebettete Ansicht wird hart auf hell gestellt (die App
+        ist hell; bericht.html folgt sonst dem System-Dunkelmodus und
+        die Scrollbar verschwand weiß auf weiß — Nutzerwunsch
+        2026-07-19). Die Datei selbst bleibt unverändert, im Browser
+        gilt weiter das Systemschema."""
         if self._lauf is None:
             return None
         datei = self._lauf.melder.ergebnis_dateien.get(ansicht)
         if datei is None or not datei.is_file():
             return None
-        return {"html": datei.read_text()}
+        html = datei.read_text()
+        hell = "<style>:root { color-scheme: only light; }</style>"
+        if "</head>" in html:
+            html = html.replace("</head>", hell + "</head>", 1)
+        else:
+            html += hell
+        return {"html": html}
+
+    def oeffne_ergebnis(self, ansicht: str) -> None:
+        """Bericht bzw. Karte im Standardbrowser öffnen (Nutzerwunsch
+        2026-07-19) — dort mit dem Farbschema des Systems."""
+        if self._lauf is None:
+            return
+        datei = self._lauf.melder.ergebnis_dateien.get(ansicht)
+        if datei is not None and datei.is_file():
+            from bmtools.routelib.oeffnen import system_oeffnen
+            system_oeffnen(datei)
 
     def cache_info(self) -> dict[str, Any]:
         """Belegter Disk-Cache für die Rückfrage vor dem Leeren."""

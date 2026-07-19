@@ -261,6 +261,7 @@ function laufFertig(code) {
 /* ---------------------------------------------- Ergebnisansicht (G5) */
 
 let ergebnisDaten = null;
+let aktiveAnsicht = "bericht";
 const ergebnisInhalte = {};  // ansicht -> geladenes HTML (Cache)
 
 function zeigeErgebnis() {
@@ -271,6 +272,7 @@ function zeigeErgebnis() {
 
 async function ansichtWaehlen(ansicht) {
   if (!ergebnisDaten) return;
+  aktiveAnsicht = ansicht;
   $$(".ergebnis-knoepfe .ansicht").forEach((b) =>
     b.classList.toggle("aktiv", b.dataset.ansicht === ansicht));
   // Inhalt über die Bridge statt file-URL: WKWebView blockiert
@@ -288,6 +290,9 @@ $$(".ergebnis-knoepfe .ansicht").forEach((b) =>
 
 $("#ordner-oeffnen").addEventListener("click", () =>
   window.pywebview.api.oeffne_ordner());
+
+$("#browser-oeffnen").addEventListener("click", () =>
+  window.pywebview.api.oeffne_ergebnis(aktiveAnsicht));
 
 $("#lauf-abbrechen").addEventListener("click", () => {
   $("#lauf-abbrechen").disabled = true;

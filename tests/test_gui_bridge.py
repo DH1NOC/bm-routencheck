@@ -191,8 +191,54 @@ def test_lade_ergebnis_liefert_dateiinhalt(monkeypatch, tmp_path):
     b.start_lauf("auto", {"von": "A", "nach": "B"})
     assert isinstance(b._lauf, _FakeLauf)
     b._lauf.melder = _FakeMelder()
-    assert b.lade_ergebnis("bericht") == {"html": "<h1>Testbericht</h1>"}
+    geladen = b.lade_ergebnis("bericht")["html"]
+    # Eingebettete Ansicht hart hell (Nutzerwunsch 2026-07-19) —
+    # die Datei auf der Platte bleibt unverändert
+    assert "<h1>Testbericht</h1>" in geladen
+    assert "color-scheme: only light" in geladen
+    assert bericht.read_text() == "<h1>Testbericht</h1>"
     assert b.lade_ergebnis("karte") is None  # nicht vorhanden
+
+
+def test_lade_ergebnis_hell_injektion_vor_head_ende(tmp_path, monkeypatch):
+    monkeypatch.setattr("bmtools.gui.bridge.Lauf", _FakeLauf)
+    b = Bridge()
+    datei = tmp_path / "bericht.html"
+    datei.write_text("<html><head><title>x</title></head><body>y</body></html>")
+
+    class _FakeMelder:
+        def __init__(self):
+            self.ergebnis_dateien = {"bericht": datei}
+
+    b.start_lauf("auto", {"von": "A", "nach": "B"})
+    assert isinstance(b._lauf, _FakeLauf)
+    b._lauf.melder = _FakeMelder()
+    geladen = b.lade_ergebnis("bericht")["html"]
+    assert geladen.index("only light") < geladen.index("</head>")
+
+
+def test_oeffne_ergebnis_im_browser(monkeypatch, tmp_path):
+    geoeffnet: list[object] = []
+    monkeypatch.setattr("bmtools.routelib.oeffnen.system_oeffnen",
+                        geoeffnet.append)
+    monkeypatch.setattr("bmtools.gui.bridge.Lauf", _FakeLauf)
+    b = Bridge()
+    b.oeffne_ergebnis("bericht")  # kein Lauf -> kein Aufruf
+    assert geoeffnet == []
+
+    karte = tmp_path / "karte.html"
+    karte.write_text("<p>Karte</p>")
+
+    class _FakeMelder:
+        def __init__(self):
+            self.ergebnis_dateien = {"karte": karte}
+
+    b.start_lauf("auto", {"von": "A", "nach": "B"})
+    assert isinstance(b._lauf, _FakeLauf)
+    b._lauf.melder = _FakeMelder()
+    b.oeffne_ergebnis("karte")
+    b.oeffne_ergebnis("bericht")  # nicht vorhanden -> kein Aufruf
+    assert geoeffnet == [karte]
 
 
 def test_cache_info_und_leeren(monkeypatch):
