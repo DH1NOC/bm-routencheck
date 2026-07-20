@@ -36,7 +36,9 @@ KACHEL_PX = 256
 MAX_PARALLEL_DOWNLOADS = 8
 DOWNLOAD_VERSUCHE = 3
 MIN_ZOOM = 3
-MAX_ZOOM = 13  # moderat: kurze Routen brauchen nie Hauszoom
+# Moderat gekappt (Tile-Server-Höflichkeit): 14 reicht für lesbare
+# Ortsnamen im 300-dpi-Druck, Hauszoom braucht keine Route
+MAX_ZOOM = 14
 
 # Marker-Füllfarben — dieselbe Palette wie .kmarker in stil.css
 # (CVD-sicher, ohne Rot/Grün-Paar)
@@ -171,13 +173,15 @@ class KachelLader:
 
 def _gestrichelte_linie(draw: ImageDraw.ImageDraw,
                         punkte: list[tuple[float, float]], farbe: str,
-                        breite: int, muster: str | None) -> None:
+                        breite: int, muster: str | None,
+                        faktor: float = 1.0) -> None:
     """Polylinie mit Leaflet-Dash-Muster ("10,6") — PIL kennt keine
-    Strichelung, daher entlang der Linie auf-/absetzen."""
+    Strichelung, daher entlang der Linie auf-/absetzen. faktor
+    skaliert das Muster mit der Ausgabe-Auflösung (Druck)."""
     if not muster:
         draw.line(punkte, fill=farbe, width=breite, joint="curve")
         return
-    laengen = [float(m) for m in muster.split(",")]
+    laengen = [float(m) * faktor for m in muster.split(",")]
     an = True
     rest = laengen[0]
     idx = 0
@@ -219,9 +223,23 @@ def _textbox(draw: ImageDraw.ImageDraw, xy: tuple[float, float],
 
 
 def _marker(draw: ImageDraw.ImageDraw, x: float, y: float, farbe: str,
-            radius: int) -> None:
+            radius: float, rand: int) -> None:
     draw.ellipse((x - radius, y - radius, x + radius, y + radius),
-                 fill=farbe, outline="#ffffff", width=2)
+                 fill=farbe, outline="#ffffff", width=rand)
+
+
+def _nummern_marker(draw: ImageDraw.ImageDraw, x: float, y: float,
+                    farbe: str, text: str, schrift: Any,
+                    f: float) -> None:
+    """Relais-Marker als nummerierte Pille (U8-Befund 2026-07-20:
+    Nummer statt Punkt — die Nr. steht auch in der PDF-Tabelle)."""
+    box = draw.textbbox((x, y), text, font=schrift, anchor="mm")
+    pad_x, pad_y = 5 * f, 3 * f
+    draw.rounded_rectangle(
+        (box[0] - pad_x, box[1] - pad_y, box[2] + pad_x, box[3] + pad_y),
+        radius=7 * f, fill=farbe, outline="#ffffff",
+        width=max(1, round(1.5 * f)))
+    draw.text((x, y), text, font=schrift, fill="#ffffff", anchor="mm")
 
 
 # ------------------------------------------------------------ Aufbau
@@ -230,13 +248,18 @@ def render_kartenbild(karte: dict[str, Any], *,
                       max_breite_px: int = 1600,
                       max_hoehe_px: int = 1200,
                       rand_px: int = 40,
+                      fuellen: bool = False,
                       lader: KachelLader | None = None,
                       tile_progress: Callable[[int, int], None] | None = None,
                       ) -> Image.Image:
     """Kartenbild aus dem karten_daten-Payload (mapview, U4).
 
-    lader: injizierbar für Tests (sonst KachelLader mit passendem
-    Zoom); tile_progress(fertig, gesamt) wie beim Geländemodell.
+    fuellen=True liefert exakt max_breite×max_hoehe (Route zentriert,
+    Umgebung füllt auf) — fürs PDF, das die volle Papierbreite nutzt
+    (U8-Befund 2026-07-20). Stilgrößen (Linien, Marker, Schrift)
+    skalieren mit der Bildbreite, damit 300-dpi-Ausgaben lesbar
+    bleiben. lader: injizierbar für Tests; tile_progress wie beim
+    Geländemodell.
     """
     bounds = karte["bounds"]
     zoom = _zoom_fuer_bounds(bounds, max_breite_px - 2 * rand_px,
@@ -249,12 +272,19 @@ def render_kartenbild(karte: dict[str, Any], *,
     (lat_min, lon_min), (lat_max, lon_max) = bounds
     x0, y1 = _merc_px(lat_min, lon_min, zoom)
     x1, y0 = _merc_px(lat_max, lon_max, zoom)
-    x0 -= rand_px
-    y0 -= rand_px
-    x1 += rand_px
-    y1 += rand_px
+    if fuellen:
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        x0, x1 = cx - max_breite_px / 2, cx + max_breite_px / 2
+        y0, y1 = cy - max_hoehe_px / 2, cy + max_hoehe_px / 2
+    else:
+        x0 -= rand_px
+        y0 -= rand_px
+        x1 += rand_px
+        y1 += rand_px
     breite = max(1, round(x1 - x0))
     hoehe = max(1, round(y1 - y0))
+    # Stil-Skalierung: 800 px ≈ Bildschirmmaßstab (Faktor 1)
+    f = max(1.0, breite / 800.0)
 
     def px(lat: float, lon: float) -> tuple[float, float]:
         wx, wy = _merc_px(lat, lon, zoom)
@@ -308,43 +338,52 @@ def render_kartenbild(karte: dict[str, Any], *,
             punkte = [px(lat, lon) for lat, lon in seg["punkte"]]
             if len(punkte) > 1:
                 _gestrichelte_linie(draw, punkte,
-                                    stil.get("farbe", "#0072B2"), 5,
-                                    stil.get("dash"))
+                                    stil.get("farbe", "#0072B2"),
+                                    max(2, round(5 * f)),
+                                    stil.get("dash"), f)
     elif karte.get("route"):
         punkte = [px(lat, lon) for lat, lon in karte["route"]]
         if len(punkte) > 1:
-            draw.line(punkte, fill="#cc0000", width=3, joint="curve")
+            draw.line(punkte, fill="#cc0000", width=max(2, round(3 * f)),
+                      joint="curve")
 
-    # Marker: Relais in Statusfarben, Wegpunkte vermilion
-    for mk in karte.get("marker") or []:
-        mx, my = px(mk["lat"], mk["lng"])
-        _marker(draw, mx, my,
-                MARKER_FARBEN.get(mk["farbe"], "#0072B2"), 8)
+    # Wegpunkte als vermilion Kreise, Relais als nummerierte Pillen in
+    # den Statusfarben — die Nr. (1-basiert, Zeilen-Reihenfolge) steht
+    # auch in der PDF-Tabelle (U8-Befund)
+    marker_schrift = _schrift(round(13 * f))
     for s in karte.get("stationen") or []:
         sx, sy = px(s["lat"], s["lon"])
-        _marker(draw, sx, sy, MARKER_FARBEN["station"], 10)
+        _marker(draw, sx, sy, MARKER_FARBEN["station"], 10 * f,
+                max(2, round(2 * f)))
+    for i, mk in enumerate(karte.get("marker") or []):
+        mx, my = px(mk["lat"], mk["lng"])
+        _nummern_marker(draw, mx, my,
+                        MARKER_FARBEN.get(mk["farbe"], "#0072B2"),
+                        str(i + 1), marker_schrift, f)
 
     # Maßstabsleiste unten links
     mitte_lat = (lat_min + lat_max) / 2
     mpp = _meter_pro_pixel(mitte_lat, zoom)
-    laenge_m = _massstab_laenge_m(mpp)
+    laenge_m = _massstab_laenge_m(mpp, round(130 * f))
     laenge_px = laenge_m / mpp
-    schrift = _schrift(14)
-    sx0, sy0 = 16, hoehe - 22
-    draw.rectangle((sx0 - 6, sy0 - 24, sx0 + laenge_px + 6, sy0 + 10),
+    schrift = _schrift(round(14 * f))
+    strich = max(2, round(3 * f))
+    sx0, sy0 = 16 * f, hoehe - 22 * f
+    draw.rectangle((sx0 - 6 * f, sy0 - 24 * f,
+                    sx0 + laenge_px + 6 * f, sy0 + 10 * f),
                    fill=(255, 255, 255, 210))
     draw.line([(sx0, sy0), (sx0 + laenge_px, sy0)], fill="#111111",
-              width=3)
+              width=strich)
     for ende in (sx0, sx0 + laenge_px):
-        draw.line([(ende, sy0 - 6), (ende, sy0 + 4)], fill="#111111",
-                  width=3)
+        draw.line([(ende, sy0 - 6 * f), (ende, sy0 + 4 * f)],
+                  fill="#111111", width=strich)
     beschriftung = (f"{laenge_m / 1000:g} km" if laenge_m >= 1000
                     else f"{laenge_m:g} m")
-    draw.text((sx0 + laenge_px / 2, sy0 - 9), beschriftung,
+    draw.text((sx0 + laenge_px / 2, sy0 - 9 * f), beschriftung,
               font=schrift, fill="#111111", anchor="ms")
 
     # Attribution unten rechts (Pflicht)
-    _textbox(draw, (breite - 8, hoehe - 6), ATTRIBUTION, schrift,
-             anker="rs")
+    _textbox(draw, (breite - 8 * f, hoehe - 6 * f), ATTRIBUTION,
+             schrift, anker="rs")
 
     return bild.convert("RGB")

@@ -287,7 +287,7 @@ Kartenbild), Abhängigkeit `reportlab>=4.0`.
       Zoom max. 13, vierter cache_admin-Bereich), Overlay 0,8,
       Statussegmente mit selbst gezeichneter Strichelung, Marker in
       den Statusfarben, Maßstabsleiste (1/2/5·10ⁿ), Attribution.
-- [ ] **U8 — PDF-Export:** `routelib/report_pdf.py` (reportlab),
+- [x] **U8 — PDF-Export** *(abgenommen 2026-07-20)*: `routelib/report_pdf.py` (reportlab),
       Deckblatt + Karte + Tabelle + Talkgroups + Fußzeilen;
       GUI-Button und `--pdf`-Flag. *Abnahme:* PDF eines langen Laufs
       (Seitenumbrüche!) und eines kurzen Laufs, Sichtprüfung Druckbild.

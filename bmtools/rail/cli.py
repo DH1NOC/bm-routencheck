@@ -204,7 +204,7 @@ def _pipeline(route: Route, args: argparse.Namespace, melder: Melder,
         route_label="Bahnstrecke", waypoint_icon="train",
         refresh=args.refresh, modus=args.modus,
         bandbreite=args.bandbreite, ctcss_decode=args.ctcss_decode,
-        interactive=interactive)
+        pdf=args.pdf, interactive=interactive)
 
 
 def _run(stations: list[Station], args: argparse.Namespace, melder: Melder,
@@ -302,6 +302,9 @@ def main(*, gui_start: bool = True) -> int:
                     help="Relais-Daten frisch laden statt aus dem Cache "
                          "(BM-Geräteliste und FM-Liste halten sonst 1 Tag, "
                          "Profile 12 h)")
+    ap.add_argument("--pdf", action="store_true",
+                    help="zusätzlich bericht.pdf erzeugen (Deckblatt, "
+                         "Übersichtskarte, Relais-Tabelle; DIN A4)")
     ap.add_argument("--oeffnen", "--open", dest="open", action="store_true",
                     help="Bericht und Karte danach im Browser öffnen")
     ap.add_argument("--ausgabe", "--out", dest="out", type=Path, default=None,

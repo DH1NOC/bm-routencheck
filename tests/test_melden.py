@@ -167,3 +167,34 @@ def test_pipeline_laeuft_komplett_ueber_den_melder(monkeypatch, tmp_path):
     assert "Fertig." in out
     for datei in ("relais.csv", "bericht.html", "karte.html", "chirp.csv"):
         assert (tmp_path / "out" / datei).exists()
+
+
+def test_pipeline_pdf_flag_erzeugt_bericht_pdf(monkeypatch, tmp_path):
+    """U8: pdf=True schreibt bericht.pdf zusätzlich (Kartenbild
+    gestubbt — kein Netz) und nennt es im Erfolgs-Panel."""
+    from PIL import Image
+
+    from bmtools.routelib import report_pdf
+
+    monkeypatch.setattr(pipeline, "BrandmeisterClient", _FakeBM)
+    monkeypatch.setattr(pipeline, "DL3ELClient", _FakeFM)
+    monkeypatch.setattr(report_pdf, "render_kartenbild",
+                        lambda karte, **kw: Image.new("RGB", (200, 150),
+                                                      "#dddddd"))
+    route = Route(
+        points=[(50.00 + i * 0.01, 8.20 + i * 0.01) for i in range(25)],
+        stations=[Waypoint("Startstadt", 50.00, 8.20),
+                  Waypoint("Zielstadt", 50.24, 8.44)],
+        legs=["RE 99 Startstadt → Zielstadt"])
+    m, buf = _melder()
+
+    code = pipeline.run_pipeline(
+        route, melder=m, out_dir=tmp_path / "out", corridor_km=None,
+        no_terrain=True, open_browser=False, zone="Start-Ziel",
+        modus="beide", pdf=True)
+
+    assert code == 0
+    assert "Erzeuge PDF-Bericht" in buf.getvalue()
+    assert "bericht.pdf" in buf.getvalue()
+    pdf = tmp_path / "out" / "bericht.pdf"
+    assert pdf.read_bytes().startswith(b"%PDF")

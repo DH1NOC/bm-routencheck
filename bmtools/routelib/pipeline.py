@@ -11,6 +11,7 @@ injiziert ab G4 ihren eigenen.
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from pathlib import Path
 
 from rich.console import Console
@@ -26,7 +27,13 @@ from .mapview import karten_daten, write_map
 from .melden import Melder, TerminalMelder
 from .model import RepeaterLike, Route
 from .oeffnen import system_oeffnen
-from .report import FUNK_LABEL, RepeaterResult, relais_daten, write_csv
+from .report import (
+    FUNK_LABEL,
+    RepeaterResult,
+    km_empfangsbereiche,
+    relais_daten,
+    write_csv,
+)
 from .report_html import write_html_report
 from .terrain import TerrainError, TerrainModel
 
@@ -75,6 +82,7 @@ def run_pipeline(route: Route, *, console: Console | None = None,
                  modus: str = "beide",
                  bandbreite: str = "12.5",
                  ctcss_decode: bool = False,
+                 pdf: bool = False,
                  interactive: bool = False) -> int:
     """melder=None: TerminalMelder auf der übergebenen Konsole (bzw.
     stdout) — das bisherige Verhalten. Die GUI übergibt ihren eigenen."""
@@ -260,10 +268,11 @@ def run_pipeline(route: Route, *, console: Console | None = None,
             overlay = write_map(results, route, map_path, coverage, None,
                                 route_label=route_label,
                                 waypoint_icon=waypoint_icon)
-    # Dieselben Inhalte als strukturierte Daten für die GUI (U4/U5):
-    # Karte (Overlay wird weiterverwendet statt doppelt gerechnet),
-    # Kennzahlen für die Top-Bar, Relais-Zeilen fürs DataGrid
-    m.ergebnis_daten({
+    # Dieselben Inhalte als strukturierte Daten für GUI und PDF
+    # (U4/U5/U8): Karte (Overlay wird weiterverwendet statt doppelt
+    # gerechnet), Kennzahlen für Top-Bar/Deckblatt, Relais-Zeilen für
+    # DataGrid und PDF-Tabelle
+    daten = {
         "karte": karten_daten(results, route, coverage, overlay,
                               route_label=route_label,
                               waypoint_icon=waypoint_icon),
@@ -274,9 +283,15 @@ def run_pipeline(route: Route, *, console: Console | None = None,
             "grenz_pct": round(coverage.pct(coverage.marginal_km)),
             "schatten_pct": round(coverage.uncovered_pct),
             "anzahl": len(results),
+            # Datenstand: Zeitpunkt des Laufs (BM/FM-Daten frisch bzw.
+            # aus dem TTL-Cache) — PDF-Fußzeile und Statusleiste
+            "stand": datetime.now().strftime("%d.%m.%Y"),
         },
-        "relais": relais_daten(results, tg_names),
-    })
+        "relais": relais_daten(
+            results, tg_names,
+            km_bereiche=km_empfangsbereiche(coverage.samples)),
+    }
+    m.ergebnis_daten(daten)
     # Codeplug: digitale und analoge Kanäle in derselben Zone; die
     # FM-Kanäle zusätzlich als generisches CHIRP-CSV
     schritt("Codeplug schreiben")
@@ -284,6 +299,22 @@ def run_pipeline(route: Route, *, console: Console | None = None,
                   bandbreite=bandbreite, ctcss_decode=ctcss_decode)
     chirp_path = write_chirp(results, out_dir / "chirp.csv",
                              bandbreite=bandbreite, ctcss_decode=ctcss_decode)
+
+    if pdf:
+        # Nachgelagert auf denselben Ergebnisdaten (§4/§5) — nur auf
+        # Wunsch (--pdf bzw. GUI-Button), kein Automatik-Export
+        m.text("[bold]Erzeuge PDF-Bericht …[/bold]")
+        from .report_pdf import write_pdf
+        with m.balken() as pdf_b:
+            pdf_kacheln = pdf_b.task("Kartenkacheln laden (PDF)",
+                                     sichtbar=False)
+
+            def pdf_tiles(fertig: int, gesamt: int) -> None:
+                pdf_b.update(pdf_kacheln, fertig=fertig, gesamt=gesamt,
+                             sichtbar=True)
+
+            write_pdf(daten, out_dir / "bericht.pdf",
+                      tile_progress=pdf_tiles)
 
     lines = [
         f"[green]Fertig.[/green] Ausgaben in [bold]{out_dir}/[/bold]",
@@ -295,6 +326,9 @@ def run_pipeline(route: Route, *, console: Console | None = None,
     ]
     if chirp_path:
         lines.append("  chirp.csv      CHIRP-Import (nur die FM-Kanäle)")
+    if pdf:
+        lines.append("  bericht.pdf    Druckbericht "
+                     "(Deckblatt, Karte, Relais-Tabelle)")
     m.ergebnis(out_dir, html_path, map_path)
     m.erfolg(lines)
 

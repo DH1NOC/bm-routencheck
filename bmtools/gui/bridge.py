@@ -192,6 +192,22 @@ class Bridge:
             return None
         return self._lauf.melder.lauf_daten
 
+    def export_pdf(self) -> dict[str, str] | None:
+        """bericht.pdf aus den Ergebnisdaten des letzten Laufs erzeugen
+        (Ablage im Ausgabeordner, danach öffnen — Spezifikation §4);
+        None = kein Ergebnis vorhanden."""
+        if self._lauf is None:
+            return None
+        melder = self._lauf.melder
+        if melder.lauf_daten is None or melder.ergebnis_ordner is None:
+            return None
+        from bmtools.routelib.report_pdf import write_pdf
+        pfad = melder.ergebnis_ordner / "bericht.pdf"
+        write_pdf(melder.lauf_daten, pfad)
+        from bmtools.routelib.oeffnen import system_oeffnen
+        system_oeffnen(pfad)
+        return {"pfad": str(pfad)}
+
     def export_csv(self) -> dict[str, str] | None:
         """relais.csv als Speichern-unter-Kopie exportieren (U5);
         None = kein Ergebnis oder Dialog abgebrochen."""

@@ -583,6 +583,7 @@ select {
 /* schmale Leisten-Variante der Umriss-Knöpfe */
 .umriss.schmal { width: auto; padding: .35rem .7rem; font-size: .8rem; }
 .umriss.schmal .icon { width: 16px; height: 16px; }
+.umriss:disabled { opacity: .5; cursor: default; }
 
 /* Split-View Karte/Tabelle mit ziehbarem Splitter (U5) */
 .split {

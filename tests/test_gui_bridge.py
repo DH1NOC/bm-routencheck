@@ -287,3 +287,36 @@ def test_cache_info_leer(monkeypatch):
     from bmtools import cache_admin
     monkeypatch.setattr(cache_admin, "bereiche", lambda: [])
     assert Bridge().cache_info()["leer"] is True
+
+
+def test_export_pdf_schreibt_und_oeffnet(monkeypatch, tmp_path):
+    # U8: PDF aus den gespeicherten Ergebnisdaten, Ablage im
+    # Ausgabeordner, danach öffnen (Spezifikation §4)
+    monkeypatch.setattr("bmtools.gui.bridge.Lauf", _FakeLauf)
+    geschrieben: list[tuple[object, object]] = []
+    geoeffnet: list[object] = []
+    monkeypatch.setattr("bmtools.routelib.report_pdf.write_pdf",
+                        lambda daten, pfad, **kw:
+                        geschrieben.append((daten, pfad)))
+    monkeypatch.setattr("bmtools.routelib.oeffnen.system_oeffnen",
+                        geoeffnet.append)
+    b = Bridge()
+    assert b.export_pdf() is None  # kein Lauf
+
+    daten: dict[str, object] = {"karte": {}, "kennzahlen": {},
+                                "relais": []}
+
+    class _FakeMelder:
+        def __init__(self):
+            self.lauf_daten = None
+            self.ergebnis_ordner = tmp_path
+
+    b.start_lauf("auto", {"von": "A", "nach": "B"})
+    assert isinstance(b._lauf, _FakeLauf)
+    b._lauf.melder = _FakeMelder()
+    assert b.export_pdf() is None  # noch keine Ergebnisdaten
+    b._lauf.melder.lauf_daten = daten
+    r = b.export_pdf()
+    assert r == {"pfad": str(tmp_path / "bericht.pdf")}
+    assert geschrieben == [(daten, tmp_path / "bericht.pdf")]
+    assert geoeffnet == [tmp_path / "bericht.pdf"]

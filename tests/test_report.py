@@ -131,3 +131,26 @@ def test_relais_daten_fuers_datagrid():
     assert grenz["talkgroups"] == [
         {"ts": 2, "tg": 8, "name": "", "art": "timed",
          "hinweis": "18-20 Uhr"}]
+
+
+def test_km_empfangsbereiche_aus_samples():
+    from types import SimpleNamespace as S
+
+    from bmtools.routelib.report import km_empfangsbereiche
+    samples = [
+        S(km=0.0, los=("DB0XX",), marginal=()),
+        S(km=5.0, los=("DB0XX",), marginal=("DB0YY",)),
+        S(km=12.0, los=(), marginal=("DB0YY",)),
+    ]
+    assert km_empfangsbereiche(samples) == {
+        "DB0XX": (0.0, 5.0), "DB0YY": (5.0, 12.0)}
+
+
+def test_relais_daten_mit_km_bereich():
+    # U8-Befund: Empfangsabschnitt von-bis statt nur nächster km
+    results = [make_result(make_device(), [])]
+    zeilen = relais_daten(results, km_bereiche={"DB0XX": (2.0, 47.5)})
+    assert zeilen[0]["km_von"] == 2.0 and zeilen[0]["km_bis"] == 47.5
+    # Ohne Bereich: Fallback auf den nächstgelegenen Strecken-km
+    zeilen = relais_daten(results)
+    assert zeilen[0]["km_von"] == zeilen[0]["km_bis"] == 10.0

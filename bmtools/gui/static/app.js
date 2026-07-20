@@ -475,6 +475,21 @@ $("#ergebnis-csv").addEventListener("click", async () => {
   if (r && r.pfad) statusLinks("CSV gespeichert: " + r.pfad);
 });
 
+$("#ergebnis-pdf").addEventListener("click", async () => {
+  // Kartenkacheln fürs PDF können ein paar Sekunden laden —
+  // Doppelklicks abfangen und den Stand in der Statusleiste zeigen
+  const knopf = $("#ergebnis-pdf");
+  knopf.disabled = true;
+  statusRechts("PDF wird erzeugt …");
+  try {
+    const r = await window.pywebview.api.export_pdf();
+    statusRechts(r && r.pfad ? "PDF erzeugt: " + r.pfad
+                             : "PDF konnte nicht erzeugt werden.");
+  } finally {
+    knopf.disabled = false;
+  }
+});
+
 /* ------------------------------------------------- Top-Bar (U5) */
 
 function fuelleTopbar(kz) {

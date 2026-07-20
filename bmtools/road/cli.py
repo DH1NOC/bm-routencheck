@@ -225,6 +225,9 @@ def main(profile: str, *, gui_start: bool = True) -> int:
                     help="Relais-Daten frisch laden statt aus dem Cache "
                          "(BM-Geräteliste und FM-Liste halten sonst 1 Tag, "
                          "Profile 12 h)")
+    ap.add_argument("--pdf", action="store_true",
+                    help="zusätzlich bericht.pdf erzeugen (Deckblatt, "
+                         "Übersichtskarte, Relais-Tabelle; DIN A4)")
     ap.add_argument("--oeffnen", "--open", dest="open", action="store_true",
                     help="Bericht und Karte danach im Browser öffnen")
     ap.add_argument("--ausgabe", "--out", dest="out", type=Path, default=None,
@@ -288,7 +291,7 @@ def main(profile: str, *, gui_start: bool = True) -> int:
             route_label=route_label, waypoint_icon=icon,
             refresh=args.refresh, modus=args.modus,
             bandbreite=args.bandbreite, ctcss_decode=args.ctcss_decode,
-            interactive=interactive)
+            pdf=args.pdf, interactive=interactive)
     except (KeyboardInterrupt, EOFError):
         console.print("\n[dim]Abgebrochen.[/dim]")
         return 130

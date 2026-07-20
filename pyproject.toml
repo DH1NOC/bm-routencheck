@@ -15,6 +15,9 @@ dependencies = [
     "pywebview>=5.0",
     "numpy>=1.26",
     "pillow>=10.0",
+    # PDF-Export (U8, GUI-UMBAU.md): reines Python-Paket, keine
+    # Systembibliotheken; Helvetica deckt die Umlaute ab.
+    "reportlab>=4.0",
     # Zeitzonen-Datenbank: Windows bringt keine mit — ohne tzdata stürzt
     # ZoneInfo("Europe/Berlin") dort ab (Beta-Befund 2026-07-17); unter
     # Linux/macOS nur ungenutzter Fallback zur Systemdatenbank.
@@ -86,7 +89,7 @@ packages = ["bmtools", "tests"]
 [[tool.mypy.overrides]]
 # Bibliotheken ohne Typ-Stubs
 module = ["folium.*", "questionary.*", "PIL.*", "webview.*",
-          "objc.*", "WebKit.*", "AppKit.*"]
+          "objc.*", "WebKit.*", "AppKit.*", "reportlab.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
