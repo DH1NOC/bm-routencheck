@@ -817,6 +817,60 @@ select {
   text-decoration: underline;
 }
 
+/* ====================================== Einstellungen-Menü (U6) */
+.menue {
+  position: fixed;
+  right: 10px;
+  bottom: 34px;
+  z-index: 9;
+  min-width: 15.5rem;
+  padding: .45rem;
+  border: 1px solid var(--linie);
+  border-radius: 12px;
+  background: var(--flaeche);
+  box-shadow: 0 8px 28px var(--schatten);
+  animation: dialog-auf .15s ease;
+}
+.menue-titel {
+  margin: .2rem .6rem .3rem;
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.menue-eintrag {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  width: 100%;
+  padding: .45rem .6rem;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  font-size: .85rem;
+}
+.menue-eintrag:hover:not(:disabled) { background: var(--hover); }
+.menue-eintrag:disabled { color: var(--text-2); cursor: default;
+                          opacity: .55; }
+.menue-eintrag .icon { width: 17px; height: 17px; }
+/* Theme-Haken: nur die aktive Wahl zeigt ihn */
+.menue-haken { visibility: hidden; color: var(--primaer); }
+.menue-eintrag.aktiv .menue-haken { visibility: visible; }
+.menue-eintrag.aktiv { font-weight: 600; }
+.menue-info {
+  margin: .3rem .6rem .25rem;
+  font-size: .78rem;
+  color: var(--text-2);
+}
+.menue-linie {
+  border: none;
+  border-top: 1px solid var(--linie);
+  margin: .35rem .2rem;
+}
+
 /* ============================================ Material-Dialog (U3) */
 #dialog-hintergrund {
   position: fixed;

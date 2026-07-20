@@ -719,10 +719,67 @@ $("#splitter").addEventListener("mousedown", (ev) => {
   document.addEventListener("mouseup", loslassen);
 });
 
-/* -------------------------------------------------- Einstellungen */
+/* ---------------------------------------------- Einstellungen (U6) */
 
-$("#einstellungen").addEventListener("click", () =>
-  meldung("Einstellungen (Theme, Cache) folgen mit Meilenstein U6."));
+const THEMES = ["system", "hell", "dunkel"];
+let aktivesTheme = "system";
+
+function setzeTheme(wahl, speichern) {
+  aktivesTheme = THEMES.includes(wahl) ? wahl : "system";
+  const wurzel = document.documentElement;
+  // data-theme gewinnt gegen das Systemschema (stil.css); ohne
+  // Attribut gilt prefers-color-scheme
+  if (aktivesTheme === "hell") wurzel.dataset.theme = "light";
+  else if (aktivesTheme === "dunkel") wurzel.dataset.theme = "dark";
+  else delete wurzel.dataset.theme;
+  $$("[data-theme-wahl]").forEach((b) =>
+    b.classList.toggle("aktiv", b.dataset.themeWahl === aktivesTheme));
+  if (speichern && window.pywebview) {
+    window.pywebview.api.setze_einstellung("theme", aktivesTheme);
+  }
+}
+
+$$("[data-theme-wahl]").forEach((b) =>
+  b.addEventListener("click", () =>
+    setzeTheme(b.dataset.themeWahl, true)));
+
+async function oeffneMenue() {
+  $("#menue").hidden = false;
+  $("#menue-ordner").disabled = !ergebnisDa;
+  const info = await window.pywebview.api.cache_info();
+  $("#menue-cache-info").textContent = info.leer
+    ? "Cache ist leer"
+    : "Cache: " + info.gesamt + " (" + info.dateien + " Dateien)";
+}
+
+$("#einstellungen").addEventListener("click", (ev) => {
+  ev.stopPropagation();
+  if ($("#menue").hidden) oeffneMenue();
+  else $("#menue").hidden = true;
+});
+
+document.addEventListener("click", (ev) => {
+  if (!$("#menue").hidden && !ev.target.closest("#menue")) {
+    $("#menue").hidden = true;
+  }
+});
+
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && !$("#menue").hidden
+      && $("#dialog-hintergrund").hidden) {
+    $("#menue").hidden = true;
+  }
+});
+
+$("#menue-cache-leeren").addEventListener("click", () => {
+  $("#menue").hidden = true;
+  cacheLeerenDialog();
+});
+
+$("#menue-ordner").addEventListener("click", () => {
+  $("#menue").hidden = true;
+  window.pywebview.api.oeffne_ordner();
+});
 
 /* ---------------------------------------------------- Statusleiste */
 
@@ -815,7 +872,7 @@ document.addEventListener("keydown", (ev) => {
 
 /* --------------------------------------------------- Cache leeren */
 
-$("#cache-leeren").addEventListener("click", async () => {
+async function cacheLeerenDialog() {
   const info = await window.pywebview.api.cache_info();
   if (info.leer) {
     statusLinks("Der Cache ist bereits leer.");
@@ -831,7 +888,9 @@ $("#cache-leeren").addEventListener("click", async () => {
       const r = await window.pywebview.api.cache_leeren();
       statusLinks("Cache geleert — " + r.frei + " freigegeben.");
     });
-});
+}
+
+$("#cache-leeren").addEventListener("click", cacheLeerenDialog);
 
 /* --------------------------------------- Ereignisse aus Python */
 /* Alle Ereignisse des GuiMelders (siehe melder.py). Konsolen-Präfixe:
@@ -889,6 +948,7 @@ window.bmEreignis = (e) => {
 window.addEventListener("pywebviewready", async () => {
   const z = await window.pywebview.api.init_zustand();
   einstellungen = z.einstellungen || {};
+  setzeTheme(einstellungen.theme || "system", false);
   waehleModus(z.tab || "bahn");
 });
 

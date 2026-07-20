@@ -273,9 +273,12 @@ Kartenbild), Abhängigkeit `reportlab>=4.0`.
       Aktionen CSV Export (Speichern-unter) / Bericht öffnen /
       Ausgabeordner. Melder-Hook karte() → ergebnis_daten()
       verallgemeinert ({karte, kennzahlen, relais}).
-- [ ] **U6 — Einstellungen:** Zahnrad-Menü mit Theme-Umschalter
-      (System/Hell/Dunkel, persistiert), Cache-Info/-Leeren,
-      Ausgabeordner. *Abnahme:* Sichtprüfung, Persistenz nach Neustart.
+- [x] **U6 — Einstellungen** *(abgenommen 2026-07-20 ohne Befunde;
+      Theme überlebt den Neustart)*: Zahnrad-Menü mit Theme-Umschalter
+      System/Hell/Dunkel (data-theme schlägt das Systemschema, Wahl
+      persistiert in gui.json), Cache-Info (bei jedem Öffnen frisch) +
+      Cache leeren mit Bestätigung, Ausgabeordner öffnen (aktiv ab
+      erstem Ergebnis); Klick außerhalb/Escape schließt.
 - [ ] **U7 — Kartenbild-Renderer:** `routelib/mapimage.py`
       (Kacheln + Route + Overlay + Marker + Maßstab + Attribution,
       Kachel-Cache). *Abnahme:* Bildvergleich gegen die Leaflet-Ansicht

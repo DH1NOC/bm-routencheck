@@ -370,6 +370,35 @@
 
 </div>
 
+<!-- Einstellungen (U6): kleines Menü am Zahnrad der Statusleiste —
+     Theme (System/Hell/Dunkel, persistiert), Cache, Ausgabeordner. -->
+<div id="menue" class="menue" hidden>
+  <p class="menue-titel">Erscheinungsbild</p>
+  <button type="button" class="menue-eintrag" data-theme-wahl="system">
+    <svg class="icon menue-haken"><use href="#i-check_circle"/></svg>
+    System
+  </button>
+  <button type="button" class="menue-eintrag" data-theme-wahl="hell">
+    <svg class="icon menue-haken"><use href="#i-check_circle"/></svg>
+    Hell
+  </button>
+  <button type="button" class="menue-eintrag" data-theme-wahl="dunkel">
+    <svg class="icon menue-haken"><use href="#i-check_circle"/></svg>
+    Dunkel
+  </button>
+  <hr class="menue-linie">
+  <p class="menue-info" id="menue-cache-info">Cache: …</p>
+  <button type="button" class="menue-eintrag" id="menue-cache-leeren">
+    <svg class="icon"><use href="#i-delete"/></svg>
+    Cache leeren …
+  </button>
+  <hr class="menue-linie">
+  <button type="button" class="menue-eintrag" id="menue-ordner" disabled>
+    <svg class="icon"><use href="#i-folder_open"/></svg>
+    Ausgabeordner öffnen
+  </button>
+</div>
+
 <!-- Frage-Dialog (U3): zentrierter Material-Dialog. Auswahl-Fragen
      (Geocoding, Bahn-Verbindungswahl) als klickbare Liste — EIN Klick
      wählt und schließt; Abbrechen bricht den Lauf ab. -->
