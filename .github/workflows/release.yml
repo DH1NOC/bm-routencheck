@@ -169,8 +169,10 @@ jobs:
           fi
           # --collect-all tzdata: zoneinfo lädt das Paket dynamisch
           # (string-basiert) — die statische Analyse sieht es nicht.
+          # --collect-data bmtools: GUI-Frontend (static/ inkl. Leaflet
+          # und Material Symbols samt Lizenzen) ins Binary.
           pyinstaller --onefile --name bmtools \
-            --collect-submodules bmtools \
+            --collect-submodules bmtools --collect-data bmtools \
             --collect-data folium --collect-data branca \
             --collect-all tzdata \
             ${EXTRA[@]+"${EXTRA[@]}"} packaging/entry.py
