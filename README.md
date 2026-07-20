@@ -9,8 +9,11 @@ pro Streckenpunkt über ein Sichtlinien-Geländemodell berechnet, nicht über
 einen bloßen Entfernungsradius.
 
 Jeder Lauf erzeugt einen HTML-Bericht mit fertigen Kanaltabellen je Relais,
-eine interaktive Karte, eine CSV-Datei und fertige Codeplug-Dateien für
-AnyTone-CPS und [CHIRP](https://chirpmyradio.com).
+eine interaktive Karte, eine CSV-Datei, fertige Codeplug-Dateien für
+AnyTone-CPS und [CHIRP](https://chirpmyradio.com) und auf Wunsch einen
+druckfertigen PDF-Bericht. Bedient wird wahlweise über das Programmfenster
+(auf dem Desktop) oder vollwertig im Terminal — interaktiv per Menü oder
+per Flags für Skripte.
 
 ![Interaktive Karte eines Laufs: Route mit Relais-Markern und geschätzten Sichtfeldern](docs/beispielkarte.png)
 
@@ -73,8 +76,40 @@ tar -xzf bmtools-*-linux-x64.tar.gz
 
 ## Bedienung
 
-Ohne Argumente startet das Menü — alle Eingaben werden interaktiv abgefragt
-(Auswahllisten mit ↑/↓ navigieren, Enter bestätigt, Strg-C bricht ab):
+### Das Programmfenster (Desktop)
+
+Auf einem Desktop öffnet `bmtools` ohne Argumente das Programmfenster:
+links die Routing-Parameter, rechts Karte und Relais-Tabelle. Alle
+Eingabewege des Terminals stehen auch hier zur Verfügung — Bahn per
+bahn.de-Link oder Bahnhöfe/Zuggattung/Zeit, Auto/Rad per
+Google-Maps-/Komoot-Link, GPX-Datei oder Start/Ziel. Parameter ändern und
+direkt neu berechnen, ohne Bildschirmwechsel; während der Berechnung
+zeigen Fortschrittsbalken und eine Log-Konsole den Stand, Abbrechen wirkt
+sofort. Rückfragen (mehrdeutige Orte, Verbindungswahl) erscheinen als
+Auswahl-Dialoge.
+
+Nach dem Lauf zeigt das Fenster:
+
+- die **interaktive Karte** (Route nach Erreichbarkeit gezeichnet,
+  Sichtfeld-Overlay, Relais-Marker) — Klick auf einen Marker springt zur
+  Tabellenzeile und umgekehrt;
+- die **Relais-Tabelle**, live filterbar und sortierbar; DMR-Zeilen
+  klappen die Talkgroup-Details auf;
+- die Aktionen **CSV-Export**, **PDF-Export** (`bericht.pdf`), **Bericht
+  im Browser öffnen** und **Ausgabeordner öffnen**.
+
+`--terminal` erzwingt das Terminal, `--gui` das Fenster (hinter dem
+Toolnamen, z. B. `bmtools bahn --gui`); ohne Desktop (SSH, Server)
+startet automatisch das Terminal. Auch `bm-bahn`/`bm-auto`/`bm-rad`
+öffnen ohne Routen-Argumente das Fenster mit dem jeweiligen Tool. Unter
+Linux braucht das Fenster GTK/WebKit2 oder QtWebEngine — fehlt beides,
+geht es mit Hinweis im Terminal weiter.
+
+### Das Terminal
+
+Im Terminal startet ohne Argumente das Menü — alle Eingaben werden
+interaktiv abgefragt (Auswahllisten mit ↑/↓ navigieren, Enter bestätigt,
+Strg-C bricht ab):
 
 ```text
 📡 BM-Routencheck
@@ -113,6 +148,7 @@ Jeder Lauf legt seine Ausgaben in `out/<start>-<ziel>/` ab (änderbar mit
 |---|---|
 | `bericht.html` | Bericht mit fertigen Kanaltabellen je Relais (für manuelle CPS-Eingabe) |
 | `karte.html` | Interaktive Karte: Strecke + erreichbare Relais (blau = DMR, orange = FM) |
+| `bericht.pdf` | Druckbericht DIN A4: Deckblatt mit Übersichtskarte und Kennzahlen, Relais-Tabelle mit Talkgroup-Details — nur mit `--pdf` bzw. per PDF-Export-Knopf im Fenster |
 | `relais.csv` | Alle Daten maschinenlesbar (Semikolon-getrennt; Spalten `modus`, `ctcss_hz` für FM) |
 | `anytone/*.CSV` | Channel/TalkGroups/Zone für den AnyTone-CPS-Import — digitale und analoge Kanäle in einer Zone |
 | `chirp.csv` | Nur die FM-Kanäle im generischen [CHIRP](https://chirpmyradio.com)-CSV-Format — in CHIRP öffnen und auf jedes unterstützte Gerät laden (entfällt bei `--modus dmr`) |
@@ -214,7 +250,9 @@ bm-auto --von "Winkelhaider Str. 4a, Feucht" --nach "Bendorf" --oeffnen
 | `--korridor KM` | Optionales Limit: maximaler Abstand zur Strecke in km. Ohne Angabe zählt allein die rechnerische Erreichbarkeit — auch weit entfernte, aber sichtbare Relais werden aufgenommen |
 | `--ohne-gelaende` | Abdeckungsschätzung ohne Geländemodell; spart den Höhenkachel-Download, ist aber ungenauer |
 | `--aktualisieren` | Relais-Daten frisch laden statt aus dem Cache (BM-Geräteliste und FM-Liste halten sonst 1 Tag, Talkgroup-Profile 12 h) |
+| `--pdf` | Zusätzlich `bericht.pdf` erzeugen (Deckblatt mit Übersichtskarte, Relais-Tabelle mit Talkgroups) |
 | `--oeffnen` | Bericht und Karte nach dem Lauf im Browser öffnen (interaktiv automatisch aktiv) |
+| `--gui` / `--terminal` | Programmfenster bzw. Terminal erzwingen — Standard: ohne Routen-Argumente öffnet sich auf dem Desktop das Fenster |
 | `--ausgabe ORDNER` | Ausgabeverzeichnis (Default: `out/<start>-<ziel>`) |
 
 Alle genutzten Dienste sind ohne Anmeldung nutzbar — keine API-Keys, keine

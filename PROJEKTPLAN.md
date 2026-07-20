@@ -1,6 +1,6 @@
 # BM-Routencheck — Projektplan
 
-Stand: 2026-07-17
+Stand: 2026-07-20
 
 ## 1. Status
 
@@ -15,6 +15,17 @@ Cache-leeren-Funktion (Menü und `bmtools cache --leeren`), einen
 Menü-Fix (Beenden warf `KeyError`) und die Trennung von README (Endnutzer)
 und DEVELOPER.md (Technik) — im Beta-Release v0.1.2-beta.1 interaktiv
 gegengetestet, danach gemergt und die Beta-Artefakte aufgeräumt. Dieses
+Seit dem GUI-Umbau (2026-07-18 bis 2026-07-20, Branch
+`feature/gui-umbau`) hat das Projekt zusätzlich eine grafische
+Oberfläche — ein Single-Window Workspace auf pywebview-Basis (auf dem
+Desktop öffnet der Aufruf ohne Argumente das Fenster,
+`--gui`/`--terminal` erzwingen; Terminal-Modus vollwertig erhalten) —
+und einen PDF-Export (`--pdf` bzw. GUI-Knopf, `bericht.pdf`). Konzept,
+Nutzerfestlegungen und Abnahmen stehen in
+[`GUI-UMBAU.md`](GUI-UMBAU.md) (erste Ausbaustufe G0–G5, Workspace
+U0–U8 abgenommen; U9 = QS + Doku in Abnahme, danach
+Merge-Entscheidung); die Technik beschreibt
+[DEVELOPER.md](DEVELOPER.md). Dieses
 Dokument hält nur noch fest, was für die Weiterarbeit gebraucht wird:
 offene Punkte, verbindliche Festlegungen und die Eigenheiten der externen
 Datenquellen. Die Abnahmeprotokolle der erledigten Meilensteine (M0–M6,
@@ -54,6 +65,7 @@ Projektprinzipien:
 | Keyless | Nur Dienste ohne API-Key/Anmeldung; keine Credentials im Tool verarbeiten (bewusste Entscheidung, z. B. kein Komoot-Login) |
 | Kein Try&Error | Jede Erweiterung endet mit einem konkreten, abgenommenen Testlauf |
 | CLI durchgängig Deutsch | Kommandos `bm-bahn`/`bm-auto`/`bm-rad`, deutsche Flags; englische Originale bleiben als stille Aliasse gültig (Skript-Kompatibilität); argparse-Standardtexte via `ui.argparse_deutsch()` |
+| GUI | Single-Window Workspace (pywebview, Material-Anmutung, durchgängig Deutsch); auf dem Desktop öffnet der Aufruf ohne Routen-Argumente das Fenster, `--gui`/`--terminal` erzwingen; Terminal-Modus bleibt vollwertig (kein schleichender Rückbau von questionary/rich); Frontend-Assets (Leaflet, Material Symbols) lokal gebündelt, keine CDN-Zugriffe; PDF nur auf Knopfdruck bzw. `--pdf`, kein Automatik-Export (Festlegungen 2026-07-19, GUI-UMBAU.md) |
 | Assistenten-Reihenfolge | Die Modus-Frage (DMR/FM/beide) ist in allen Tools die **letzte** Frage — nach kompletter Streckenwahl inkl. Geocoding-/Verbindungs-Rückfragen und Bestätigungen, nie mittendrin (Nutzerwunsch 2026-07-15) |
 | Schlanke Abhängigkeiten | Bewusst kein shapely/geopandas — segmentweise Haversine-Distanz reicht |
 | Konsistenz der Ausgaben | Karte, Bericht und CSV zeigen exakt dieselben Relais; Grenzbereichs-Relais sind vollwertige, markierte Einträge (graue Marker, Badge, CSV-Spalte `erreichbarkeit`) |

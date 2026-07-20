@@ -291,7 +291,7 @@ Kartenbild), Abhängigkeit `reportlab>=4.0`.
       Deckblatt + Karte + Tabelle + Talkgroups + Fußzeilen;
       GUI-Button und `--pdf`-Flag. *Abnahme:* PDF eines langen Laufs
       (Seitenumbrüche!) und eines kurzen Laufs, Sichtprüfung Druckbild.
-- [ ] **U9 — QS + Doku:** `make qs` grün (Lint, mypy strict, Tests;
+- [x] **U9 — QS + Doku** *(abgenommen 2026-07-20)*: `make qs` grün (Lint, mypy strict, Tests;
       GUI-Logik so weit wie sinnvoll unit-getestet, Webview-Rendering
       ausgenommen), README (GUI, PDF, `--pdf`), DEVELOPER.md (Bridge-
       Datenfluss, Leaflet-Bündelung, mapimage/report_pdf),
