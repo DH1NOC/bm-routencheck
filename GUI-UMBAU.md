@@ -279,10 +279,14 @@ Kartenbild), Abhängigkeit `reportlab>=4.0`.
       persistiert in gui.json), Cache-Info (bei jedem Öffnen frisch) +
       Cache leeren mit Bestätigung, Ausgabeordner öffnen (aktiv ab
       erstem Ergebnis); Klick außerhalb/Escape schließt.
-- [ ] **U7 — Kartenbild-Renderer:** `routelib/mapimage.py`
-      (Kacheln + Route + Overlay + Marker + Maßstab + Attribution,
-      Kachel-Cache). *Abnahme:* Bildvergleich gegen die Leaflet-Ansicht
-      desselben Laufs.
+- [x] **U7 — Kartenbild-Renderer** *(abgenommen 2026-07-20 ohne
+      Befunde; Bildvergleich gegen karte.html/Leaflet desselben Laufs,
+      kurzer und 300-km-Lauf)*: `routelib/mapimage.py` rendert aus dem
+      karten_daten-Payload (U4 — eine Quelle für Leaflet, Folium und
+      Bild): OSM-Kachel-Mosaik (Cache wie Höhenkacheln, eigener UA,
+      Zoom max. 13, vierter cache_admin-Bereich), Overlay 0,8,
+      Statussegmente mit selbst gezeichneter Strichelung, Marker in
+      den Statusfarben, Maßstabsleiste (1/2/5·10ⁿ), Attribution.
 - [ ] **U8 — PDF-Export:** `routelib/report_pdf.py` (reportlab),
       Deckblatt + Karte + Tabelle + Talkgroups + Fußzeilen;
       GUI-Button und `--pdf`-Flag. *Abnahme:* PDF eines langen Laufs

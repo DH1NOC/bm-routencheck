@@ -44,7 +44,7 @@ def _bereich(name: str, pfade: tuple[Path, ...]) -> CacheBereich:
 
 
 def bereiche() -> list[CacheBereich]:
-    """Die drei Cache-Bereiche mit aktueller Dateizahl und Größe."""
+    """Alle Cache-Bereiche mit aktueller Dateizahl und Größe."""
     return [
         _bereich("Brandmeister-API (Geräte, Talkgroup-Profile)",
                  tuple(Path(user_cache_dir(ns)) for ns in _BM_NAMESPACES)),
@@ -52,6 +52,8 @@ def bereiche() -> list[CacheBereich]:
                  (Path(user_cache_dir(_FM_NAMESPACE)),)),
         _bereich("Höhenkacheln (Geländemodell)",
                  (Path(user_cache_dir("bmtools")) / "terrain",)),
+        _bereich("OSM-Kartenkacheln (Kartenbild/PDF)",
+                 (Path(user_cache_dir("bmtools")) / "osm-kacheln",)),
     ]
 
 

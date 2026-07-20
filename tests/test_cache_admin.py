@@ -20,23 +20,29 @@ def _fuelle_cache(monkeypatch, tmp_path):
     kacheln.mkdir(parents=True)
     (kacheln / "1_2.png").write_bytes(b"x" * 1000)
     (kacheln / "3_4.png").write_bytes(b"x" * 1000)
+    osm = tmp_path / "bmtools" / "osm-kacheln" / "12"
+    osm.mkdir(parents=True)
+    (osm / "5_6.png").write_bytes(b"x" * 400)
 
 
 def test_bereiche_zaehlen_dateien_und_groesse(monkeypatch, tmp_path):
     _fuelle_cache(monkeypatch, tmp_path)
-    bm, fm, terrain = cache_admin.bereiche()
+    bm, fm, terrain, osm = cache_admin.bereiche()
     assert "Brandmeister" in bm.name
     assert (bm.dateien, bm.groesse_bytes) == (3, 175)
     assert (fm.dateien, fm.groesse_bytes) == (1, 200)
     assert "Höhenkacheln" in terrain.name
     assert (terrain.dateien, terrain.groesse_bytes) == (2, 2000)
+    assert "OSM" in osm.name
+    assert (osm.dateien, osm.groesse_bytes) == (1, 400)
 
 
 def test_leeren_loescht_alles_und_meldet_bytes(monkeypatch, tmp_path):
     _fuelle_cache(monkeypatch, tmp_path)
-    assert cache_admin.leeren() == 2375
+    assert cache_admin.leeren() == 2775
     assert all(b.dateien == 0 for b in cache_admin.bereiche())
     assert not (tmp_path / "bmtools" / "terrain").exists()
+    assert not (tmp_path / "bmtools" / "osm-kacheln").exists()
 
 
 def test_leeren_auf_leerem_cache_ist_harmlos(monkeypatch, tmp_path):
