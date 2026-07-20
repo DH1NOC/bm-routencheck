@@ -120,6 +120,16 @@ def test_schritt_wirft_nach_abbruch():
         m.schritt(1, 6, "Brandmeister-Geräteliste laden")
 
 
+def test_karte_speichert_daten_ohne_ereignis():
+    # U4: Kartendaten holt sich das Frontend über die Bridge ab —
+    # die (große) Nutzlast soll nicht durch evaluate_js
+    m, ereignisse, _ = _melder()
+    assert m.karten_daten is None
+    m.karte({"marker": [], "bounds": [[0, 0], [1, 1]]})
+    assert m.karten_daten == {"marker": [], "bounds": [[0, 0], [1, 1]]}
+    assert ereignisse == []
+
+
 def test_ja_nein_im_fenster_immer_nein():
     m, ereignisse, _ = _melder()
     assert m.ja_nein("Ausgabeordner im Dateimanager öffnen?") is False

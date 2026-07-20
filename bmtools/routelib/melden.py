@@ -72,6 +72,11 @@ class Melder(Protocol):
         2026-07-20): Die GUI speist daraus ihren Gesamt-Balken; das
         Terminal zeigt mit Texten und Balken schon genug (No-op)."""
 
+    def karte(self, daten: dict[str, Any]) -> None:
+        """Strukturierte Kartendaten des Laufs (U4,
+        mapview.karten_daten): Die GUI zeichnet daraus ihre native
+        Leaflet-Karte; das Terminal hat karte.html (No-op)."""
+
     def ja_nein(self, frage: str) -> bool:
         """Rückfrage mit Default Nein; Abbruch (Ctrl-C/ESC) zählt als Nein."""
 
@@ -145,6 +150,9 @@ class TerminalMelder:
 
     def schritt(self, nummer: int, gesamt: int, text: str) -> None:
         pass  # Terminal: Texte und Balken zeigen den Fortschritt schon
+
+    def karte(self, daten: dict[str, Any]) -> None:
+        pass  # Terminal: karte.html deckt das ab
 
     def ja_nein(self, frage: str) -> bool:
         return bool(questionary.confirm(frage, default=False,

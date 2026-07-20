@@ -537,6 +537,88 @@ select {
 .kzeile.kfehler { color: #ff8a80; }
 .kzeile.kfehler .kpraefix { color: #ff8a80; }
 
+/* ====================================== Ergebnisansicht (U4) */
+.ergebnisansicht {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ergebnis-leiste {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  padding: .45rem .9rem;
+  border-bottom: 1px solid var(--linie);
+  font-size: .85rem;
+}
+.ergebnis-route {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.leiste-aktionen {
+  display: flex;
+  gap: .5rem;
+  margin-left: auto;
+  flex: none;
+}
+/* schmale Leisten-Variante der Umriss-Knöpfe */
+.umriss.schmal { width: auto; padding: .35rem .7rem; font-size: .8rem; }
+.umriss.schmal .icon { width: 16px; height: 16px; }
+
+/* Die Karte folgt bewusst NICHT dem Dunkelmodus (Spezifikation §2) */
+.karte-halter { position: relative; flex: 1; min-height: 0; }
+#karte { position: absolute; inset: 0; background: #d9dee3;
+         color-scheme: light; }
+
+/* Marker: farbiger Kreis mit Material-Glyphe (Statusfarben wie
+   Legende/Bericht: blau = DMR, orange = FM, grau = nur Grenzbereich,
+   vermilion = Wegpunkt — CVD-sichere Palette ohne Rot/Grün) */
+.kmarker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .45);
+  color: #fff;
+}
+.kmarker .icon { width: 16px; height: 16px; }
+.kmarker.dmr { background: #0072B2; }
+.kmarker.fm { background: #E69F00; }
+.kmarker.grenz { background: #808A93; }
+.kmarker.station { background: #D55E00; }
+
+/* Legende wie auf der folium-Karte: fest hell (Karte wird nicht
+   invertiert), unten links über der Karte */
+.karten-legende {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  z-index: 800;
+  max-width: 24rem;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #fff;
+  color: #111;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .4);
+  font: 13px/1.8 sans-serif;
+}
+.karten-legende svg { vertical-align: middle; }
+.legende-rampe {
+  display: inline-block;
+  width: 30px;
+  height: 10px;
+  vertical-align: middle;
+  /* Rampe = mapview.HEATMAP_RAMP */
+  background: linear-gradient(90deg, #A6D6EB, #56B4E9, #0072B2, #03395C);
+}
+
 /* ================================================= Statusleiste */
 .statusleiste {
   grid-column: 1 / -1;

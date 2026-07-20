@@ -174,33 +174,15 @@ class Bridge:
             from bmtools.routelib.oeffnen import system_oeffnen
             system_oeffnen(self._lauf.melder.ergebnis_ordner)
 
-    def lade_ergebnis(self, ansicht: str) -> dict[str, str] | None:
-        """HTML-Inhalt von Bericht oder Karte fürs iframe (srcdoc);
-        None, wenn (noch) kein Ergebnis vorliegt.
-
-        Die eingebettete Ansicht wird hart auf hell gestellt (die App
-        ist hell; bericht.html folgt sonst dem System-Dunkelmodus und
-        die Scrollbar verschwand weiß auf weiß — Nutzerwunsch
-        2026-07-19). Die Datei selbst bleibt unverändert, im Browser
-        gilt weiter das Systemschema."""
-        if self._lauf is None:
+    def lade_ergebnis(self) -> dict[str, Any] | None:
+        """Strukturierte Ergebnisdaten des letzten Laufs (GUI-UMBAU §5):
+        U4 liefert die Kartendaten für die native Leaflet-Ansicht;
+        Kennzahlen und Relais-Liste folgen mit U5. None, wenn (noch)
+        kein Ergebnis vorliegt. Die frühere HTML-srcdoc-Variante (G5)
+        entfiel mit dem U1-Frontend-Neubau."""
+        if self._lauf is None or self._lauf.melder.karten_daten is None:
             return None
-        datei = self._lauf.melder.ergebnis_dateien.get(ansicht)
-        if datei is None or not datei.is_file():
-            return None
-        html = datei.read_text()
-        # Zusätzlich zum Licht-Zwang dieselbe Schrift wie die App —
-        # -apple-system löst in srcdoc-iframes nicht zuverlässig auf,
-        # der Bericht fiel dort auf Helvetica zurück (Nutzerbefund
-        # 2026-07-19); system-ui greift auch dort.
-        anpassung = ("<style>:root { color-scheme: only light; } "
-                     "body { font-family: system-ui, -apple-system, "
-                     "'Segoe UI', sans-serif; }</style>")
-        if "</head>" in html:
-            html = html.replace("</head>", anpassung + "</head>", 1)
-        else:
-            html += anpassung
-        return {"html": html}
+        return {"karte": self._lauf.melder.karten_daten}
 
     def oeffne_ergebnis(self) -> None:
         """Bericht UND Karte im Standardbrowser öffnen — wie --oeffnen

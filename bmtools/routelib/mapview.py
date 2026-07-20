@@ -1,4 +1,10 @@
-"""Interaktive HTML-Karte: Streckenverlauf + Relais-Marker (folium/Leaflet)."""
+"""Interaktive HTML-Karte: Streckenverlauf + Relais-Marker (folium/Leaflet).
+
+Seit U4 (GUI-UMBAU.md) liefert karten_daten() dieselben Inhalte
+(Segmente, Marker-Popups, Legende, Overlay) als JSON-fähiges Dict an
+die native Leaflet-Ansicht der GUI — die Helfer sind geteilt, damit
+Datei-Karte und GUI-Karte nie auseinanderlaufen.
+"""
 from __future__ import annotations
 
 import base64
@@ -10,6 +16,7 @@ from bisect import bisect_right
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
+from typing import Any
 
 import folium
 import numpy as np
@@ -45,6 +52,31 @@ STATUS_STYLE = {
     MARGINAL: ("#B86200", "10,6", "Grenzbereich (Beugung möglich)"),
     SHADOW: ("#000000", "2,7", "Funkschatten (geschätzt)"),
 }
+
+# Basiskarten — GUI-Leaflet-Ansicht und folium-Karte nutzen dieselben
+# Quellen: OSM.DE ohne Referer-Pflicht (s. Kommentar in write_map),
+# Carto-CDN als umschaltbare Ausweich-Ebene. Keyless.
+KARTEN_EBENEN: list[dict[str, Any]] = [
+    {"name": "OpenStreetMap",
+     "url": "https://tile.openstreetmap.de/{z}/{x}/{y}.png",
+     "max_zoom": 18,
+     "attribution": '&copy; <a href="https://www.openstreetmap.org/'
+                    'copyright">OpenStreetMap</a>-Mitwirkende'},
+    {"name": "Carto (Ausweichkarte)",
+     "url": "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/"
+            "{z}/{x}/{y}.png",
+     "subdomains": "abcd",
+     "max_zoom": 20,
+     "attribution": '&copy; <a href="https://www.openstreetmap.org/'
+                    'copyright">OpenStreetMap</a>-Mitwirkende &copy; '
+                    '<a href="https://carto.com/attributions">CARTO</a>'},
+]
+
+OVERLAY_NAME = "Relais-Sichtfelder (rechnerisch)"
+
+# Semantische Marker-Farben -> folium-Icon-Farbe (die GUI stylt die
+# semantischen Namen selbst, projektweit dieselbe Bedeutung)
+_FARBE_FOLIUM = {"dmr": "blue", "fm": "orange", "grenz": "gray"}
 
 
 def _legend_line(color: str, dash: str | None) -> str:
@@ -223,6 +255,99 @@ def _reachable_in_range(coverage: CoverageEstimate, start_km: float,
     return f" — Relais: {', '.join(parts)}{suffix}"
 
 
+def _marker_farbe(r: RepeaterResult) -> str:
+    # Orange für FM (statt Grün): Farbwelt ohne Rot/Grün, s. ui.py
+    return ("grenz" if r.marginal_only
+            else "fm" if r.modus == "fm" else "dmr")
+
+
+def _marker_popup(r: RepeaterResult) -> str:
+    e = html.escape
+    d = r.device
+    marginal_note = ("<b>Nur Grenzbereich</b> — keine freie Sicht zur "
+                     "Strecke, Empfang per Beugung möglich<br>"
+                     if r.marginal_only else "")
+    if r.modus == "fm":
+        fm = r.fm
+        offset = fm.rx_mhz - fm.tx_mhz
+        ablage = ("Simplex" if abs(offset) < 1e-9
+                  else f"Ablage {offset:+g} MHz")
+        # Quelle kennt kein Tonruf-Feld: ohne CTCSS bleibt offen, ob
+        # Träger reicht oder der 1750-Hz-Tonruf nötig ist
+        ctcss = (f", CTCSS {fm.ctcss_hz:g} Hz (wird gesendet)"
+                 if fm.ctcss_hz
+                 else ", Öffnen: Träger oder Tonruf 1750 Hz")
+        return (
+            f"<b>{e(fm.callsign)}</b> — {e(fm.city)}<br>{marginal_note}"
+            f"FM ({band_label(fm.tx_mhz)})<br>"
+            f"RX <code>{fm.tx_mhz:.5f}</code> / "
+            f"TX <code>{fm.rx_mhz:.5f}</code> MHz, "
+            f"{ablage}{ctcss}<br>"
+            f"<small>km {r.hit.chainage_km:.0f}, Abstand "
+            f"{r.hit.distance_km:.1f} km, Locator {e(fm.locator)}</small>"
+        )
+    return (
+        f"<b>{e(d.callsign)}</b> — {e(d.city)}<br>{marginal_note}"
+        f"RX <code>{d.tx_mhz:.5f}</code> / TX <code>{d.rx_mhz:.5f}</code> MHz, "
+        f"CC{r.dmr.colorcode}<br>"
+        f"TS1: {e(_fmt_subs(r.tg_profile.for_slot(1)) or '–')}<br>"
+        f"TS2: {e(_fmt_subs(r.tg_profile.for_slot(2)) or '–')}<br>"
+        f"<small>km {r.hit.chainage_km:.0f}, Abstand "
+        f"{r.hit.distance_km:.1f} km, DMR-ID {d.id}</small>"
+    )
+
+
+def _marker_tooltip(r: RepeaterResult, has_dmr: bool, has_fm: bool) -> str:
+    tooltip = f"{r.device.callsign} ({r.hit.distance_km:.1f} km)"
+    if has_dmr and has_fm:
+        tooltip += f" — {MODUS_LABEL[r.modus]}"
+    if r.marginal_only:
+        tooltip += " — nur Grenzbereich"
+    return tooltip
+
+
+def _marker_infos(results: list[RepeaterResult],
+                  ) -> list[tuple[RepeaterResult, str, str, str]]:
+    """Je Relais (result, farbe, tooltip, popup_html) — geteilt von
+    folium-Karte und GUI-Kartendaten."""
+    has_dmr = any(r.modus == "dmr" for r in results)
+    has_fm = any(r.modus == "fm" for r in results)
+    return [(r, _marker_farbe(r), _marker_tooltip(r, has_dmr, has_fm),
+             _marker_popup(r)) for r in results]
+
+
+def _segment_infos(route: Route, coverage: CoverageEstimate,
+                   listed: set[str],
+                   ) -> list[tuple[int, list[Point], str]]:
+    """Abdeckungs-Abschnitte samt fertigem Tooltip-Text."""
+    infos: list[tuple[int, list[Point], str]] = []
+    for status, pts, start_km, end_km in _coverage_segments(route, coverage):
+        label = STATUS_STYLE[status][2]
+        tooltip = f"km {start_km:.0f}–{end_km:.0f}: {label}"
+        if status != SHADOW:
+            tooltip += _reachable_in_range(
+                coverage, start_km, end_km, listed, status)
+        infos.append((status, pts, tooltip))
+    return infos
+
+
+def _legende_infos(results: list[RepeaterResult]) -> tuple[str, str]:
+    """(Modus-Label, Marker-Hinweis) für die Legende."""
+    has_dmr = any(r.modus == "dmr" for r in results)
+    has_fm = any(r.modus == "fm" for r in results)
+    modus_label = MODUS_LABEL["beide" if has_dmr and has_fm
+                              else "fm" if has_fm else "dmr"]
+    # Orange statt des naheliegenden Grüns für FM: die Farbwelt des
+    # Projekts ist bewusst ohne Rot/Grün (Farbfehlsichtigkeit, ui.py)
+    marker_note = ("blau = DMR, orange = FM, grau = nur Grenzbereich "
+                   "(Beugung)" if has_dmr and has_fm else
+                   "orange = FM-Relais, grau = nur Grenzbereich "
+                   "(Beugung)" if has_fm else
+                   "blau = Sicht zur Strecke, grau = nur Grenzbereich "
+                   "(Beugung)")
+    return modus_label, marker_note
+
+
 def write_map(results: list[RepeaterResult], route: Route, path: Path,
               coverage: CoverageEstimate | None = None,
               terrain: TerrainModel | None = None,
@@ -230,7 +355,11 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
               waypoint_icon: str = "flag", *,
               tile_progress: Callable[[int, int], None] | None = None,
               viewshed_progress: Callable[[int, int], None] | None = None,
-              ) -> None:
+              ) -> tuple[str, list[list[float]]] | None:
+    """Folium-Karte schreiben; liefert das gerenderte Sichtfeld-Overlay
+    (Daten-URI, Bounds) zurück — die GUI-Kartendaten (karten_daten)
+    verwenden es weiter, statt die Viewsheds doppelt zu rechnen."""
+    overlay: tuple[str, list[list[float]]] | None = None
     lats = [p[0] for p in route.points]
     lons = [p[1] for p in route.points]
     # tile.openstreetmap.de statt tile.openstreetmap.org: Die OSMF-Server
@@ -247,40 +376,24 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
     m.fit_bounds([(min(lats), min(lons)), (max(lats), max(lons))])
 
     if terrain is not None and results:
-        image_uri, bounds = _coverage_raster(results, route, terrain,
-                                             tile_progress, viewshed_progress)
+        overlay = _coverage_raster(results, route, terrain,
+                                   tile_progress, viewshed_progress)
         folium.raster_layers.ImageOverlay(
-            image=image_uri, bounds=bounds, opacity=0.8,
-            name="Relais-Sichtfelder (rechnerisch)",
+            image=overlay[0], bounds=overlay[1], opacity=0.8,
+            name=OVERLAY_NAME,
         ).add_to(m)
     # Vor den Markern einhängen, sonst listet das Control jeden Marker
     folium.LayerControl().add_to(m)
 
-    has_dmr = any(r.modus == "dmr" for r in results)
-    has_fm = any(r.modus == "fm" for r in results)
     if coverage is not None and coverage.samples:
         listed = {r.device.callsign for r in results}
-        for status, pts, start_km, end_km in _coverage_segments(route, coverage):
-            color, dash, label = STATUS_STYLE[status]
-            tooltip = f"km {start_km:.0f}–{end_km:.0f}: {label}"
-            if status != SHADOW:
-                tooltip += _reachable_in_range(
-                    coverage, start_km, end_km, listed, status)
+        for status, pts, tooltip in _segment_infos(route, coverage, listed):
+            color, dash, _ = STATUS_STYLE[status]
             folium.PolyLine(pts, color=color, weight=5, opacity=0.95,
                             dash_array=dash, tooltip=tooltip).add_to(m)
-        modus_label = MODUS_LABEL["beide" if has_dmr and has_fm
-                                  else "fm" if has_fm else "dmr"]
-        # Orange statt des naheliegenden Grüns für FM: die Farbwelt des
-        # Projekts ist bewusst ohne Rot/Grün (Farbfehlsichtigkeit, ui.py)
-        marker_note = ("blau = DMR, orange = FM, grau = nur Grenzbereich "
-                       "(Beugung)" if has_dmr and has_fm else
-                       "orange = FM-Relais, grau = nur Grenzbereich "
-                       "(Beugung)" if has_fm else
-                       "blau = Sicht zur Strecke, grau = nur Grenzbereich "
-                       "(Beugung)")
         # branca.Element bekommt .html erst zur Laufzeit angehängt
         m.get_root().html.add_child(  # type: ignore[attr-defined]
-            folium.Element(_legend(modus_label, marker_note)))
+            folium.Element(_legend(*_legende_infos(results))))
     else:
         folium.PolyLine(route.points, color="#c00", weight=3,
                         tooltip=route_label).add_to(m)
@@ -290,54 +403,77 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
             icon=folium.Icon(color="red", icon=waypoint_icon, prefix="fa"),
         ).add_to(m)
 
-    e = html.escape
-    for r in results:
-        d = r.device
-        marginal_note = ("<b>Nur Grenzbereich</b> — keine freie Sicht zur "
-                         "Strecke, Empfang per Beugung möglich<br>"
-                         if r.marginal_only else "")
-        if r.modus == "fm":
-            fm = r.fm
-            offset = fm.rx_mhz - fm.tx_mhz
-            ablage = ("Simplex" if abs(offset) < 1e-9
-                      else f"Ablage {offset:+g} MHz")
-            # Quelle kennt kein Tonruf-Feld: ohne CTCSS bleibt offen, ob
-            # Träger reicht oder der 1750-Hz-Tonruf nötig ist
-            ctcss = (f", CTCSS {fm.ctcss_hz:g} Hz (wird gesendet)"
-                     if fm.ctcss_hz
-                     else ", Öffnen: Träger oder Tonruf 1750 Hz")
-            popup = (
-                f"<b>{e(fm.callsign)}</b> — {e(fm.city)}<br>{marginal_note}"
-                f"FM ({band_label(fm.tx_mhz)})<br>"
-                f"RX <code>{fm.tx_mhz:.5f}</code> / "
-                f"TX <code>{fm.rx_mhz:.5f}</code> MHz, "
-                f"{ablage}{ctcss}<br>"
-                f"<small>km {r.hit.chainage_km:.0f}, Abstand "
-                f"{r.hit.distance_km:.1f} km, Locator {e(fm.locator)}</small>"
-            )
-        else:
-            popup = (
-                f"<b>{e(d.callsign)}</b> — {e(d.city)}<br>{marginal_note}"
-                f"RX <code>{d.tx_mhz:.5f}</code> / TX <code>{d.rx_mhz:.5f}</code> MHz, "
-                f"CC{r.dmr.colorcode}<br>"
-                f"TS1: {e(_fmt_subs(r.tg_profile.for_slot(1)) or '–')}<br>"
-                f"TS2: {e(_fmt_subs(r.tg_profile.for_slot(2)) or '–')}<br>"
-                f"<small>km {r.hit.chainage_km:.0f}, Abstand "
-                f"{r.hit.distance_km:.1f} km, DMR-ID {d.id}</small>"
-            )
-        tooltip = f"{d.callsign} ({r.hit.distance_km:.1f} km)"
-        if has_dmr and has_fm:
-            tooltip += f" — {MODUS_LABEL[r.modus]}"
-        if r.marginal_only:
-            tooltip += " — nur Grenzbereich"
-        # Orange für FM (statt Grün): Farbwelt ohne Rot/Grün, s. ui.py
-        color = ("gray" if r.marginal_only
-                 else "orange" if r.modus == "fm" else "blue")
+    for r, farbe, tooltip, popup in _marker_infos(results):
         folium.Marker(
-            _pos(d),
+            _pos(r.device),
             tooltip=tooltip,
             popup=folium.Popup(popup, max_width=340),
-            icon=folium.Icon(color=color, icon="tower-cell", prefix="fa"),
+            icon=folium.Icon(color=_FARBE_FOLIUM[farbe], icon="tower-cell",
+                             prefix="fa"),
         ).add_to(m)
 
     m.save(str(path))
+    return overlay
+
+
+def _runde_punkte(punkte: list[Point]) -> list[list[float]]:
+    # 5 Nachkommastellen (~1 m): hält die JSON-Nutzlast langer Routen
+    # klein, ohne sichtbare Abweichung auf der Karte
+    return [[round(lat, 5), round(lon, 5)] for lat, lon in punkte]
+
+
+def karten_daten(results: list[RepeaterResult], route: Route,
+                 coverage: CoverageEstimate | None = None,
+                 overlay: tuple[str, list[list[float]]] | None = None,
+                 *, route_label: str = "Strecke",
+                 waypoint_icon: str = "flag") -> dict[str, Any]:
+    """Kartendaten für die native Leaflet-Ansicht der GUI (U4) als
+    JSON-fähiges Dict — gespeist aus denselben Helfern wie die
+    folium-Karte (write_map), overlay ist deren Rückgabewert."""
+    lats = [p[0] for p in route.points]
+    lons = [p[1] for p in route.points]
+    daten: dict[str, Any] = {
+        "ebenen": KARTEN_EBENEN,
+        "bounds": [[min(lats), min(lons)], [max(lats), max(lons)]],
+        "route_label": route_label,
+        "stationen": [{"name": s.name, "lat": s.lat, "lon": s.lon}
+                      for s in route.stations],
+        "stations_icon": waypoint_icon,
+        "stile": {str(status): {"farbe": farbe, "dash": dash,
+                                "label": label}
+                  for status, (farbe, dash, label) in STATUS_STYLE.items()},
+        "marker": [{"lat": _pos(r.device)[0], "lng": _pos(r.device)[1],
+                    "farbe": farbe, "tooltip": tooltip, "popup": popup}
+                   for r, farbe, tooltip, popup in _marker_infos(results)],
+        "segmente": None,
+        "route": None,
+        "overlay": None,
+        "legende": None,
+    }
+    if overlay is not None:
+        daten["overlay"] = {"uri": overlay[0], "bounds": overlay[1],
+                            "name": OVERLAY_NAME}
+    if coverage is not None and coverage.samples:
+        listed = {r.device.callsign for r in results}
+        daten["segmente"] = [
+            {"status": str(status), "punkte": _runde_punkte(pts),
+             "tooltip": tooltip}
+            for status, pts, tooltip in _segment_infos(route, coverage,
+                                                       listed)]
+        modus_label, marker_note = _legende_infos(results)
+        daten["legende"] = {
+            "modus_label": modus_label,
+            "marker_note": marker_note,
+            "sichtfelder": overlay is not None,
+            # Zeilen wie in _legend() der folium-Karte — Wortlaut bleibt
+            # hier die eine Quelle
+            "linien": [
+                {"farbe": STATUS_STYLE[st][0], "dash": STATUS_STYLE[st][1],
+                 "text": txt}
+                for st, txt in ((LOS, "Sicht (durchgezogen)"),
+                                (MARGINAL, "Grenzbereich (gestrichelt)"),
+                                (SHADOW, "Schatten (gepunktet)"))],
+        }
+    else:
+        daten["route"] = _runde_punkte(route.points)
+    return daten

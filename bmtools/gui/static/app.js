@@ -177,6 +177,7 @@ const tasks = new Map();  // task-id -> {beschreibung, sichtbar, …}
 
 function zeigeLaufansicht() {
   $("#leer").hidden = true;
+  $("#ergebnis").hidden = true;
   $("#lauf").hidden = false;
   $("#konsole").replaceChildren();
   tasks.clear();
@@ -210,7 +211,9 @@ function beendeLauf(code) {
     use.setAttribute("href", "#i-check_circle");
     icon.setAttribute("class", "icon lauf-icon gut");
     $("#lauf-titel").textContent = "Berechnung abgeschlossen";
-    $("#lauf-aktionen").hidden = !ergebnisDa;
+    // Mit Kartendaten wechselt die Ansicht zur Leaflet-Karte (U4);
+    // ohne bleibt die Abschluss-Karte samt Aktionen stehen
+    if (ergebnisDa) zeigeErgebnis();
     const j = new Date();
     statusRechts("Letzte Berechnung: " +
                  String(j.getHours()).padStart(2, "0") + ":" +
@@ -317,6 +320,142 @@ function konsole(praefix, text, klasse) {
 $("#lauf-bericht").addEventListener("click", () =>
   window.pywebview.api.oeffne_ergebnis());
 $("#lauf-ordner").addEventListener("click", () =>
+  window.pywebview.api.oeffne_ordner());
+
+/* -------------------------------------------- Ergebnis-Karte (U4) */
+
+let karte = null;  // Leaflet-Map des angezeigten Ergebnisses
+
+const STATIONS_ICONS = { train: "i-train", car: "i-directions_car",
+                         bicycle: "i-pedal_bike" };
+
+function kartenIcon(symbol, klasse) {
+  return L.divIcon({
+    className: "",
+    html: '<div class="kmarker ' + klasse + '">' +
+          '<svg class="icon"><use href="#' + symbol + '"/></svg></div>',
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+    popupAnchor: [0, -14],
+    tooltipAnchor: [0, -14],
+  });
+}
+
+async function zeigeErgebnis() {
+  const r = await window.pywebview.api.lade_ergebnis();
+  if (!r || !r.karte) {
+    // Ohne Kartendaten bleibt die Abschluss-Karte mit den Aktionen
+    $("#lauf-aktionen").hidden = false;
+    return;
+  }
+  // Erst einblenden, dann bauen: Leaflet braucht einen Container mit
+  // realer Größe (sonst stimmen fitBounds/Kachelraster nicht)
+  $("#lauf").hidden = true;
+  $("#ergebnis").hidden = false;
+  baueKarte(r.karte);
+}
+
+function baueKarte(k) {
+  if (karte) {
+    karte.remove();
+    karte = null;
+  }
+  karte = L.map($("#karte"));
+
+  const basis = {};
+  k.ebenen.forEach((e, i) => {
+    const ebene = L.tileLayer(e.url, {
+      attribution: e.attribution,
+      subdomains: e.subdomains || "abc",
+      maxZoom: e.max_zoom || 19,
+    });
+    basis[e.name] = ebene;
+    if (i === 0) ebene.addTo(karte);
+  });
+  const overlays = {};
+  if (k.overlay) {
+    overlays[k.overlay.name] = L.imageOverlay(
+      k.overlay.uri, k.overlay.bounds, { opacity: 0.8 }).addTo(karte);
+  }
+  L.control.layers(basis, overlays).addTo(karte);
+
+  if (k.segmente) {
+    k.segmente.forEach((s) => {
+      const stil = k.stile[s.status];
+      L.polyline(s.punkte, {
+        color: stil.farbe,
+        weight: 5,
+        opacity: 0.95,
+        dashArray: stil.dash || null,
+      }).bindTooltip(s.tooltip, { sticky: true }).addTo(karte);
+    });
+  } else if (k.route) {
+    L.polyline(k.route, { color: "#c00", weight: 3 })
+      .bindTooltip(k.route_label, { sticky: true }).addTo(karte);
+  }
+
+  k.stationen.forEach((s) => {
+    L.marker([s.lat, s.lon], {
+      icon: kartenIcon(STATIONS_ICONS[k.stations_icon] || "i-flag",
+                       "station"),
+      zIndexOffset: 500,
+    }).bindTooltip(s.name).addTo(karte);
+  });
+
+  k.marker.forEach((mk) => {
+    L.marker([mk.lat, mk.lng],
+             { icon: kartenIcon("i-cell_tower", mk.farbe) })
+      .bindTooltip(mk.tooltip)
+      .bindPopup(mk.popup, { maxWidth: 340 })
+      .addTo(karte);
+  });
+
+  karte.fitBounds(k.bounds, { padding: [24, 24] });
+  zeigeLegende(k);
+
+  const namen = k.stationen.map((s) => s.name);
+  $("#ergebnis-route").textContent =
+    k.route_label + (namen.length ? " · " + namen.join(" → ") : "");
+}
+
+function legendeLinie(farbe, dash) {
+  return '<svg width="34" height="8"><line x1="1" y1="4" x2="33" y2="4"' +
+         ' stroke="' + farbe + '" stroke-width="4"' +
+         (dash ? ' stroke-dasharray="' + dash + '"' : "") + "/></svg> ";
+}
+
+function zeigeLegende(k) {
+  const el = $("#karten-legende");
+  if (!k.legende) {
+    el.hidden = true;
+    return;
+  }
+  const l = k.legende;
+  let inhalt = "<b>Geschätzte " + l.modus_label + "-Abdeckung</b><br>";
+  l.linien.forEach((z) => {
+    inhalt += legendeLinie(z.farbe, z.dash) + z.text + "<br>";
+  });
+  if (l.sichtfelder) {
+    // Dieselbe Rampe wie das Overlay (mapview.HEATMAP_RAMP)
+    inhalt += '<span class="legende-rampe"></span> Relais-Sichtfeld ' +
+              "(hellste Stufe: nur Beugung, sonst dunkler = mehr " +
+              "Relais)<br>";
+  }
+  inhalt += "Marker: " + l.marker_note;
+  el.innerHTML = inhalt;
+  el.hidden = false;
+}
+
+/* Links auf der Karte (Attribution) dürfen das App-Fenster nicht
+   wegnavigieren — Anzeige ja, Navigation nein. */
+$("#karte").addEventListener("click", (ev) => {
+  const a = ev.target.closest("a[href]");
+  if (a) ev.preventDefault();
+});
+
+$("#ergebnis-bericht").addEventListener("click", () =>
+  window.pywebview.api.oeffne_ergebnis());
+$("#ergebnis-ordner").addEventListener("click", () =>
   window.pywebview.api.oeffne_ordner());
 
 /* -------------------------------------------------- Einstellungen */

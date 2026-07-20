@@ -176,45 +176,24 @@ def test_oeffne_ordner_nur_mit_ergebnis(monkeypatch, tmp_path):
     assert geoeffnet == [tmp_path]
 
 
-def test_lade_ergebnis_liefert_dateiinhalt(monkeypatch, tmp_path):
+def test_lade_ergebnis_liefert_kartendaten(monkeypatch):
+    # U4: strukturierte Daten für die Leaflet-Ansicht statt HTML-srcdoc
     monkeypatch.setattr("bmtools.gui.bridge.Lauf", _FakeLauf)
     b = Bridge()
-    assert b.lade_ergebnis("bericht") is None  # noch kein Lauf
+    assert b.lade_ergebnis() is None  # noch kein Lauf
 
-    bericht = tmp_path / "bericht.html"
-    bericht.write_text("<h1>Testbericht</h1>")
+    daten = {"marker": [], "bounds": [[50.0, 8.0], [50.2, 8.2]]}
 
     class _FakeMelder:
         def __init__(self):
-            self.ergebnis_dateien = {"bericht": bericht}
+            self.karten_daten = None
 
     b.start_lauf("auto", {"von": "A", "nach": "B"})
     assert isinstance(b._lauf, _FakeLauf)
     b._lauf.melder = _FakeMelder()
-    geladen = b.lade_ergebnis("bericht")["html"]
-    # Eingebettete Ansicht hart hell (Nutzerwunsch 2026-07-19) —
-    # die Datei auf der Platte bleibt unverändert
-    assert "<h1>Testbericht</h1>" in geladen
-    assert "color-scheme: only light" in geladen
-    assert bericht.read_text() == "<h1>Testbericht</h1>"
-    assert b.lade_ergebnis("karte") is None  # nicht vorhanden
-
-
-def test_lade_ergebnis_hell_injektion_vor_head_ende(tmp_path, monkeypatch):
-    monkeypatch.setattr("bmtools.gui.bridge.Lauf", _FakeLauf)
-    b = Bridge()
-    datei = tmp_path / "bericht.html"
-    datei.write_text("<html><head><title>x</title></head><body>y</body></html>")
-
-    class _FakeMelder:
-        def __init__(self):
-            self.ergebnis_dateien = {"bericht": datei}
-
-    b.start_lauf("auto", {"von": "A", "nach": "B"})
-    assert isinstance(b._lauf, _FakeLauf)
-    b._lauf.melder = _FakeMelder()
-    geladen = b.lade_ergebnis("bericht")["html"]
-    assert geladen.index("only light") < geladen.index("</head>")
+    assert b.lade_ergebnis() is None  # Lauf ohne Kartendaten
+    b._lauf.melder.karten_daten = daten
+    assert b.lade_ergebnis() == {"karte": daten}
 
 
 def test_oeffne_ergebnis_beide_im_browser(monkeypatch, tmp_path):

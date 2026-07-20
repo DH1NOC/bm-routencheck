@@ -22,7 +22,7 @@ from .codeplug.anytone import write_anytone
 from .codeplug.chirp import write_chirp
 from .corridor import find_in_corridor
 from .coverage import estimate_coverage
-from .mapview import write_map
+from .mapview import karten_daten, write_map
 from .melden import Melder, TerminalMelder
 from .model import RepeaterLike, Route
 from .oeffnen import system_oeffnen
@@ -230,6 +230,7 @@ def run_pipeline(route: Route, *, console: Console | None = None,
                       modus=modus)
     # Die Sichtfelder laden weitere Höhenkacheln nach — reißt das Netz
     # dabei ab, kommt die Karte ohne Sichtfelder statt gar nicht.
+    overlay = None
     sichtfeld_terrain = terrain if coverage.terrain_used else None
     if sichtfeld_terrain is not None:
         with m.balken() as map_b:
@@ -245,18 +246,25 @@ def run_pipeline(route: Route, *, console: Console | None = None,
                 map_b.update(felder_task, fertig=fertig, gesamt=gesamt)
 
             try:
-                write_map(results, route, map_path, coverage, sichtfeld_terrain,
-                          route_label=route_label, waypoint_icon=waypoint_icon,
-                          tile_progress=map_tile_progress,
-                          viewshed_progress=felder_progress)
+                overlay = write_map(
+                    results, route, map_path, coverage, sichtfeld_terrain,
+                    route_label=route_label, waypoint_icon=waypoint_icon,
+                    tile_progress=map_tile_progress,
+                    viewshed_progress=felder_progress)
             except TerrainError as e:
                 m.text(f"[yellow]Höhendaten abgebrochen ({e}) — "
                        f"Karte ohne Relais-Sichtfelder.[/yellow]")
                 sichtfeld_terrain = None
     if sichtfeld_terrain is None:
         with m.status("Karte erzeugen …"):
-            write_map(results, route, map_path, coverage, None,
-                      route_label=route_label, waypoint_icon=waypoint_icon)
+            overlay = write_map(results, route, map_path, coverage, None,
+                                route_label=route_label,
+                                waypoint_icon=waypoint_icon)
+    # Dieselben Inhalte als Daten für die GUI-Leaflet-Ansicht (U4);
+    # das Overlay wird weiterverwendet statt doppelt gerechnet
+    m.karte(karten_daten(results, route, coverage, overlay,
+                         route_label=route_label,
+                         waypoint_icon=waypoint_icon))
     # Codeplug: digitale und analoge Kanäle in derselben Zone; die
     # FM-Kanäle zusätzlich als generisches CHIRP-CSV
     schritt("Codeplug schreiben")

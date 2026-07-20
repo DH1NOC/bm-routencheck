@@ -1,12 +1,13 @@
 """Smoke-Test Karte: FM-Marker (orange, CVD-sicher), Modus-Popups,
-Sichtfeld-Fortschritt."""
+Sichtfeld-Fortschritt, GUI-Kartendaten (U4)."""
+import json
 from pathlib import Path
 
 import numpy as np
 
 from bmtools.bm_api.models import TalkgroupSub
 from bmtools.routelib import terrain as terrain_mod
-from bmtools.routelib.mapview import write_map
+from bmtools.routelib.mapview import karten_daten, write_map
 from bmtools.routelib.model import Route, Station
 from tests.conftest import make_device, make_fm_repeater, make_fm_result, make_result
 
@@ -36,6 +37,40 @@ def test_karte_gemischt_faerbt_fm_orange(tmp_path: Path):
     assert "Locator JO40AA" in html
     assert "DB0FX (5.0 km) — FM" in html        # Tooltip mit Modus-Zusatz
     assert "TS1" in html                        # DMR-Popup weiter vollständig
+
+
+def test_karten_daten_fuer_die_gui(tmp_path: Path):
+    """U4: karten_daten liefert dieselben Inhalte wie die folium-Karte
+    als JSON-fähiges Dict (Marker-Popups aus denselben Helfern)."""
+    points = [(50.0, 8.0), (50.123456789, 8.1), (50.2, 8.2)]
+    route = Route(points=points,
+                  stations=[Station("Start", *points[0]),
+                            Station("Ziel", *points[-1])])
+    results = [
+        make_result(make_device(), [TalkgroupSub(262, 1, "static")]),
+        make_fm_result(make_fm_repeater(
+            callsign="DB0FX", tx_mhz=439.125, rx_mhz=431.525,
+            ctcss_hz=88.5, locator="JO40AA")),
+    ]
+
+    daten = karten_daten(results, route, route_label="Bahnstrecke",
+                         waypoint_icon="train")
+
+    json.dumps(daten)  # muss ohne Sonderbehandlung serialisierbar sein
+    assert [e["name"] for e in daten["ebenen"]] == [
+        "OpenStreetMap", "Carto (Ausweichkarte)"]
+    assert daten["bounds"] == [[50.0, 8.0], [50.2, 8.2]]
+    assert daten["stations_icon"] == "train"
+    assert [s["name"] for s in daten["stationen"]] == ["Start", "Ziel"]
+    # Ohne Coverage: einfache Routenlinie, gerundet auf 5 Stellen
+    assert daten["segmente"] is None and daten["legende"] is None
+    assert daten["route"][1] == [50.12346, 8.1]
+    farben = {m["farbe"] for m in daten["marker"]}
+    assert farben == {"dmr", "fm"}
+    fm_popup = next(m["popup"] for m in daten["marker"]
+                    if m["farbe"] == "fm")
+    assert "CTCSS 88.5 Hz (wird gesendet)" in fm_popup
+    assert "Locator JO40AA" in fm_popup
 
 
 def test_sichtfelder_melden_fortschritt(tmp_path: Path, monkeypatch):

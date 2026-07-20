@@ -249,10 +249,16 @@ Kartenbild), Abhängigkeit `reportlab>=4.0`.
       fokussiert (Enter übernimmt), Pfeiltasten wandern, Escape
       bricht den Lauf ab; Optionsliste scrollt bei vielen
       Kandidaten.
-- [ ] **U4 — Leaflet-Karte:** Leaflet lokal gebündelt; Route, Overlay,
-      Marker, Legende, Layer-Umschalter aus den Bridge-Daten;
-      funktional gleichwertig zur Folium-Karte. *Abnahme:*
-      Sichtvergleich GUI-Karte gegen `karte.html` desselben Laufs.
+- [x] **U4 — Leaflet-Karte** *(abgenommen 2026-07-20 ohne Befunde;
+      Sichtvergleich gegen `karte.html` desselben Laufs)*: Leaflet
+      1.9.4 lokal gebündelt (static/vendor/leaflet, BSD-Lizenz);
+      mapview.py liefert über geteilte Helfer karten_daten() an den
+      neuen Melder-Hook karte() (Terminal No-op), das Sichtfeld-
+      Overlay wird aus write_map wiederverwendet statt doppelt
+      gerechnet; Bridge.lade_ergebnis() gibt strukturierte Daten.
+      Ergebnisansicht mit Segmenten, Overlay, DivIcon-Markern
+      (cell_tower), Wegpunkt-Markern, Legende und
+      OSM↔Carto-Umschalter — Kacheln laden auch in WKWebView.
 - [ ] **U5 — DataGrid + Top-Bar + Splitter:** Kennzahlen-Top-Bar,
       sortier-/filterbare Relais-Tabelle mit Status-Icons und
       aufklappbaren Talkgroups, Tabelle↔Karte-Interaktion, ziehbarer

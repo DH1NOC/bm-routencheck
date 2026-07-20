@@ -157,9 +157,11 @@ class GuiMelder:
         self._antwort_da: dict[int, threading.Event] = {}
         self._lauf_thread: threading.Thread | None = None
         # Vom letzten erfolgreichen Lauf: Ordner für »Ausgabeordner
-        # öffnen«, Dateien für Bridge.lade_ergebnis (srcdoc-Anzeige)
+        # öffnen«, Dateien für »Bericht & Karte öffnen«, Kartendaten
+        # für die native Leaflet-Ansicht (Bridge.lade_ergebnis, U4)
         self.ergebnis_ordner: Path | None = None
         self.ergebnis_dateien: dict[str, Path] = {}
+        self.karten_daten: dict[str, Any] | None = None
 
     # ------------------------------------------------------ Abbruch
 
@@ -222,6 +224,12 @@ class GuiMelder:
         self._pruefe_abbruch()
         self._sende_aktiv({"typ": "schritt", "nummer": nummer,
                            "gesamt": gesamt, "text": text})
+
+    def karte(self, daten: dict[str, Any]) -> None:
+        """Kartendaten merken — kein Ereignis: Das Frontend holt sie
+        nach dem ergebnis-Ereignis über Bridge.lade_ergebnis ab (die
+        Nutzlast langer Routen soll nicht durch evaluate_js)."""
+        self.karten_daten = daten
 
     def ergebnis(self, out_dir: Path, bericht: Path, karte: Path) -> None:
         """Fertige Dateien ans Fenster melden (G5-Ergebnisansicht).
