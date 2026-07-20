@@ -7,7 +7,7 @@ from pathlib import Path
 from rich.console import Console
 
 from bmtools.bm_api.models import TalkgroupSub
-from bmtools.routelib.report import _fmt_subs, print_table, write_csv
+from bmtools.routelib.report import _fmt_subs, print_table, relais_daten, write_csv
 from tests.conftest import make_device, make_fm_repeater, make_fm_result, make_result
 
 
@@ -93,3 +93,41 @@ def test_csv_fm_zeile_mit_ctcss_und_leeren_tg_spalten(tmp_path: Path):
     assert fm["ctcss_hz"] == "88.5"
     assert fm["colorcode"] == "" and fm["ts1_statisch"] == ""
     assert fm["dmr_id"] == ""              # synthetische ID bleibt intern
+
+
+def test_relais_daten_fuers_datagrid():
+    """U5: dieselben Werte wie Tabelle/CSV als JSON-fähige Zeilen;
+    RX/TX aus Geräte-Sicht, Status-Wortlaut wie in der CSV."""
+    results = [
+        make_result(make_device(), [TalkgroupSub(262, 1, "static"),
+                                    TalkgroupSub(9, 2, "implicit")]),
+        make_fm_result(make_fm_repeater(tx_mhz=145.6375,
+                                        rx_mhz=145.0375)),
+        make_result(make_device(id=262002, callsign="DB0YY"),
+                    [TalkgroupSub(8, 2, "timed", "18-20 Uhr")],
+                    marginal_only=True),
+    ]
+
+    zeilen = relais_daten(results, {262: "Deutschland"})
+
+    dmr = zeilen[0]
+    assert dmr["index"] == 0 and dmr["rufzeichen"] == "DB0XX"
+    assert dmr["rx"] == "439.57500" and dmr["tx"] == "431.97500"
+    assert dmr["ton"] == "CC1" and dmr["status"] == "Sicht"
+    assert dmr["talkgroups"] == [
+        {"ts": 1, "tg": 262, "name": "Deutschland", "art": "static",
+         "hinweis": ""},
+        {"ts": 2, "tg": 9, "name": "Lokal", "art": "implicit",
+         "hinweis": ""},
+    ]
+
+    fm = zeilen[1]
+    assert fm["modus"] == "FM" and fm["talkgroups"] is None
+    assert fm["rx"] == "145.63750" and fm["tx"] == "145.03750"
+    assert fm["ton"] == "88.5 Hz"
+
+    grenz = zeilen[2]
+    assert grenz["status"] == "Grenzbereich"
+    assert grenz["talkgroups"] == [
+        {"ts": 2, "tg": 8, "name": "", "art": "timed",
+         "hinweis": "18-20 Uhr"}]

@@ -120,13 +120,14 @@ def test_schritt_wirft_nach_abbruch():
         m.schritt(1, 6, "Brandmeister-Geräteliste laden")
 
 
-def test_karte_speichert_daten_ohne_ereignis():
-    # U4: Kartendaten holt sich das Frontend über die Bridge ab —
+def test_ergebnis_daten_gespeichert_ohne_ereignis():
+    # U4/U5: Ergebnisdaten holt sich das Frontend über die Bridge ab —
     # die (große) Nutzlast soll nicht durch evaluate_js
     m, ereignisse, _ = _melder()
-    assert m.karten_daten is None
-    m.karte({"marker": [], "bounds": [[0, 0], [1, 1]]})
-    assert m.karten_daten == {"marker": [], "bounds": [[0, 0], [1, 1]]}
+    assert m.lauf_daten is None
+    daten = {"karte": {"marker": []}, "kennzahlen": {}, "relais": []}
+    m.ergebnis_daten(daten)
+    assert m.lauf_daten == daten
     assert ereignisse == []
 
 

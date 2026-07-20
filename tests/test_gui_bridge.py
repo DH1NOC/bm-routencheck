@@ -176,24 +176,65 @@ def test_oeffne_ordner_nur_mit_ergebnis(monkeypatch, tmp_path):
     assert geoeffnet == [tmp_path]
 
 
-def test_lade_ergebnis_liefert_kartendaten(monkeypatch):
-    # U4: strukturierte Daten für die Leaflet-Ansicht statt HTML-srcdoc
+def test_lade_ergebnis_liefert_strukturierte_daten(monkeypatch):
+    # U4/U5: Karte + Kennzahlen + Relais statt HTML-srcdoc
     monkeypatch.setattr("bmtools.gui.bridge.Lauf", _FakeLauf)
     b = Bridge()
     assert b.lade_ergebnis() is None  # noch kein Lauf
 
-    daten = {"marker": [], "bounds": [[50.0, 8.0], [50.2, 8.2]]}
+    daten = {"karte": {"marker": []},
+             "kennzahlen": {"distanz_km": 12},
+             "relais": [{"rufzeichen": "DB0XX"}]}
 
     class _FakeMelder:
         def __init__(self):
-            self.karten_daten = None
+            self.lauf_daten = None
 
     b.start_lauf("auto", {"von": "A", "nach": "B"})
     assert isinstance(b._lauf, _FakeLauf)
     b._lauf.melder = _FakeMelder()
-    assert b.lade_ergebnis() is None  # Lauf ohne Kartendaten
-    b._lauf.melder.karten_daten = daten
-    assert b.lade_ergebnis() == {"karte": daten}
+    assert b.lade_ergebnis() is None  # Lauf ohne Ergebnisdaten
+    b._lauf.melder.lauf_daten = daten
+    assert b.lade_ergebnis() == daten
+
+
+def test_einstellungen_roundtrip(monkeypatch, tmp_path):
+    # U5: Splitter-Position (U6: Theme) landet in gui.json statt
+    # localStorage (WKWebView-file://-Persistenz unzuverlässig)
+    monkeypatch.setattr("bmtools.gui.einstellungen.user_config_dir",
+                        lambda name: str(tmp_path))
+    b = Bridge()
+    assert b.init_zustand()["einstellungen"] == {}
+    b.setze_einstellung("splitter", 0.62)
+    assert b.init_zustand()["einstellungen"] == {"splitter": 0.62}
+    assert (tmp_path / "gui.json").is_file()
+
+
+def test_export_csv_kopiert_ueber_speichern_dialog(monkeypatch, tmp_path):
+    monkeypatch.setattr("bmtools.gui.bridge.Lauf", _FakeLauf)
+    b = Bridge()
+    assert b.export_csv() is None  # kein Lauf
+
+    quelle_dir = tmp_path / "out"
+    quelle_dir.mkdir()
+    (quelle_dir / "relais.csv").write_text("a;b\n1;2\n")
+    ziel = tmp_path / "export.csv"
+
+    class _FakeMelder:
+        def __init__(self):
+            self.ergebnis_ordner = quelle_dir
+
+    class _FakeFenster:
+        def create_file_dialog(self, art, save_filename=""):
+            assert save_filename == "relais.csv"
+            return str(ziel)
+
+    b.start_lauf("auto", {"von": "A", "nach": "B"})
+    assert isinstance(b._lauf, _FakeLauf)
+    b._lauf.melder = _FakeMelder()
+    b._fenster = _FakeFenster()
+    assert b.export_csv() == {"pfad": str(ziel)}
+    assert ziel.read_text() == "a;b\n1;2\n"
 
 
 def test_oeffne_ergebnis_beide_im_browser(monkeypatch, tmp_path):

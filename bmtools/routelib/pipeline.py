@@ -26,7 +26,7 @@ from .mapview import karten_daten, write_map
 from .melden import Melder, TerminalMelder
 from .model import RepeaterLike, Route
 from .oeffnen import system_oeffnen
-from .report import FUNK_LABEL, RepeaterResult, write_csv
+from .report import FUNK_LABEL, RepeaterResult, relais_daten, write_csv
 from .report_html import write_html_report
 from .terrain import TerrainError, TerrainModel
 
@@ -260,11 +260,23 @@ def run_pipeline(route: Route, *, console: Console | None = None,
             overlay = write_map(results, route, map_path, coverage, None,
                                 route_label=route_label,
                                 waypoint_icon=waypoint_icon)
-    # Dieselben Inhalte als Daten für die GUI-Leaflet-Ansicht (U4);
-    # das Overlay wird weiterverwendet statt doppelt gerechnet
-    m.karte(karten_daten(results, route, coverage, overlay,
-                         route_label=route_label,
-                         waypoint_icon=waypoint_icon))
+    # Dieselben Inhalte als strukturierte Daten für die GUI (U4/U5):
+    # Karte (Overlay wird weiterverwendet statt doppelt gerechnet),
+    # Kennzahlen für die Top-Bar, Relais-Zeilen fürs DataGrid
+    m.ergebnis_daten({
+        "karte": karten_daten(results, route, coverage, overlay,
+                              route_label=route_label,
+                              waypoint_icon=waypoint_icon),
+        "kennzahlen": {
+            "distanz_km": round(coverage.total_km),
+            "terrain": coverage.terrain_used,
+            "sicht_pct": round(coverage.pct(coverage.covered_km)),
+            "grenz_pct": round(coverage.pct(coverage.marginal_km)),
+            "schatten_pct": round(coverage.uncovered_pct),
+            "anzahl": len(results),
+        },
+        "relais": relais_daten(results, tg_names),
+    })
     # Codeplug: digitale und analoge Kanäle in derselben Zone; die
     # FM-Kanäle zusätzlich als generisches CHIRP-CSV
     schritt("Codeplug schreiben")

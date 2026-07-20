@@ -111,7 +111,16 @@ class Bridge:
 
     def init_zustand(self) -> dict[str, Any]:
         """Startzustand fürs Frontend (aufgerufen bei pywebviewready)."""
-        return {"tab": self._tool or "bahn"}
+        from . import einstellungen
+        return {"tab": self._tool or "bahn",
+                "einstellungen": einstellungen.laden()}
+
+    def setze_einstellung(self, name: str, wert: Any) -> None:
+        """Einstellung persistieren (U5: Splitter; U6: Theme) — statt
+        localStorage, das WKWebView für file:// nicht zuverlässig über
+        Neustarts behält."""
+        from . import einstellungen
+        einstellungen.setzen(str(name), wert)
 
     def pruefe_feld(self, tool: str, feld: str, wert: str) -> dict[str, Any]:
         """Einzelfeld-Prüfung beim Verlassen des Felds (Live-Feedback)."""
@@ -176,13 +185,31 @@ class Bridge:
 
     def lade_ergebnis(self) -> dict[str, Any] | None:
         """Strukturierte Ergebnisdaten des letzten Laufs (GUI-UMBAU §5):
-        U4 liefert die Kartendaten für die native Leaflet-Ansicht;
-        Kennzahlen und Relais-Liste folgen mit U5. None, wenn (noch)
+        "karte" (U4), "kennzahlen" und "relais" (U5). None, wenn (noch)
         kein Ergebnis vorliegt. Die frühere HTML-srcdoc-Variante (G5)
         entfiel mit dem U1-Frontend-Neubau."""
-        if self._lauf is None or self._lauf.melder.karten_daten is None:
+        if self._lauf is None:
             return None
-        return {"karte": self._lauf.melder.karten_daten}
+        return self._lauf.melder.lauf_daten
+
+    def export_csv(self) -> dict[str, str] | None:
+        """relais.csv als Speichern-unter-Kopie exportieren (U5);
+        None = kein Ergebnis oder Dialog abgebrochen."""
+        if self._lauf is None or self._fenster is None:
+            return None
+        ordner = self._lauf.melder.ergebnis_ordner
+        if ordner is None or not (ordner / "relais.csv").is_file():
+            return None
+        import webview
+        ziel = self._fenster.create_file_dialog(
+            webview.SAVE_DIALOG, save_filename="relais.csv")
+        if not ziel:
+            return None
+        if isinstance(ziel, (list, tuple)):
+            ziel = ziel[0]
+        import shutil
+        shutil.copyfile(ordner / "relais.csv", ziel)
+        return {"pfad": str(ziel)}
 
     def oeffne_ergebnis(self) -> None:
         """Bericht UND Karte im Standardbrowser öffnen — wie --oeffnen

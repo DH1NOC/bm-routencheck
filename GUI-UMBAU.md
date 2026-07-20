@@ -259,12 +259,20 @@ Kartenbild), Abhängigkeit `reportlab>=4.0`.
       Ergebnisansicht mit Segmenten, Overlay, DivIcon-Markern
       (cell_tower), Wegpunkt-Markern, Legende und
       OSM↔Carto-Umschalter — Kacheln laden auch in WKWebView.
-- [ ] **U5 — DataGrid + Top-Bar + Splitter:** Kennzahlen-Top-Bar,
+- [x] **U5 — DataGrid + Top-Bar + Splitter** *(abgenommen 2026-07-20;
+      Abweichungen: »Dauer« entfällt in der Top-Bar — die Route führt
+      keine Fahrzeit; Aktions-Beschriftungen kompakt (CSV/Bericht/
+      Ordner, Volltext im Tooltip), sonst wurde der Routenname
+      abgeschnitten)*: Kennzahlen-Top-Bar (Route, Distanz, drei
+      Abdeckungswerte mit Status-Icons, Modell im Tooltip),
       sortier-/filterbare Relais-Tabelle mit Status-Icons und
-      aufklappbaren Talkgroups, Tabelle↔Karte-Interaktion, ziehbarer
-      Splitter (Position gemerkt), Aktionen CSV Export / Bericht öffnen /
-      Ausgabeordner. *Abnahme:* Sichtprüfung + Stichproben-Abgleich
-      Tabelle gegen `bericht.html`.
+      aufklappbaren Talkgroups (report.relais_daten, dieselben Werte
+      wie Tabelle/CSV/Bericht), Tabelle↔Karte-Interaktion, ziehbarer
+      Splitter (Position in gui.json über die Bridge gemerkt —
+      localStorage ist in WKWebView für file:// nicht neustartfest),
+      Aktionen CSV Export (Speichern-unter) / Bericht öffnen /
+      Ausgabeordner. Melder-Hook karte() → ergebnis_daten()
+      verallgemeinert ({karte, kennzahlen, relais}).
 - [ ] **U6 — Einstellungen:** Zahnrad-Menü mit Theme-Umschalter
       (System/Hell/Dunkel, persistiert), Cache-Info/-Leeren,
       Ausgabeordner. *Abnahme:* Sichtprüfung, Persistenz nach Neustart.

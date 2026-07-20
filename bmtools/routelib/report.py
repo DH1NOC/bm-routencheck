@@ -133,6 +133,48 @@ def print_table(results: list[RepeaterResult], console: Console | None = None) -
     console.print(table)
 
 
+def relais_daten(results: list[RepeaterResult],
+                 tg_names: dict[int, str] | None = None,
+                 ) -> list[dict[str, object]]:
+    """Relais-Zeilen fürs GUI-DataGrid (U5) als JSON-fähige Dicts —
+    dieselben Werte wie Konsolentabelle/CSV/Bericht ("index" verbindet
+    die Zeile mit dem gleichrangigen Karten-Marker aus karten_daten).
+
+    RX/TX aus Sicht des Funkgeräts (RX = Relais-TX); "ton" trägt CC
+    (DMR) bzw. CTCSS (FM, Pilotton — nicht der 1750-Hz-Tonruf);
+    Status-Wortlaut wie in der CSV ("Sicht"/"Grenzbereich")."""
+    namen = tg_names or {}
+    zeilen: list[dict[str, object]] = []
+    for i, r in enumerate(results):
+        d = r.device
+        fm = r.modus == "fm"
+        if fm:
+            ton = f"{r.fm.ctcss_hz:g} Hz" if r.fm.ctcss_hz else ""
+            talkgroups = None
+        else:
+            ton = f"CC{r.dmr.colorcode}" if r.dmr.colorcode else ""
+            talkgroups = [
+                {"ts": s.slot, "tg": s.talkgroup,
+                 "name": ("Lokal" if s.kind == "implicit"
+                          else namen.get(s.talkgroup, "")),
+                 "art": s.kind, "hinweis": s.note}
+                for s in r.tg_profile.subscriptions]
+        zeilen.append({
+            "index": i,
+            "km": round(r.hit.chainage_km, 1),
+            "rufzeichen": d.callsign,
+            "standort": d.city,
+            "abstand_km": round(r.hit.distance_km, 1),
+            "modus": MODUS_LABEL[r.modus],
+            "rx": f"{d.tx_mhz:.5f}",   # Relais-TX = dein RX
+            "tx": f"{d.rx_mhz:.5f}",   # Relais-RX = dein TX
+            "ton": ton,
+            "status": "Grenzbereich" if r.marginal_only else "Sicht",
+            "talkgroups": talkgroups,
+        })
+    return zeilen
+
+
 def _tgs(profile: DeviceProfile, slot: int, kind: str) -> str:
     kinds = ("static", "implicit") if kind == "static" else (kind,)
     items = [s for s in profile.for_slot(slot) if s.kind in kinds]

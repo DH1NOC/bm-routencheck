@@ -545,10 +545,11 @@ select {
   flex-direction: column;
 }
 
-.ergebnis-leiste {
+/* Top-Bar (U5): Route, Kennzahlen mit Status-Icons, Aktionen */
+.topbar {
   display: flex;
   align-items: center;
-  gap: .8rem;
+  gap: .9rem;
   padding: .45rem .9rem;
   border-bottom: 1px solid var(--linie);
   font-size: .85rem;
@@ -559,6 +560,20 @@ select {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.kennzahl {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.kennzahl .icon { width: 17px; height: 17px; }
+.kennzahl.gut .icon { color: var(--gruen); }
+.kennzahl.warnung .icon { color: var(--amber); }
+.kennzahl.schlecht .icon { color: var(--rot); }
+#kz-distanz { color: var(--text-2); }
+
 .leiste-aktionen {
   display: flex;
   gap: .5rem;
@@ -569,8 +584,157 @@ select {
 .umriss.schmal { width: auto; padding: .35rem .7rem; font-size: .8rem; }
 .umriss.schmal .icon { width: 16px; height: 16px; }
 
+/* Split-View Karte/Tabelle mit ziehbarem Splitter (U5) */
+.split {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.splitter {
+  flex: none;
+  height: 7px;
+  cursor: row-resize;
+  background: var(--flaeche-2);
+  border-top: 1px solid var(--linie);
+  border-bottom: 1px solid var(--linie);
+  position: relative;
+}
+/* Grip: drei Punkte in der Mitte */
+.splitter::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 26px;
+  height: 3px;
+  transform: translate(-50%, -50%);
+  border-radius: 2px;
+  background: radial-gradient(circle 1.5px, var(--text-2) 95%,
+                              transparent) 0 0 / 8px 3px repeat-x;
+}
+.splitter:hover { background: var(--hover); }
+
 /* Die Karte folgt bewusst NICHT dem Dunkelmodus (Spezifikation §2) */
-.karte-halter { position: relative; flex: 1; min-height: 0; }
+.karte-halter {
+  position: relative;
+  flex: 0 0 55%;
+  min-height: 0;
+}
+
+/* DataGrid (U5) */
+.datenbereich {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--flaeche);
+}
+.daten-kopf {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  padding: .4rem .9rem;
+  border-bottom: 1px solid var(--linie);
+}
+.suchfeld {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  flex: 0 1 22rem;
+  padding: .25rem .6rem;
+  border: 1px solid var(--linie);
+  border-radius: 8px;
+  background: var(--feld);
+  color: var(--text-2);
+}
+.suchfeld .icon { width: 16px; height: 16px; }
+.suchfeld input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-size: .85rem;
+  color: var(--text);
+}
+.daten-zaehler { font-size: .78rem; color: var(--text-2); }
+
+.tabellen-halter {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.relais-tabelle {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .82rem;
+}
+.relais-tabelle th, .relais-tabelle td {
+  padding: .35rem .55rem;
+  text-align: left;
+  white-space: nowrap;
+}
+.relais-tabelle td.num, .relais-tabelle th.num { text-align: right; }
+.relais-tabelle thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--flaeche-2);
+  border-bottom: 1px solid var(--linie);
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+  user-select: none;
+}
+.relais-tabelle thead th:hover { color: var(--text); }
+.relais-tabelle thead th.sortiert { color: var(--primaer); }
+.relais-tabelle thead th.sortiert[data-richtung="auf"]::after {
+  content: " ▲"; font-size: .6rem;
+}
+.relais-tabelle thead th.sortiert[data-richtung="ab"]::after {
+  content: " ▼"; font-size: .6rem;
+}
+.th-auf, .td-auf { width: 1.9rem; }
+.relais-tabelle tbody tr[data-index] { cursor: pointer; }
+.relais-tabelle tbody tr[data-index]:hover { background: var(--hover); }
+.relais-tabelle tbody tr { border-bottom: 1px solid var(--linie); }
+.relais-tabelle tr.grenz td { opacity: .6; }
+.relais-tabelle tr.aktiv {
+  background: var(--hover);
+  box-shadow: inset 3px 0 0 var(--primaer);
+}
+.relais-tabelle td.status .icon {
+  width: 15px;
+  height: 15px;
+  vertical-align: -3px;
+}
+.relais-tabelle td.status.gut .icon { color: var(--gruen); }
+.relais-tabelle td.status.warnung .icon { color: var(--amber); }
+
+.aufklappen .icon { transition: transform .15s ease; }
+.aufklappen.offen .icon { transform: rotate(90deg); }
+
+/* Talkgroup-Details (aufgeklappte DMR-Zeile) */
+.tg-zeile > td { padding: 0 .55rem .5rem 2.4rem; }
+.tg-tabelle {
+  border-collapse: collapse;
+  font-size: .78rem;
+  background: var(--flaeche-2);
+  border-radius: 8px;
+}
+.tg-tabelle th, .tg-tabelle td {
+  padding: .2rem .7rem;
+  text-align: left;
+}
+.tg-tabelle td.num { text-align: right; }
+.tg-tabelle th {
+  font-size: .72rem;
+  color: var(--text-2);
+  font-weight: 600;
+}
 #karte { position: absolute; inset: 0; background: #d9dee3;
          color-scheme: light; }
 
@@ -594,6 +758,12 @@ select {
 .kmarker.grenz { background: #808A93; }
 .kmarker.station { background: #D55E00; }
 
+/* Ausgewähltes Relais (Tabelle↔Karte, U5) */
+.leaflet-marker-icon.aktiv .kmarker {
+  transform: scale(1.25);
+  box-shadow: 0 0 0 3px var(--fokus), 0 1px 6px rgba(0, 0, 0, .5);
+}
+
 /* Legende wie auf der folium-Karte: fest hell (Karte wird nicht
    invertiert), unten links über der Karte */
 .karten-legende {
@@ -607,7 +777,7 @@ select {
   background: #fff;
   color: #111;
   box-shadow: 0 1px 4px rgba(0, 0, 0, .4);
-  font: 13px/1.8 sans-serif;
+  font: 12px/1.6 sans-serif;
 }
 .karten-legende svg { vertical-align: middle; }
 .legende-rampe {

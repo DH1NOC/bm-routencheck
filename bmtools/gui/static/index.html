@@ -293,25 +293,64 @@
     <div class="konsole" id="konsole"></div>
   </section>
 
-  <!-- Ergebnisansicht (U4): native Leaflet-Karte aus den Bridge-
-       Daten; Kennzahlen-Top-Bar und DataGrid folgen mit U5. -->
+  <!-- Ergebnisansicht (U4/U5): Kennzahlen-Top-Bar, Leaflet-Karte und
+       DataGrid mit ziehbarem Splitter dazwischen. -->
   <section id="ergebnis" class="ergebnisansicht" hidden>
-    <div class="ergebnis-leiste">
+    <div class="topbar">
       <span id="ergebnis-route" class="ergebnis-route"></span>
+      <span class="kennzahl" id="kz-distanz"
+            title="Streckenlänge"></span>
+      <span class="kennzahl gut" id="kz-sicht">
+        <svg class="icon"><use href="#i-check_circle"/></svg>
+        <span class="kz-wert"></span></span>
+      <span class="kennzahl warnung" id="kz-grenz">
+        <svg class="icon"><use href="#i-warning"/></svg>
+        <span class="kz-wert"></span></span>
+      <span class="kennzahl schlecht" id="kz-schatten">
+        <svg class="icon"><use href="#i-cancel"/></svg>
+        <span class="kz-wert"></span></span>
       <span class="leiste-aktionen">
-        <button type="button" class="umriss schmal" id="ergebnis-bericht">
-          <svg class="icon"><use href="#i-open_in_browser"/></svg>
-          Bericht &amp; Karte im Browser
+        <button type="button" class="umriss schmal" id="ergebnis-csv"
+                title="CSV Export — relais.csv speichern unter …">
+          <svg class="icon"><use href="#i-download"/></svg>
+          CSV
         </button>
-        <button type="button" class="umriss schmal" id="ergebnis-ordner">
+        <button type="button" class="umriss schmal" id="ergebnis-bericht"
+                title="Bericht &amp; Karte im Browser öffnen">
+          <svg class="icon"><use href="#i-open_in_browser"/></svg>
+          Bericht
+        </button>
+        <button type="button" class="umriss schmal" id="ergebnis-ordner"
+                title="Ausgabeordner im Dateimanager öffnen">
           <svg class="icon"><use href="#i-folder_open"/></svg>
-          Ausgabeordner
+          Ordner
         </button>
       </span>
     </div>
-    <div class="karte-halter">
-      <div id="karte"></div>
-      <div id="karten-legende" class="karten-legende" hidden></div>
+    <div class="split">
+      <div class="karte-halter" id="karten-bereich">
+        <div id="karte"></div>
+        <div id="karten-legende" class="karten-legende" hidden></div>
+      </div>
+      <div class="splitter" id="splitter" role="separator"
+           aria-orientation="horizontal"
+           title="Ziehen: Aufteilung Karte/Tabelle"></div>
+      <div class="datenbereich">
+        <div class="daten-kopf">
+          <div class="suchfeld">
+            <svg class="icon"><use href="#i-search"/></svg>
+            <input type="search" id="relais-suche"
+                   placeholder="Filtern: Rufzeichen, Standort, Modus …">
+          </div>
+          <span class="daten-zaehler" id="relais-zaehler"></span>
+        </div>
+        <div class="tabellen-halter">
+          <table class="relais-tabelle">
+            <thead id="relais-kopf"></thead>
+            <tbody id="relais-zeilen"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </section>
 </main>

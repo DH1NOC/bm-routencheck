@@ -6,6 +6,7 @@
 
 let aktiverModus = "bahn";
 let laufAktiv = false;
+let einstellungen = {};  // persistiert über die Bridge (gui.json)
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -352,7 +353,10 @@ async function zeigeErgebnis() {
   // realer Größe (sonst stimmen fitBounds/Kachelraster nicht)
   $("#lauf").hidden = true;
   $("#ergebnis").hidden = false;
+  setzeSplitter(einstellungen.splitter || 0.55, false);
+  fuelleTopbar(r.kennzahlen || {});
   baueKarte(r.karte);
+  baueTabelle(r.relais || []);
 }
 
 function baueKarte(k) {
@@ -402,20 +406,29 @@ function baueKarte(k) {
     }).bindTooltip(s.name).addTo(karte);
   });
 
-  k.marker.forEach((mk) => {
-    L.marker([mk.lat, mk.lng],
-             { icon: kartenIcon("i-cell_tower", mk.farbe) })
+  // Marker-Reihenfolge = relais-Zeilen-Reihenfolge (beide entstehen
+  // aus derselben results-Liste): index verbindet Tabelle und Karte
+  markerRefs = [];
+  k.marker.forEach((mk, i) => {
+    const m = L.marker([mk.lat, mk.lng],
+                       { icon: kartenIcon("i-cell_tower", mk.farbe) })
       .bindTooltip(mk.tooltip)
       .bindPopup(mk.popup, { maxWidth: 340 })
       .addTo(karte);
+    m.on("click", () => waehleRelais(i, "karte"));
+    markerRefs.push(m);
   });
 
   karte.fitBounds(k.bounds, { padding: [24, 24] });
   zeigeLegende(k);
 
+  // Nur die Stationsnamen — das Routen-Label steht im Tooltip
+  // (die Top-Bar ist eng, U5-Eigenbefund: »Bah…«)
   const namen = k.stationen.map((s) => s.name);
-  $("#ergebnis-route").textContent =
-    k.route_label + (namen.length ? " · " + namen.join(" → ") : "");
+  const routeText = namen.length ? namen.join(" → ") : k.route_label;
+  const routeEl = $("#ergebnis-route");
+  routeEl.textContent = routeText;
+  routeEl.title = k.route_label + " · " + routeText;
 }
 
 function legendeLinie(farbe, dash) {
@@ -457,6 +470,254 @@ $("#ergebnis-bericht").addEventListener("click", () =>
   window.pywebview.api.oeffne_ergebnis());
 $("#ergebnis-ordner").addEventListener("click", () =>
   window.pywebview.api.oeffne_ordner());
+$("#ergebnis-csv").addEventListener("click", async () => {
+  const r = await window.pywebview.api.export_csv();
+  if (r && r.pfad) statusLinks("CSV gespeichert: " + r.pfad);
+});
+
+/* ------------------------------------------------- Top-Bar (U5) */
+
+function fuelleTopbar(kz) {
+  const daten = [
+    ["#kz-distanz", kz.distanz_km != null ? kz.distanz_km + " km" : ""],
+    ["#kz-sicht", kz.sicht_pct != null ? kz.sicht_pct + " %" : ""],
+    ["#kz-grenz", kz.grenz_pct != null ? kz.grenz_pct + " %" : ""],
+    ["#kz-schatten",
+     kz.schatten_pct != null ? kz.schatten_pct + " %" : ""],
+  ];
+  daten.forEach(([sel, text]) => {
+    const el = $(sel);
+    const wert = el.querySelector(".kz-wert") || el;
+    wert.textContent = text;
+    el.hidden = !text;
+  });
+  const modell = kz.terrain ? "Geländemodell"
+                            : "Horizontmodell, ohne Gelände";
+  $("#kz-sicht").title = "Freie Sicht (" + modell + ")";
+  $("#kz-grenz").title = "Grenzbereich — Beugung möglich (" + modell + ")";
+  $("#kz-schatten").title = "Funkschatten (" + modell + ")";
+}
+
+/* ------------------------------------------------ DataGrid (U5) */
+
+const SPALTEN = [
+  { key: "km", titel: "km", num: true },
+  { key: "rufzeichen", titel: "Rufzeichen" },
+  { key: "standort", titel: "Standort" },
+  { key: "abstand_km", titel: "Abstand", num: true },
+  { key: "modus", titel: "Modus" },
+  { key: "rx", titel: "RX [MHz]", num: true },
+  { key: "tx", titel: "TX [MHz]", num: true },
+  { key: "ton", titel: "Tone/CC" },
+  { key: "status", titel: "Status" },
+];
+
+let relaisZeilen = [];
+let markerRefs = [];
+let sortKey = "km";
+let sortDir = 1;
+let offeneZeilen = new Set();
+let aktivesRelais = null;
+
+function baueTabelle(zeilen) {
+  relaisZeilen = zeilen;
+  offeneZeilen = new Set();
+  aktivesRelais = null;
+  sortKey = "km";
+  sortDir = 1;
+  $("#relais-suche").value = "";
+  baueTabellenkopf();
+  tabelleRendern();
+}
+
+function baueTabellenkopf() {
+  const tr = document.createElement("tr");
+  const auf = document.createElement("th");  // Aufklapp-Spalte
+  auf.className = "th-auf";
+  tr.appendChild(auf);
+  SPALTEN.forEach((s) => {
+    const th = document.createElement("th");
+    th.textContent = s.titel;
+    if (s.num) th.classList.add("num");
+    th.classList.toggle("sortiert", s.key === sortKey);
+    if (s.key === sortKey) {
+      th.dataset.richtung = sortDir > 0 ? "auf" : "ab";
+    }
+    th.addEventListener("click", () => {
+      if (sortKey === s.key) sortDir = -sortDir;
+      else { sortKey = s.key; sortDir = 1; }
+      baueTabellenkopf();
+      tabelleRendern();
+    });
+    tr.appendChild(th);
+  });
+  $("#relais-kopf").replaceChildren(tr);
+}
+
+function gefilterteZeilen() {
+  const filter = $("#relais-suche").value.trim().toLowerCase();
+  let zeilen = relaisZeilen;
+  if (filter) {
+    zeilen = zeilen.filter((z) =>
+      (z.rufzeichen + " " + z.standort + " " + z.modus + " " + z.ton +
+       " " + z.status).toLowerCase().includes(filter));
+  }
+  const spalte = SPALTEN.find((s) => s.key === sortKey);
+  return zeilen.slice().sort((a, b) => {
+    let av = a[sortKey];
+    let bv = b[sortKey];
+    if (spalte.num) {
+      av = parseFloat(av);
+      bv = parseFloat(bv);
+    } else {
+      av = String(av).toLowerCase();
+      bv = String(bv).toLowerCase();
+    }
+    return (av < bv ? -1 : av > bv ? 1 : 0) * sortDir;
+  });
+}
+
+function tabelleRendern() {
+  const tbody = $("#relais-zeilen");
+  tbody.replaceChildren();
+  const zeilen = gefilterteZeilen();
+  zeilen.forEach((z) => {
+    tbody.appendChild(relaisZeile(z));
+    if (offeneZeilen.has(z.index) && z.talkgroups) {
+      tbody.appendChild(talkgroupZeile(z));
+    }
+  });
+  $("#relais-zaehler").textContent =
+    zeilen.length === relaisZeilen.length
+      ? relaisZeilen.length + " Relais"
+      : zeilen.length + " von " + relaisZeilen.length + " Relais";
+}
+
+function relaisZeile(z) {
+  const tr = document.createElement("tr");
+  tr.dataset.index = z.index;
+  tr.classList.toggle("grenz", z.status === "Grenzbereich");
+  tr.classList.toggle("aktiv", z.index === aktivesRelais);
+
+  const auf = document.createElement("td");
+  auf.className = "td-auf";
+  if (z.talkgroups) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "rund klein aufklappen"
+      + (offeneZeilen.has(z.index) ? " offen" : "");
+    b.title = "Talkgroups anzeigen";
+    b.innerHTML = '<svg class="icon"><use href="#i-chevron_right"/></svg>';
+    b.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      if (!offeneZeilen.delete(z.index)) offeneZeilen.add(z.index);
+      tabelleRendern();
+    });
+    auf.appendChild(b);
+  }
+  tr.appendChild(auf);
+
+  SPALTEN.forEach((s) => {
+    const td = document.createElement("td");
+    if (s.num) td.classList.add("num");
+    if (s.key === "status") {
+      const gut = z.status === "Sicht";
+      td.className = "status " + (gut ? "gut" : "warnung");
+      td.innerHTML = '<svg class="icon"><use href="#'
+        + (gut ? "i-check_circle" : "i-warning") + '"/></svg> '
+        + z.status;
+    } else {
+      td.textContent = z[s.key];
+    }
+    tr.appendChild(td);
+  });
+
+  tr.addEventListener("click", () => waehleRelais(z.index, "tabelle"));
+  return tr;
+}
+
+const TG_ART = { timed: "zeitgeschaltet", cluster: "Cluster" };
+
+function talkgroupZeile(z) {
+  const tr = document.createElement("tr");
+  tr.className = "tg-zeile";
+  const td = document.createElement("td");
+  td.colSpan = SPALTEN.length + 1;
+  const t = document.createElement("table");
+  t.className = "tg-tabelle";
+  t.innerHTML = "<tr><th>TS</th><th>TG</th><th>Name</th></tr>";
+  z.talkgroups.forEach((tg) => {
+    const zeile = document.createElement("tr");
+    let name = tg.name || "";
+    if (TG_ART[tg.art]) {
+      name += (name ? " — " : "") + TG_ART[tg.art]
+        + (tg.hinweis ? " (" + tg.hinweis + ")" : "");
+    }
+    [tg.ts, tg.tg, name].forEach((wert, i) => {
+      const zelle = document.createElement("td");
+      if (i < 2) zelle.className = "num";
+      zelle.textContent = wert;
+      zeile.appendChild(zelle);
+    });
+    t.appendChild(zeile);
+  });
+  td.appendChild(t);
+  tr.appendChild(td);
+  return tr;
+}
+
+/* Tabelle↔Karte: Zeile wählt Marker (zentrieren + hervorheben),
+   Marker wählt Zeile (hinscrollen + hervorheben). */
+function waehleRelais(index, quelle) {
+  if (aktivesRelais !== null && markerRefs[aktivesRelais]) {
+    const alt = markerRefs[aktivesRelais];
+    alt.setZIndexOffset(0);
+    if (alt.getElement()) alt.getElement().classList.remove("aktiv");
+  }
+  aktivesRelais = index;
+  const marker = markerRefs[index];
+  if (marker) {
+    marker.setZIndexOffset(1000);
+    if (marker.getElement()) marker.getElement().classList.add("aktiv");
+    if (quelle === "tabelle") karte.panTo(marker.getLatLng());
+  }
+  $$("#relais-zeilen tr[data-index]").forEach((tr) =>
+    tr.classList.toggle("aktiv", Number(tr.dataset.index) === index));
+  if (quelle === "karte") {
+    const tr = document.querySelector(
+      '#relais-zeilen tr[data-index="' + index + '"]');
+    if (tr) tr.scrollIntoView({ block: "nearest" });
+  }
+}
+
+$("#relais-suche").addEventListener("input", tabelleRendern);
+
+/* ------------------------------------------------- Splitter (U5) */
+
+let splitterAnteil = 0.55;
+
+function setzeSplitter(anteil, speichern) {
+  splitterAnteil = Math.min(0.8, Math.max(0.2, anteil));
+  $("#karten-bereich").style.flexBasis = (splitterAnteil * 100) + "%";
+  if (karte) karte.invalidateSize();
+  if (speichern) {
+    window.pywebview.api.setze_einstellung("splitter", splitterAnteil);
+  }
+}
+
+$("#splitter").addEventListener("mousedown", (ev) => {
+  ev.preventDefault();
+  const bereich = $(".split").getBoundingClientRect();
+  const ziehen = (e) =>
+    setzeSplitter((e.clientY - bereich.top) / bereich.height, false);
+  const loslassen = () => {
+    document.removeEventListener("mousemove", ziehen);
+    document.removeEventListener("mouseup", loslassen);
+    window.pywebview.api.setze_einstellung("splitter", splitterAnteil);
+  };
+  document.addEventListener("mousemove", ziehen);
+  document.addEventListener("mouseup", loslassen);
+});
 
 /* -------------------------------------------------- Einstellungen */
 
@@ -627,6 +888,7 @@ window.bmEreignis = (e) => {
 
 window.addEventListener("pywebviewready", async () => {
   const z = await window.pywebview.api.init_zustand();
+  einstellungen = z.einstellungen || {};
   waehleModus(z.tab || "bahn");
 });
 
