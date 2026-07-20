@@ -367,20 +367,18 @@ function zeigeDialog(e, handler) {
   knoepfe.replaceChildren();
 
   if (e.art === "auswahl") {
+    // Klickbare Liste (U3): EIN Klick wählt aus und schließt sofort.
+    // Die Vorgabe (Top-Treffer) ist markiert und fokussiert — Enter
+    // übernimmt sie, wie die Vorauswahl im Terminal.
     e.optionen.forEach((text, i) => {
-      const label = document.createElement("label");
-      label.className = "dialog-option";
-      const radio = document.createElement("input");
-      radio.type = "radio";
-      radio.name = "dialog-auswahl";
-      radio.value = i;
-      radio.checked = i === (e.default ?? 0);
-      label.appendChild(radio);
-      label.appendChild(document.createTextNode(" " + text));
-      optionen.appendChild(label);
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "dialog-eintrag"
+        + (i === (e.default ?? 0) ? " vorgabe" : "");
+      b.textContent = text;
+      b.addEventListener("click", () => antworte(i));
+      optionen.appendChild(b);
     });
-    knoepfe.appendChild(knopf("Übernehmen", "start", () =>
-      antworte(Number($('input[name="dialog-auswahl"]:checked').value))));
     knoepfe.appendChild(knopf("Abbrechen", "neben", () => antworte(null)));
   } else {  // ja_nein
     knoepfe.appendChild(knopf("Ja", e.default ? "start" : "neben",
@@ -389,7 +387,31 @@ function zeigeDialog(e, handler) {
                               () => antworte(false)));
   }
   $("#dialog-hintergrund").hidden = false;
+  const fokus = optionen.querySelector(".vorgabe")
+    || knoepfe.querySelector(".start");
+  if (fokus) fokus.focus();
 }
+
+/* Tastatur im Dialog: Escape bricht ab (Auswahl-Abbruch beendet den
+   Lauf — wie bisher), Pfeiltasten wandern durch die Einträge. */
+document.addEventListener("keydown", (ev) => {
+  if ($("#dialog-hintergrund").hidden) return;
+  if (ev.key === "Escape") {
+    ev.preventDefault();
+    antworte(null);
+    return;
+  }
+  if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp") return;
+  const eintraege = $$("#dialog-optionen .dialog-eintrag");
+  if (!eintraege.length) return;
+  ev.preventDefault();
+  const i = eintraege.indexOf(document.activeElement);
+  const n = eintraege.length;
+  const runter = ev.key === "ArrowDown";
+  const ziel = i === -1 ? (runter ? 0 : n - 1)
+                        : (runter ? (i + 1) % n : (i - 1 + n) % n);
+  eintraege[ziel].focus();
+});
 
 /* --------------------------------------------------- Cache leeren */
 

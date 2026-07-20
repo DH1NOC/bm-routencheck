@@ -306,10 +306,13 @@
 
 </div>
 
-<!-- Frage-Dialog (Auswahl/Bestätigung — Material-Politur folgt U3) -->
+<!-- Frage-Dialog (U3): zentrierter Material-Dialog. Auswahl-Fragen
+     (Geocoding, Bahn-Verbindungswahl) als klickbare Liste — EIN Klick
+     wählt und schließt; Abbrechen bricht den Lauf ab. -->
 <div id="dialog-hintergrund" hidden>
-  <div id="dialog" role="dialog" aria-modal="true">
-    <p id="dialog-frage"></p>
+  <div id="dialog" role="dialog" aria-modal="true"
+       aria-labelledby="dialog-frage">
+    <h2 id="dialog-frage"></h2>
     <div id="dialog-optionen"></div>
     <div class="dialog-knoepfe" id="dialog-knoepfe"></div>
   </div>

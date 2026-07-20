@@ -242,10 +242,13 @@ Kartenbild), Abhängigkeit `reportlab>=4.0`.
       Berechnen↔Abbrechen-Wechsel (Amber, sofort wirksam),
       Statusleisten-Schritt, Abschluss-Karte mit Ausgaben-Liste und
       Öffnen-Aktionen.
-- [ ] **U3 — Material-Dialoge:** Geocoding-Auswahl und
-      Bahn-Verbindungswahl als zentrierte MDC-Dialoge mit klickbarer
-      Liste (Ein-Klick-Auswahl). *Abnahme:* mehrdeutiger Ort
-      (»Hamburg«) und Bahn-Verbindungswahl in der GUI.
+- [x] **U3 — Material-Dialoge** *(abgenommen 2026-07-20 ohne
+      Befunde)*: Geocoding-Auswahl und Bahn-Verbindungswahl als
+      zentrierte Material-Dialoge mit klickbarer Liste — EIN Klick
+      wählt und schließt; Vorgabe (Top-Treffer) markiert und
+      fokussiert (Enter übernimmt), Pfeiltasten wandern, Escape
+      bricht den Lauf ab; Optionsliste scrollt bei vielen
+      Kandidaten.
 - [ ] **U4 — Leaflet-Karte:** Leaflet lokal gebündelt; Route, Overlay,
       Marker, Legende, Layer-Umschalter aus den Bridge-Daten;
       funktional gleichwertig zur Folium-Karte. *Abnahme:*

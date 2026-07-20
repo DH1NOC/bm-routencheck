@@ -565,7 +565,7 @@ select {
   text-decoration: underline;
 }
 
-/* ====================================== Dialog (Politur folgt U3) */
+/* ============================================ Material-Dialog (U3) */
 #dialog-hintergrund {
   position: fixed;
   inset: 0;
@@ -576,30 +576,51 @@ select {
   background: rgba(15, 25, 35, .5);
 }
 #dialog {
+  display: flex;
+  flex-direction: column;
   width: min(90vw, 34rem);
   max-height: 80vh;
-  overflow-y: auto;
   padding: 1.2rem 1.4rem;
   border-radius: 14px;
   background: var(--flaeche);
   box-shadow: 0 12px 40px var(--schatten);
+  animation: dialog-auf .18s ease;
 }
-#dialog-frage { margin: 0 0 .8rem; font-weight: 600; }
+@keyframes dialog-auf {
+  from { opacity: 0; transform: translateY(10px) scale(.97); }
+}
+#dialog-frage { margin: 0 0 .9rem; font-size: 1rem; font-weight: 650; }
 
-.dialog-option {
+/* Optionsliste scrollt bei vielen Kandidaten, Kopf und Knöpfe bleiben
+   stehen; 2px Innenabstand, damit der Fokus-Ring nicht abgeschnitten
+   wird. */
+#dialog-optionen {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px;
+  margin: -2px;
+}
+
+.dialog-eintrag {
   display: block;
+  width: 100%;
   margin-bottom: .4rem;
-  padding: .5rem .65rem;
+  padding: .6rem .8rem;
   border: 1px solid var(--linie);
   border-radius: 8px;
-  cursor: pointer;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  overflow-wrap: anywhere;
 }
-.dialog-option:hover { background: var(--hover); }
-.dialog-option:has(input:checked) {
-  border-color: var(--primaer);
-  background: var(--hover);
+.dialog-eintrag:hover { background: var(--hover); }
+.dialog-eintrag:focus-visible {
+  outline: 2px solid var(--fokus);
+  outline-offset: -1px;
 }
-.dialog-option input { accent-color: var(--primaer); }
+/* Vorgabe (Top-Treffer): markiert wie die Terminal-Vorauswahl —
+   Enter übernimmt sie direkt */
+.dialog-eintrag.vorgabe { border-color: var(--primaer); }
 
 .dialog-knoepfe {
   display: flex;
