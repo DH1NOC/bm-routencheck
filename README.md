@@ -15,12 +15,15 @@ druckfertigen PDF-Bericht. Bedient wird wahlweise über das Programmfenster
 (auf dem Desktop) oder vollwertig im Terminal — interaktiv per Menü oder
 per Flags für Skripte.
 
-![Interaktive Karte eines Laufs: Route mit Relais-Markern und geschätzten Sichtfeldern](docs/beispielkarte.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/fenster-dunkel.png">
+  <img alt="Das Programmfenster nach einem Lauf Hamburg → Lindau: links die Routing-Parameter, rechts Kennzahlen, Karte und Relais-Tabelle" src="docs/fenster-hell.png">
+</picture>
 
-*Die interaktive Karte (`karte.html`) eines Laufs: Die Strecke ist nach
-Erreichbarkeit gezeichnet (durchgezogen = Sicht, gestrichelt = Grenzbereich,
-gepunktet = Schatten), die blauen Flächen sind die berechneten Sichtfelder
-der erreichbaren Relais — je dunkler, desto mehr Relais.*
+*Das Programmfenster nach einem Lauf Hamburg → Lindau: links die
+Routing-Parameter, rechts Kennzahlen, Karte mit Route, Sichtfeldern und
+Relais-Markern sowie die filterbare Relais-Tabelle. Helles und dunkles
+Design, je nach System oder Wahl.*
 
 ## Inhalt
 
@@ -51,9 +54,9 @@ ohne Ausnahmemöglichkeit blockiert — dann SAC deaktivieren
 (Windows-Sicherheit → App- & Browsersteuerung) oder die
 [Installation aus dem Quellcode](#installation-aus-dem-quellcode) nutzen.
 
-**macOS (Apple Silicon):** Das ZIP herunterladen und entpacken. bmtools ist
-ein Terminalprogramm und wird **im Terminal gestartet — nicht per
-Doppelklick im Finder:**
+**macOS (Apple Silicon):** Das ZIP herunterladen und entpacken. bmtools
+wird **im Terminal gestartet — nicht per Doppelklick im Finder** (auf dem
+Desktop öffnet sich dann das Programmfenster):
 
 ```bash
 # ZIP entpacken, dann im Terminal:
@@ -87,6 +90,10 @@ direkt neu berechnen, ohne Bildschirmwechsel; während der Berechnung
 zeigen Fortschrittsbalken und eine Log-Konsole den Stand, Abbrechen wirkt
 sofort. Rückfragen (mehrdeutige Orte, Verbindungswahl) erscheinen als
 Auswahl-Dialoge.
+
+| ![Verbindungswahl als Auswahl-Dialog](docs/verbindungswahl.png) | ![Fortschrittsansicht mit Log-Konsole](docs/fortschritt.png) |
+|---|---|
+| *Rückfragen als Ein-Klick-Dialog: die Verbindungswahl bei `Bahn`* | *Während der Berechnung: Fortschritt oben, Log-Konsole unten* |
 
 Nach dem Lauf zeigt das Fenster:
 
@@ -158,6 +165,20 @@ Frequenzangaben in allen Ausgaben sind aus Sicht des Funkgeräts
 70-cm-Relais (10 m/6 m/23 cm werden aussortiert). TG9 „Lokal" wird immer
 ergänzt, auch wenn die API sie nicht listet. Der AnyTone-Export nutzt
 derzeit das D878UV-Spaltenlayout.
+
+![Interaktive Karte eines Laufs: Route mit Relais-Markern und geschätzten Sichtfeldern](docs/beispielkarte.png)
+
+*Die interaktive Karte (`karte.html`) im Browser: Die Strecke ist nach
+Erreichbarkeit gezeichnet (durchgezogen = Sicht, gestrichelt =
+Grenzbereich, gepunktet = Schatten), die blauen Flächen sind die
+berechneten Sichtfelder der erreichbaren Relais — je dunkler, desto mehr
+Relais.*
+
+<img alt="Deckblatt des PDF-Berichts: Kennzahlen und Übersichtskarte" src="docs/bericht-pdf.png" width="430">
+
+*Der Druckbericht (`bericht.pdf`, DIN A4): Deckblatt mit Kennzahlen und
+Übersichtskarte, danach die Relais-Tabelle mit Talkgroup-Details —
+nummerierte Marker verweisen auf die Tabellenzeilen.*
 
 ## Die Tools im Detail
 
