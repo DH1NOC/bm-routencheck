@@ -99,9 +99,10 @@ die erst die Pipeline die rich-Fortschrittsbalken aus `ui.py` hängt.
 `bmtools/gui/` enthält das Programmfenster: ein Single-Window Workspace
 (Control Panel links, Karte + DataGrid rechts) als pywebview-Fenster über
 einem Vanilla-HTML/JS/CSS-Frontend — kein Framework, kein CDN. Konzept,
-Nutzerfestlegungen und Abnahmeprotokolle stehen in
-[`GUI-UMBAU.md`](GUI-UMBAU.md). Die Pipeline bleibt die eine Quelle der
-Wahrheit; der Terminal-Modus ist vollwertig und unverändert.
+Nutzerfestlegungen und Abnahmeprotokolle sind in der Git-Historie von
+`GUI-UMBAU.md` nachlesbar (Plan mit dem Abschluss aufgelöst). Die
+Pipeline bleibt die eine Quelle der Wahrheit; der Terminal-Modus ist
+vollwertig und unverändert.
 
 **Start** (`gui/__init__.py`): `desktop_verfuegbar()` erkennt grob, ob
 ein Fenster möglich ist (SSH zählt als Terminal; Linux braucht

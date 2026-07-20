@@ -20,12 +20,12 @@ Seit dem GUI-Umbau (2026-07-18 bis 2026-07-20, Branch
 Oberfläche — ein Single-Window Workspace auf pywebview-Basis (auf dem
 Desktop öffnet der Aufruf ohne Argumente das Fenster,
 `--gui`/`--terminal` erzwingen; Terminal-Modus vollwertig erhalten) —
-und einen PDF-Export (`--pdf` bzw. GUI-Knopf, `bericht.pdf`). Konzept,
-Nutzerfestlegungen und Abnahmen stehen in
-[`GUI-UMBAU.md`](GUI-UMBAU.md) (erste Ausbaustufe G0–G5, Workspace
-U0–U8 abgenommen; U9 = QS + Doku in Abnahme, danach
-Merge-Entscheidung); die Technik beschreibt
-[DEVELOPER.md](DEVELOPER.md). Dieses
+und einen PDF-Export (`--pdf` bzw. GUI-Knopf, `bericht.pdf`). Alle
+Meilensteine sind abgenommen (erste Ausbaustufe G0–G5, Workspace
+U0–U9); Konzept, Nutzerfestlegungen und Abnahmeprotokolle sind in der
+Git-Historie von `GUI-UMBAU.md` nachlesbar (mit U9 aufgelöst). Der
+interaktive Gegentest über eine Beta und die Merge-Entscheidung stehen
+aus; die Technik beschreibt [DEVELOPER.md](DEVELOPER.md). Dieses
 Dokument hält nur noch fest, was für die Weiterarbeit gebraucht wird:
 offene Punkte, verbindliche Festlegungen und die Eigenheiten der externen
 Datenquellen. Die Abnahmeprotokolle der erledigten Meilensteine (M0–M6,
@@ -65,7 +65,7 @@ Projektprinzipien:
 | Keyless | Nur Dienste ohne API-Key/Anmeldung; keine Credentials im Tool verarbeiten (bewusste Entscheidung, z. B. kein Komoot-Login) |
 | Kein Try&Error | Jede Erweiterung endet mit einem konkreten, abgenommenen Testlauf |
 | CLI durchgängig Deutsch | Kommandos `bm-bahn`/`bm-auto`/`bm-rad`, deutsche Flags; englische Originale bleiben als stille Aliasse gültig (Skript-Kompatibilität); argparse-Standardtexte via `ui.argparse_deutsch()` |
-| GUI | Single-Window Workspace (pywebview, Material-Anmutung, durchgängig Deutsch); auf dem Desktop öffnet der Aufruf ohne Routen-Argumente das Fenster, `--gui`/`--terminal` erzwingen; Terminal-Modus bleibt vollwertig (kein schleichender Rückbau von questionary/rich); Frontend-Assets (Leaflet, Material Symbols) lokal gebündelt, keine CDN-Zugriffe; PDF nur auf Knopfdruck bzw. `--pdf`, kein Automatik-Export (Festlegungen 2026-07-19, GUI-UMBAU.md) |
+| GUI | Single-Window Workspace (pywebview, Material-Anmutung, durchgängig Deutsch); auf dem Desktop öffnet der Aufruf ohne Routen-Argumente das Fenster, `--gui`/`--terminal` erzwingen; Terminal-Modus bleibt vollwertig (kein schleichender Rückbau von questionary/rich); Frontend-Assets (Leaflet, Material Symbols) lokal gebündelt, keine CDN-Zugriffe; PDF nur auf Knopfdruck bzw. `--pdf`, kein Automatik-Export (Festlegungen 2026-07-19; Plan-Historie: `GUI-UMBAU.md` in Git) |
 | Assistenten-Reihenfolge | Die Modus-Frage (DMR/FM/beide) ist in allen Tools die **letzte** Frage — nach kompletter Streckenwahl inkl. Geocoding-/Verbindungs-Rückfragen und Bestätigungen, nie mittendrin (Nutzerwunsch 2026-07-15) |
 | Schlanke Abhängigkeiten | Bewusst kein shapely/geopandas — segmentweise Haversine-Distanz reicht |
 | Konsistenz der Ausgaben | Karte, Bericht und CSV zeigen exakt dieselben Relais; Grenzbereichs-Relais sind vollwertige, markierte Einträge (graue Marker, Badge, CSV-Spalte `erreichbarkeit`) |
