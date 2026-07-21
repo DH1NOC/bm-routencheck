@@ -245,6 +245,13 @@ Releases werden manuell über GitHub Actions gebaut:
   Für Intel-Macs wird bewusst nichts gebaut — mangels Testgerät wäre das
   ein ungetestetes Asset; die README verweist diese Nutzer auf die
   Installation aus dem Quellcode.
+- **Release-Notes:** `release.yml` legt den Release fest verdrahtet mit
+  `--generate-notes` an — das ergibt die rohe Commit-Liste („A8-Fix 2",
+  „GUI-Fix: …"), für einen Hauptrelease zu wenig. Ein handgeschriebener
+  Text wird deshalb **nach** dem Workflow-Lauf drübergelegt:
+  `gh release edit v0.2.0 --notes-file notes.md`. Der Aufruf ersetzt den
+  ganzen Body, der automatische `**Full Changelog**`-Vergleichslink ist
+  danach weg — wenn er bleiben soll, gehört er unten in die Datei.
 - **Nachbereitung eines Releases:** Die Betas zur veröffentlichten
   Version aufräumen — auf GitHub das Pre-Release löschen und den Tag
   dazu (`git push origin :refs/tags/v0.2.0-beta.6`). **Erst nach dem

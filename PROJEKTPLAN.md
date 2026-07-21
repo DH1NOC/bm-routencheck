@@ -26,8 +26,8 @@ Qt/WebEngine-Backend. Die Terminal-Bedienung bleibt auf allen Plattformen
 vollwertig erhalten. Alle Meilensteine sind abgenommen (Grundstufe
 G0–G5, Workspace U0–U9, GUI-first-Auslieferung A1–A9) und über die
 Beta-Releases v0.2.0-beta.1 bis beta.6 interaktiv gegengetestet
-(abgeschlossen 2026-07-21); der Umbau geht als Featureversion 0.2.0 in
-den Release. Frühere Releases: v0.1.1 und v0.1.2 (beide 2026-07-17 —
+(abgeschlossen 2026-07-21); veröffentlicht als Featureversion **0.2.0**
+(2026-07-21). Frühere Releases: v0.1.1 und v0.1.2 (beide 2026-07-17 —
 Fortschrittsbalken mit ETA, Cache-leeren-Funktion, Trennung von README
 und DEVELOPER.md).
 
