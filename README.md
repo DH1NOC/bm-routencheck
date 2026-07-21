@@ -160,7 +160,10 @@ Bei der Installation aus dem Quellcode heißen die Tools zusätzlich
 ## Die Ergebnis-Dateien
 
 Jeder Lauf legt seine Ausgaben in `out/<start>-<ziel>/` ab (änderbar mit
-`--ausgabe`):
+`--ausgabe`). Im Terminal liegt `out/` im aktuellen Arbeitsverzeichnis;
+beim Start per Doppelklick (Finder/Explorer) wechselt die App in den
+Ordner `Dokumente/BM-Routencheck` und legt `out/` dort an. Der Knopf
+**Ausgabeordner öffnen** im Programmfenster führt immer direkt hin.
 
 | Datei | Inhalt |
 |---|---|

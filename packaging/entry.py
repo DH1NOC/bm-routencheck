@@ -40,6 +40,29 @@ if sys.platform == "win32":
         if isinstance(_strom, io.TextIOWrapper):
             _strom.reconfigure(encoding="utf-8", errors="replace")
 
+def _schreibbares_arbeitsverzeichnis() -> None:
+    """App-Start ohne beschreibbares CWD abfangen (Beta-Befund 2026-07-21).
+
+    Ergebnisse (out/…) entstehen relativ zum Arbeitsverzeichnis. Beim
+    Doppelklick-Start ist das CWD aber nicht wählbar und oft nicht
+    beschreibbar — macOS/Finder startet Apps mit CWD "/" (read-only-
+    Systemvolume, OSError 30), unter Windows kann die Exe in einem
+    geschützten Ordner liegen. Dann in Dokumente/BM-Routencheck wechseln;
+    im Terminal gestartet bleibt das gewohnte ./out unberührt.
+    """
+    if os.access(os.getcwd(), os.W_OK):
+        return
+    from pathlib import Path
+
+    import platformdirs
+    ziel = Path(platformdirs.user_documents_dir()) / "BM-Routencheck"
+    try:
+        ziel.mkdir(parents=True, exist_ok=True)
+        os.chdir(ziel)
+    except OSError:
+        os.chdir(Path.home())
+
+
 if __name__ == "__main__":
     # Muss vor dem App-Start stehen: Windows/macOS starten multiprocessing-
     # Kindprozesse (Sichtfeld-Rendering, mapview.py) per Neuaufruf des
@@ -48,5 +71,6 @@ if __name__ == "__main__":
     # und "process pool was terminated abruptly").
     multiprocessing.freeze_support()
 
+    _schreibbares_arbeitsverzeichnis()
     from bmtools.cli import main
     sys.exit(main())
