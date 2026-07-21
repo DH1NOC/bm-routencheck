@@ -6,38 +6,38 @@ Stand: 2026-07-21
 
 Die drei Tools `bm-bahn`, `bm-auto` und `bm-rad` sind fertig und abgenommen
 (gemeinsamer Kern in `bmtools/routelib/`, Bedienung siehe
-[README](README.md), Technik siehe [DEVELOPER.md](DEVELOPER.md)); seit dem
+[README](README.md), Technik siehe [DEVELOPER.md](DEVELOPER.md)). Seit dem
 FM-Umbau (2026-07-15) werten sie neben Brandmeister-DMR auch analoge
-FM-Relais aus (`--modus`, Default beide; Quelle: relaislisten.darc.de).
-Erster Release v0.1.1 (2026-07-17); v0.1.2 (2026-07-17) ergänzt
-Fortschrittsbalken mit ETA für die längeren Pipeline-Schritte, eine
-Cache-leeren-Funktion (Menü und `bmtools cache --leeren`), einen
-Menü-Fix (Beenden warf `KeyError`) und die Trennung von README (Endnutzer)
-und DEVELOPER.md (Technik) — im Beta-Release v0.1.2-beta.1 interaktiv
-gegengetestet, danach gemergt und die Beta-Artefakte aufgeräumt. Dieses
-Seit dem GUI-Umbau (2026-07-18 bis 2026-07-20, Branch
-`feature/gui-umbau`) hat das Projekt zusätzlich eine grafische
-Oberfläche — ein Single-Window Workspace auf pywebview-Basis (auf dem
-Desktop öffnet der Aufruf ohne Argumente das Fenster,
-`--gui`/`--terminal` erzwingen; Terminal-Modus vollwertig erhalten) —
-und einen PDF-Export (`--pdf` bzw. GUI-Knopf, `bericht.pdf`). Alle
-Meilensteine sind abgenommen (erste Ausbaustufe G0–G5, Workspace
-U0–U9); Konzept, Nutzerfestlegungen und Abnahmeprotokolle sind in der
-Git-Historie von `GUI-UMBAU.md` nachlesbar (mit U9 aufgelöst). Der
-interaktive Gegentest über eine Beta und die Merge-Entscheidung stehen
-aus; die Technik beschreibt [DEVELOPER.md](DEVELOPER.md). Seit 2026-07-21
-ist die GUI das Hauptprodukt (Schritte A1–A4 auf demselben Branch):
+FM-Relais aus (`--modus`, Default beide; Quelle: relaislisten.darc.de);
+je Lauf entstehen HTML-Bericht, interaktive Karte, CSV, Codeplug-Dateien
+(AnyTone, CHIRP) und auf Wunsch ein PDF-Bericht.
+
+Seit dem GUI-Umbau (2026-07-18 bis 2026-07-21, Branch
+`feature/gui-umbau`) ist die grafische Oberfläche das Hauptprodukt: ein
+Single-Window Workspace auf pywebview-Basis (der Aufruf ohne
+Routen-Argumente öffnet auf dem Desktop das Fenster, `--gui`/`--terminal`
+erzwingen), ein PDF-Export (`--pdf` bzw. GUI-Knopf, `bericht.pdf`), ein
 eigenes Programmicon (Navi-Karten-Motiv, Master
-`packaging/icon/icon.svg`), die Releases liefern ein
-`BM-Routencheck.app` (macOS: signiert, notarisiert, Ticket angeheftet)
-und eine windowed `BM-Routencheck.exe` (Windows: AttachConsole-Shim für
-die Terminal-Ausgabe); Linux bleibt Terminal-Binary `bmtools`. Die
-Terminal-Bedienung bleibt auf allen Plattformen vollwertig erhalten. Dieses
-Dokument hält nur noch fest, was für die Weiterarbeit gebraucht wird:
-offene Punkte, verbindliche Festlegungen und die Eigenheiten der externen
-Datenquellen. Die Abnahmeprotokolle der erledigten Meilensteine (M0–M6,
-R0–R5, FM-Umbau F0–F4) sind in der Git-Historie nachlesbar (F0–F3 in der
-Historie von `FM-UMBAU.md`, mit F4 aufgelöst).
+`packaging/icon/icon.svg`) und eine plattformgerechte Auslieferung:
+macOS `BM-Routencheck.app` (signiert, notarisiert, Ticket angeheftet),
+Windows eine windowed `BM-Routencheck.exe` (AttachConsole-Shim für die
+Terminal-Ausgabe), Linux das Binary `bmtools` mit gebündeltem
+Qt/WebEngine-Backend. Die Terminal-Bedienung bleibt auf allen Plattformen
+vollwertig erhalten. Alle Meilensteine sind abgenommen (Grundstufe
+G0–G5, Workspace U0–U9, GUI-first-Auslieferung A1–A9) und über die
+Beta-Releases v0.2.0-beta.1 bis beta.6 interaktiv gegengetestet
+(abgeschlossen 2026-07-21); der Umbau geht als Featureversion 0.2.0 in
+den Release. Frühere Releases: v0.1.1 und v0.1.2 (beide 2026-07-17 —
+Fortschrittsbalken mit ETA, Cache-leeren-Funktion, Trennung von README
+und DEVELOPER.md).
+
+Dieses Dokument hält nur noch fest, was für die Weiterarbeit gebraucht
+wird: offene Punkte, verbindliche Festlegungen und die Eigenheiten der
+externen Datenquellen. Die Abnahmeprotokolle der erledigten Meilensteine
+sind in der Git-Historie nachlesbar — M0–M6 und R0–R5 in der dieses
+Dokuments, FM-Umbau F0–F3 in der von `FM-UMBAU.md` (mit F4 aufgelöst),
+GUI-Umbau G0–G5 und U0–U9 samt Konzept und Nutzerfestlegungen in der von
+`GUI-UMBAU.md` (mit U9 aufgelöst).
 
 ## 2. Offene Punkte
 
@@ -55,13 +55,14 @@ Historie von `FM-UMBAU.md`, mit F4 aufgelöst).
 - [ ] Google-Link mit per Maus verschobener Route (Drag-Via) an einem echten
       Link verifizieren — Heuristik ist implementiert und unit-getestet,
       ein echter Beispiel-Link steht noch aus.
-- [ ] Komoot-API-Geometrie gegen einen Original-GPX-Export aus der
-      Komoot-App vergleichen (Kreuzvalidierung Komoot-Lauf vs. Lauf mit
-      selbst erzeugtem GPX war byte-identisch; ein Original-Export fehlt
-      noch — der API-Endpunkt `tours/<id>.gpx` liefert auch mit share_token
-      403, verifiziert 2026-07-13).
-- [ ] Spätere Tools konkretisieren (Ideen: Lastheard-Monitor via
-      MQTT/WebSocket, TG-Aktivitätsstatistik).
+
+### Ideen (unverbindlich, kein Auftrag)
+
+Nichts davon ist zugesagt — die Liste hält nur fest, worüber gesprochen
+wurde, damit §2 ausschließlich echte Verpflichtungen führt:
+
+- Lastheard-Monitor via MQTT/WebSocket.
+- TG-Aktivitätsstatistik.
 
 ## 3. Verbindliche Festlegungen
 
@@ -73,6 +74,7 @@ Projektprinzipien:
 | Kein Try&Error | Jede Erweiterung endet mit einem konkreten, abgenommenen Testlauf |
 | CLI durchgängig Deutsch | Kommandos `bm-bahn`/`bm-auto`/`bm-rad`, deutsche Flags; englische Originale bleiben als stille Aliasse gültig (Skript-Kompatibilität); argparse-Standardtexte via `ui.argparse_deutsch()` |
 | GUI | Single-Window Workspace (pywebview, Material-Anmutung, durchgängig Deutsch); auf dem Desktop öffnet der Aufruf ohne Routen-Argumente das Fenster, `--gui`/`--terminal` erzwingen; Terminal-Modus bleibt vollwertig (kein schleichender Rückbau von questionary/rich); Frontend-Assets (Leaflet, Material Symbols) lokal gebündelt, keine CDN-Zugriffe; PDF nur auf Knopfdruck bzw. `--pdf`, kein Automatik-Export (Festlegungen 2026-07-19; Plan-Historie: `GUI-UMBAU.md` in Git); GUI-first-Auslieferung (2026-07-21): macOS nur `BM-Routencheck.app` im ZIP, Windows eine windowed Exe, App-Name „BM-Routencheck" |
+| Auslieferungsplattformen | Gebaut werden Windows x64, Linux x64 und macOS **Apple Silicon (arm64)**. Für Intel-Macs gibt es bewusst kein Binary: kein Testgerät vorhanden, und ein ungetestetes Asset auszuliefern verstößt gegen „Kein Try&Error". Intel-Nutzer nehmen die Installation aus dem Quellcode (README) — dort ist es dokumentiert (Festlegung 2026-07-21) |
 | Assistenten-Reihenfolge | Die Modus-Frage (DMR/FM/beide) ist in allen Tools die **letzte** Frage — nach kompletter Streckenwahl inkl. Geocoding-/Verbindungs-Rückfragen und Bestätigungen, nie mittendrin (Nutzerwunsch 2026-07-15) |
 | Schlanke Abhängigkeiten | Bewusst kein shapely/geopandas — segmentweise Haversine-Distanz reicht |
 | Konsistenz der Ausgaben | Karte, Bericht und CSV zeigen exakt dieselben Relais; Grenzbereichs-Relais sind vollwertige, markierte Einträge (graue Marker, Badge, CSV-Spalte `erreichbarkeit`) |
