@@ -91,7 +91,10 @@ def gui_starten(tool: str | None = None) -> int:
         width=1100, height=860, min_size=(880, 640))
     bridge._fenster = fenster
     try:
-        webview.start(_macos_aktivierung_nachfassen)
+        # icon wirkt nur bei den Linux-Backends (GTK/QT); Windows nimmt
+        # das Exe-Icon, macOS das .app-Bundle-Icon (A2, icon_erzeugen.py).
+        webview.start(_macos_aktivierung_nachfassen,
+                      icon=str(STATIC / "icon.png"))
     except Exception as e:
         # Typischer Fall: Linux ohne Webview-Backend (GTK/WebKit2 oder
         # QtWebEngine) — pywebview meldet das erst beim Start.

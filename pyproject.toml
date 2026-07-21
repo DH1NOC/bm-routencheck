@@ -12,7 +12,8 @@ dependencies = [
     # GUI-Fenster (GUI-UMBAU.md): natives Fenster mit System-Webview;
     # unter Linux ist zusätzlich ein Backend nötig (GTK/WebKit2 oder
     # QtWebEngine) — ohne fällt das Tool mit Hinweis auf Terminal zurück.
-    "pywebview>=5.0",
+    # >=5.1: webview.start(icon=…) fürs Fenster-Icon der Linux-Backends
+    "pywebview>=5.1",
     "numpy>=1.26",
     "pillow>=10.0",
     # PDF-Export (U8, GUI-UMBAU.md): reines Python-Paket, keine
