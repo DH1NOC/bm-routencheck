@@ -17,26 +17,27 @@ import questionary
 from questionary import Choice, Separator
 from rich.console import Console
 
-from . import cache_admin, ui
+from . import cache_admin, gui, ui
 
 
-def _rail_main() -> int:
+def _rail_main(gui_start: bool = True) -> int:
     from .rail.cli import main
-    return main()
+    return main(gui_start=gui_start)
 
 
-def _car_main() -> int:
+def _car_main(gui_start: bool = True) -> int:
     from .road.cli import main_car
-    return main_car()
+    return main_car(gui_start=gui_start)
 
 
-def _bike_main() -> int:
+def _bike_main(gui_start: bool = True) -> int:
     from .road.cli import main_bike
-    return main_bike()
+    return main_bike(gui_start=gui_start)
 
 
-# name -> (Icon, Kurzbeschreibung, Einstiegsfunktion)
-TOOLS: dict[str, tuple[str, str, Callable[[], int]]] = {
+# name -> (Icon, Kurzbeschreibung, Einstiegsfunktion); das bool-Argument
+# der Einstiegsfunktion: darf das Tool die GUI automatisch öffnen?
+TOOLS: dict[str, tuple[str, str, Callable[[bool], int]]] = {
     "bahn": ("🚆", "Bahnstrecke — Zugverbindung wählen, Relais entlang "
                    "der Fahrt", _rail_main),
     "auto": ("🚗", "Autoroute — Google-Maps-Link einfügen oder "
@@ -62,6 +63,10 @@ def _usage(console: Console) -> None:
                   "gecachten Daten", highlight=False)
     console.print("\nHilfe je Tool: [bold]bmtools <tool> --help[/bold]",
                   highlight=False)
+    console.print("Ohne Argumente öffnet sich auf dem Desktop die "
+                  "grafische Oberfläche;\n"
+                  "[bold]--terminal[/bold] erzwingt das Terminal-Menü, "
+                  "[bold]--gui[/bold] das Fenster.", highlight=False)
 
 
 def _cache_uebersicht(console: Console) -> tuple[list[cache_admin.CacheBereich], int]:
@@ -131,21 +136,41 @@ def _cache_leeren_interaktiv(console: Console) -> None:
 def main() -> int:
     console = Console()
 
-    if len(sys.argv) > 1:
-        tool = ALIASES.get(sys.argv[1], sys.argv[1])
+    argv = sys.argv[1:]
+    # --gui/--terminal vor dem Toolnamen (GUI-UMBAU.md, 2026-07-18):
+    # --terminal erzwingt Menü bzw. Tool-Assistent im Terminal, --gui
+    # das Fenster. Hinter dem Toolnamen übernehmen die Tools die Flags
+    # selbst (bmtools bahn --gui wird durchgereicht).
+    gui_erzwungen = terminal_erzwungen = False
+    if argv and argv[0] in ("--gui", "--terminal"):
+        gui_erzwungen = argv[0] == "--gui"
+        terminal_erzwungen = not gui_erzwungen
+        argv = argv[1:]
+    if gui_erzwungen and argv:
+        console.print("[red]--gui bitte hinter dem Toolnamen angeben, "
+                      "z. B. 'bmtools bahn --gui'.[/red]")
+        return 2
+
+    if argv:
+        tool = ALIASES.get(argv[0], argv[0])
         if tool in ("-h", "--help"):
             _usage(console)
             return 0
         if tool == "cache":
-            sys.argv = ["bmtools cache", *sys.argv[2:]]
+            sys.argv = ["bmtools cache", *argv[1:]]
             return _cache_main()
         if tool not in TOOLS:
             console.print(f"[red]Unbekanntes Tool: {tool!r}[/red]\n")
             _usage(console)
             return 2
         # Argumente ans Tool durchreichen (argv[0] für dessen --help-Anzeige)
-        sys.argv = [f"bmtools {tool}", *sys.argv[2:]]
-        return TOOLS[tool][2]()
+        sys.argv = [f"bmtools {tool}", *argv[1:]]
+        return TOOLS[tool][2](not terminal_erzwungen)
+
+    if not terminal_erzwungen:
+        code = gui.start_oder_none(console, None, erzwungen=gui_erzwungen)
+        if code is not None:
+            return code
 
     if not sys.stdin.isatty():
         _usage(console)
@@ -185,7 +210,8 @@ def main() -> int:
             continue
         console.print()
         sys.argv = [f"bmtools {tool}"]
-        code = TOOLS[tool][2]()
+        # Menü läuft schon im Terminal — das Tool darf kein Fenster öffnen
+        code = TOOLS[tool][2](False)
         console.print()
         weiter = questionary.select(
             "Und jetzt?",

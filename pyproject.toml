@@ -9,8 +9,16 @@ dependencies = [
     "folium>=0.16",
     "platformdirs>=4.0",
     "questionary>=2.0",
+    # GUI-Fenster (GUI-UMBAU.md): natives Fenster mit System-Webview;
+    # unter Linux ist zusätzlich ein Backend nötig (GTK/WebKit2 oder
+    # QtWebEngine) — ohne fällt das Tool mit Hinweis auf Terminal zurück.
+    # >=5.1: webview.start(icon=…) fürs Fenster-Icon der Linux-Backends
+    "pywebview>=5.1",
     "numpy>=1.26",
     "pillow>=10.0",
+    # PDF-Export (U8, GUI-UMBAU.md): reines Python-Paket, keine
+    # Systembibliotheken; Helvetica deckt die Umlaute ab.
+    "reportlab>=4.0",
     # Zeitzonen-Datenbank: Windows bringt keine mit — ohne tzdata stürzt
     # ZoneInfo("Europe/Berlin") dort ab (Beta-Befund 2026-07-17); unter
     # Linux/macOS nur ungenutzter Fallback zur Systemdatenbank.
@@ -42,6 +50,14 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["bmtools*"]
 
+[tool.setuptools.package-data]
+# GUI-Frontend (lokal gebündelt, keine CDN-Zugriffe) inkl. Leaflet und
+# Material-Symbols-Quellen samt Lizenzen (static/vendor/)
+"bmtools.gui" = ["static/*", "static/vendor/material-symbols/*",
+                 "static/vendor/material-symbols/svg/*",
+                 "static/vendor/leaflet/*",
+                 "static/vendor/leaflet/images/*"]
+
 # ---------------------------------------------------------------------------
 # Qualitätssicherung: `make qs` führt Lint, Typprüfung und Tests aus.
 # ---------------------------------------------------------------------------
@@ -62,6 +78,10 @@ ignore = [
     "RUF003",  # … und Kommentaren
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Konsolen-Streams der Windowed-Exe leben prozesslang — kein with-Block.
+"packaging/entry.py" = ["SIM115"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["bmtools"]
 
@@ -75,7 +95,8 @@ packages = ["bmtools", "tests"]
 
 [[tool.mypy.overrides]]
 # Bibliotheken ohne Typ-Stubs
-module = ["folium.*", "questionary.*", "PIL.*"]
+module = ["folium.*", "questionary.*", "PIL.*", "webview.*",
+          "objc.*", "WebKit.*", "AppKit.*", "reportlab.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

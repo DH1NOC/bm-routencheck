@@ -3,19 +3,19 @@
 Karte und AnyTone-Export.
 
 Hierher aus bmtools/rail/cli.py extrahiert (R4); die Konsolen-Texte
-sind bewusst unverändert.
+sind bewusst unverändert. Seit G2 (GUI-UMBAU.md) laufen alle Ausgaben
+und Rückfragen über einen Melder (melden.py) — Default ist der
+TerminalMelder mit exakt dem bisherigen rich-Verhalten, die GUI
+injiziert ab G4 ihren eigenen.
 """
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from pathlib import Path
 
-import questionary
 from rich.console import Console
-from rich.panel import Panel
-from rich.progress import track
 
-from bmtools import ui
 from bmtools.bm_api import BrandmeisterClient, DeviceProfile, TalkgroupSub
 from bmtools.fm_api import DL3ELClient, FmRepeater, band_label
 
@@ -23,10 +23,17 @@ from .codeplug.anytone import write_anytone
 from .codeplug.chirp import write_chirp
 from .corridor import find_in_corridor
 from .coverage import estimate_coverage
-from .mapview import write_map
+from .mapview import karten_daten, write_map
+from .melden import Melder, TerminalMelder
 from .model import RepeaterLike, Route
 from .oeffnen import system_oeffnen
-from .report import FUNK_LABEL, RepeaterResult, print_table, write_csv
+from .report import (
+    FUNK_LABEL,
+    RepeaterResult,
+    km_empfangsbereiche,
+    relais_daten,
+    write_csv,
+)
 from .report_html import write_html_report
 from .terrain import TerrainError, TerrainModel
 
@@ -64,7 +71,9 @@ def _band_2m_70cm(d: RepeaterLike) -> bool:
     return d.tx_mhz is not None and band_label(d.tx_mhz) in ("2m", "70cm")
 
 
-def run_pipeline(route: Route, *, console: Console, out_dir: Path,
+def run_pipeline(route: Route, *, console: Console | None = None,
+                 melder: Melder | None = None,
+                 out_dir: Path,
                  corridor_km: float | None, no_terrain: bool,
                  open_browser: bool, zone: str,
                  route_label: str = "Strecke",
@@ -73,30 +82,52 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
                  modus: str = "beide",
                  bandbreite: str = "12.5",
                  ctcss_decode: bool = False,
+                 pdf: bool = False,
                  interactive: bool = False) -> int:
+    """melder=None: TerminalMelder auf der übergebenen Konsole (bzw.
+    stdout) — das bisherige Verhalten. Die GUI übergibt ihren eigenen."""
+    m: Melder = melder if melder is not None else TerminalMelder(console)
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Grobe Schritte für den Gesamt-Balken der GUI (Melder.schritt,
+    # Terminal: No-op). Übersprungene Schritte (keine DMR-Treffer)
+    # lassen den Balken einfach vorspringen.
+    phasen: list[str] = []
+    if modus != "fm":
+        phasen.append("Brandmeister-Geräteliste laden")
+    if modus != "dmr":
+        phasen.append("FM-Relais laden")
+    phasen.append("Erreichbarkeit berechnen")
+    if modus != "fm":
+        phasen.append("Talkgroup-Profile laden")
+    phasen += ["Bericht und Karte erzeugen", "Codeplug schreiben"]
+
+    def schritt(text: str) -> None:
+        m.schritt(phasen.index(text) + 1, len(phasen), text)
 
     cache_note = " [dim](Cache wird ignoriert)[/dim]" if refresh else ""
     client: BrandmeisterClient | None = None
     repeaters: list[RepeaterLike] = []
     quellen_note = []
     if modus != "fm":
+        schritt("Brandmeister-Geräteliste laden")
         client = BrandmeisterClient(refresh=refresh)
-        console.print(f"[bold]Lade Brandmeister-Geräteliste …[/bold]{cache_note}")
+        m.text(f"[bold]Lade Brandmeister-Geräteliste …[/bold]{cache_note}")
         repeaters += [d for d in client.repeaters() if _band_2m_70cm(d)]
         quellen_note.append(f"{len(repeaters)} DMR-Repeater (2 m/70 cm) "
                             "im Netz")
     if modus != "dmr":
-        console.print("[bold]Lade FM-Relais entlang der Route "
-                      f"(relaislisten.darc.de) …[/bold]{cache_note}")
-        with ui.fortschritt(console) as fm_p:
+        schritt("FM-Relais laden")
+        m.text("[bold]Lade FM-Relais entlang der Route "
+               f"(relaislisten.darc.de) …[/bold]{cache_note}")
+        with m.balken() as fm_b:
             # Kurz halten: die Balken-Zeile muss samt X/Y-Zähler in
             # 80 Zeichen passen
-            fm_task = fm_p.add_task("Stützpunkte abfragen (alle 50 km, "
-                                    "gedrosselt)", total=None)
+            fm_task = fm_b.task("Stützpunkte abfragen (alle 50 km, "
+                                "gedrosselt)")
 
             def fm_progress(fertig: int, gesamt: int) -> None:
-                fm_p.update(fm_task, completed=fertig, total=gesamt)
+                fm_b.update(fm_task, fertig=fertig, gesamt=gesamt)
 
             fm_relais = [r for r in DL3ELClient(refresh=refresh)
                          .repeaters_along(route.points, progress=fm_progress)
@@ -107,36 +138,36 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
 
     # Auswahlkriterium ist die rechnerische Erreichbarkeit von der Strecke
     # (Sichtkontakt zu >=1 Streckenpunkt), nicht ein fester Abstand.
+    schritt("Erreichbarkeit berechnen")
     terrain = None if no_terrain else TerrainModel()
-    with ui.fortschritt(console) as cov_p:
+    with m.balken() as cov_b:
         # Kachel-Balken bleibt unsichtbar, bis wirklich Kacheln fehlen
         # (warmer Cache: nur der Rechenbalken). Update aus Threads ist ok,
-        # rich.progress ist threadsicher.
-        kacheln_task = cov_p.add_task("Höhenkacheln laden", total=None,
-                                      visible=False)
-        punkte_task = cov_p.add_task(
+        # Balken.update ist laut Schnittstelle threadsicher.
+        kacheln_task = cov_b.task("Höhenkacheln laden", sichtbar=False)
+        punkte_task = cov_b.task(
             "Erreichbarkeit berechnen (Geländemodell)" if terrain else
-            "Erreichbarkeit berechnen (Horizontmodell)", total=None)
+            "Erreichbarkeit berechnen (Horizontmodell)")
 
         def tile_progress(fertig: int, gesamt: int) -> None:
-            cov_p.update(kacheln_task, completed=fertig, total=gesamt,
-                         visible=True)
+            cov_b.update(kacheln_task, fertig=fertig, gesamt=gesamt,
+                         sichtbar=True)
 
         def sample_progress(fertig: int, gesamt: int) -> None:
-            cov_p.update(punkte_task, completed=fertig, total=gesamt)
+            cov_b.update(punkte_task, fertig=fertig, gesamt=gesamt)
 
         try:
             coverage = estimate_coverage(route.points, repeaters, terrain,
                                          tile_progress=tile_progress,
                                          sample_progress=sample_progress)
         except TerrainError as e:
-            console.print(f"[yellow]Höhendaten nicht verfügbar ({e}) — "
-                          f"Fallback auf Horizontmodell.[/yellow]")
+            m.text(f"[yellow]Höhendaten nicht verfügbar ({e}) — "
+                   f"Fallback auf Horizontmodell.[/yellow]")
             terrain = None
-            cov_p.update(kacheln_task, visible=False)
-            cov_p.update(punkte_task, completed=0,
-                         description="Erreichbarkeit berechnen "
-                                     "(Horizontmodell)")
+            cov_b.update(kacheln_task, sichtbar=False)
+            cov_b.update(punkte_task, fertig=0,
+                         beschreibung="Erreichbarkeit berechnen "
+                                      "(Horizontmodell)")
             coverage = estimate_coverage(route.points, repeaters, None,
                                          sample_progress=sample_progress)
 
@@ -152,11 +183,11 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
     limit_note = f" (Limit {corridor_km:g} km Streckenabstand)" if corridor_km else ""
     marginal_note = (f", davon {marginal_count} nur im Grenzbereich"
                      if marginal_count else "")
-    console.print(f"  {', '.join(quellen_note)}, "
-                  f"[bold]{len(hits)}[/bold] von der Strecke aus rechnerisch "
-                  f"erreichbar{limit_note}{marginal_note}")
+    m.text(f"  {', '.join(quellen_note)}, "
+           f"[bold]{len(hits)}[/bold] von der Strecke aus rechnerisch "
+           f"erreichbar{limit_note}{marginal_note}")
     if not hits:
-        console.print("[red]Kein Relais von der Strecke aus erreichbar.[/red]")
+        m.text("[red]Kein Relais von der Strecke aus erreichbar.[/red]")
         return 1
 
     # Talkgroup-Profile sind ein reines DMR-Konzept — FM-Relais bekommen
@@ -165,11 +196,12 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
     profiles: dict[int, DeviceProfile] = {}
     if dmr_hits:
         assert client is not None  # DMR-Treffer gibt es nur mit BM-Client
+        schritt("Talkgroup-Profile laden")
         profiles = {
             h.device.id: _with_local_tg(
                 client.profile(h.device.id),
                 simplex=h.device.tx_mhz == h.device.rx_mhz)
-            for h in track(dmr_hits, description="Talkgroup-Profile laden …")
+            for h in m.spur(dmr_hits, "Talkgroup-Profile laden …")
         }
     results = [
         RepeaterResult(
@@ -180,22 +212,23 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
         for h in hits
     ]
 
-    print_table(results, console)
+    m.tabelle(results)
 
     if coverage.terrain_used:
-        console.print(
+        m.text(
             f"  Abdeckung (Geländemodell): freie Sicht "
             f"[bold]{coverage.pct(coverage.covered_km):.0f} %[/bold], "
             f"Grenzbereich {coverage.pct(coverage.marginal_km):.0f} %, "
             f"Schatten [bold]{coverage.uncovered_pct:.0f} %[/bold] "
             f"({coverage.uncovered_km:.0f} von {coverage.total_km:.0f} km)")
     else:
-        console.print(
+        m.text(
             f"  Abdeckungsschätzung: ca. [bold]{coverage.uncovered_pct:.0f} %[/bold] "
             f"der Strecke ohne {FUNK_LABEL[modus]} "
             f"({coverage.uncovered_km:.0f} von "
             f"{coverage.total_km:.0f} km; Horizontmodell, ohne Gelände)")
 
+    schritt("Bericht und Karte erzeugen")
     tg_names = client.talkgroup_names() if client else {}
     csv_path = out_dir / "relais.csv"
     html_path = out_dir / "bericht.html"
@@ -205,40 +238,83 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
                       modus=modus)
     # Die Sichtfelder laden weitere Höhenkacheln nach — reißt das Netz
     # dabei ab, kommt die Karte ohne Sichtfelder statt gar nicht.
+    overlay = None
     sichtfeld_terrain = terrain if coverage.terrain_used else None
     if sichtfeld_terrain is not None:
-        with ui.fortschritt(console) as map_p:
-            map_kacheln = map_p.add_task("Höhenkacheln laden (Sichtfelder)",
-                                         total=None, visible=False)
-            felder_task = map_p.add_task("Karte erzeugen (Relais-Sichtfelder)",
-                                         total=None)
+        with m.balken() as map_b:
+            map_kacheln = map_b.task("Höhenkacheln laden (Sichtfelder)",
+                                     sichtbar=False)
+            felder_task = map_b.task("Karte erzeugen (Relais-Sichtfelder)")
 
             def map_tile_progress(fertig: int, gesamt: int) -> None:
-                map_p.update(map_kacheln, completed=fertig, total=gesamt,
-                             visible=True)
+                map_b.update(map_kacheln, fertig=fertig, gesamt=gesamt,
+                             sichtbar=True)
 
             def felder_progress(fertig: int, gesamt: int) -> None:
-                map_p.update(felder_task, completed=fertig, total=gesamt)
+                map_b.update(felder_task, fertig=fertig, gesamt=gesamt)
 
             try:
-                write_map(results, route, map_path, coverage, sichtfeld_terrain,
-                          route_label=route_label, waypoint_icon=waypoint_icon,
-                          tile_progress=map_tile_progress,
-                          viewshed_progress=felder_progress)
+                overlay = write_map(
+                    results, route, map_path, coverage, sichtfeld_terrain,
+                    route_label=route_label, waypoint_icon=waypoint_icon,
+                    tile_progress=map_tile_progress,
+                    viewshed_progress=felder_progress)
             except TerrainError as e:
-                console.print(f"[yellow]Höhendaten abgebrochen ({e}) — "
-                              f"Karte ohne Relais-Sichtfelder.[/yellow]")
+                m.text(f"[yellow]Höhendaten abgebrochen ({e}) — "
+                       f"Karte ohne Relais-Sichtfelder.[/yellow]")
                 sichtfeld_terrain = None
     if sichtfeld_terrain is None:
-        with console.status("Karte erzeugen …"):
-            write_map(results, route, map_path, coverage, None,
-                      route_label=route_label, waypoint_icon=waypoint_icon)
+        with m.status("Karte erzeugen …"):
+            overlay = write_map(results, route, map_path, coverage, None,
+                                route_label=route_label,
+                                waypoint_icon=waypoint_icon)
+    # Dieselben Inhalte als strukturierte Daten für GUI und PDF
+    # (U4/U5/U8): Karte (Overlay wird weiterverwendet statt doppelt
+    # gerechnet), Kennzahlen für Top-Bar/Deckblatt, Relais-Zeilen für
+    # DataGrid und PDF-Tabelle
+    daten = {
+        "karte": karten_daten(results, route, coverage, overlay,
+                              route_label=route_label,
+                              waypoint_icon=waypoint_icon),
+        "kennzahlen": {
+            "distanz_km": round(coverage.total_km),
+            "terrain": coverage.terrain_used,
+            "sicht_pct": round(coverage.pct(coverage.covered_km)),
+            "grenz_pct": round(coverage.pct(coverage.marginal_km)),
+            "schatten_pct": round(coverage.uncovered_pct),
+            "anzahl": len(results),
+            # Datenstand: Zeitpunkt des Laufs (BM/FM-Daten frisch bzw.
+            # aus dem TTL-Cache) — PDF-Fußzeile und Statusleiste
+            "stand": datetime.now().strftime("%d.%m.%Y"),
+        },
+        "relais": relais_daten(
+            results, tg_names,
+            km_bereiche=km_empfangsbereiche(coverage.samples)),
+    }
+    m.ergebnis_daten(daten)
     # Codeplug: digitale und analoge Kanäle in derselben Zone; die
     # FM-Kanäle zusätzlich als generisches CHIRP-CSV
+    schritt("Codeplug schreiben")
     write_anytone(results, out_dir / "anytone", zone, tg_names,
                   bandbreite=bandbreite, ctcss_decode=ctcss_decode)
     chirp_path = write_chirp(results, out_dir / "chirp.csv",
                              bandbreite=bandbreite, ctcss_decode=ctcss_decode)
+
+    if pdf:
+        # Nachgelagert auf denselben Ergebnisdaten (§4/§5) — nur auf
+        # Wunsch (--pdf bzw. GUI-Button), kein Automatik-Export
+        m.text("[bold]Erzeuge PDF-Bericht …[/bold]")
+        from .report_pdf import write_pdf
+        with m.balken() as pdf_b:
+            pdf_kacheln = pdf_b.task("Kartenkacheln laden (PDF)",
+                                     sichtbar=False)
+
+            def pdf_tiles(fertig: int, gesamt: int) -> None:
+                pdf_b.update(pdf_kacheln, fertig=fertig, gesamt=gesamt,
+                             sichtbar=True)
+
+            write_pdf(daten, out_dir / "bericht.pdf",
+                      tile_progress=pdf_tiles)
 
     lines = [
         f"[green]Fertig.[/green] Ausgaben in [bold]{out_dir}/[/bold]",
@@ -250,7 +326,11 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
     ]
     if chirp_path:
         lines.append("  chirp.csv      CHIRP-Import (nur die FM-Kanäle)")
-    console.print(Panel.fit("\n".join(lines), border_style="green"))
+    if pdf:
+        lines.append("  bericht.pdf    Druckbericht "
+                     "(Deckblatt, Karte, Relais-Tabelle)")
+    m.ergebnis(out_dir, html_path, map_path)
+    m.erfolg(lines)
 
     if open_browser:
         # Nicht webbrowser.open(): siehe oeffnen.py (Windows-Beta-Befund)
@@ -258,8 +338,6 @@ def run_pipeline(route: Route, *, console: Console, out_dir: Path,
         system_oeffnen(map_path)
     # Beta-Wunsch 2026-07-17: Ausgabeordner (Codeplug-CSVs!) direkt im
     # Dateimanager öffnen können. Ctrl-C/ESC zählt als Nein.
-    if interactive and questionary.confirm(
-            "Ausgabeordner im Dateimanager öffnen?", default=False,
-            style=ui.QSTYLE).ask():
+    if interactive and m.ja_nein("Ausgabeordner im Dateimanager öffnen?"):
         system_oeffnen(out_dir)
     return 0

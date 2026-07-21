@@ -4,6 +4,7 @@ from __future__ import annotations
 import csv
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from rich.console import Console
 from rich.table import Table
@@ -131,6 +132,70 @@ def print_table(results: list[RepeaterResult], console: Console | None = None) -
             row.append(_fmt_ctcss(r.fm.ctcss_hz) if fm else "")
         table.add_row(*row, style="dim" if r.marginal_only else None)
     console.print(table)
+
+
+def km_empfangsbereiche(samples: list[Any],
+                        ) -> dict[str, tuple[float, float]]:
+    """Je Rufzeichen der Streckenabschnitt (von-km, bis-km), auf dem
+    das Relais rechnerisch empfangbar ist (Sicht oder Grenzbereich) —
+    aus den Abdeckungs-Samples (coverage.SamplePoint)."""
+    bereiche: dict[str, tuple[float, float]] = {}
+    for s in samples:
+        for rufzeichen in set(s.los) | set(s.marginal):
+            von, bis = bereiche.get(rufzeichen, (s.km, s.km))
+            bereiche[rufzeichen] = (min(von, s.km), max(bis, s.km))
+    return bereiche
+
+
+def relais_daten(results: list[RepeaterResult],
+                 tg_names: dict[int, str] | None = None,
+                 km_bereiche: dict[str, tuple[float, float]] | None = None,
+                 ) -> list[dict[str, object]]:
+    """Relais-Zeilen fürs GUI-DataGrid (U5) als JSON-fähige Dicts —
+    dieselben Werte wie Konsolentabelle/CSV/Bericht ("index" verbindet
+    die Zeile mit dem gleichrangigen Karten-Marker aus karten_daten).
+
+    RX/TX aus Sicht des Funkgeräts (RX = Relais-TX); "ton" trägt CC
+    (DMR) bzw. CTCSS (FM, Pilotton — nicht der 1750-Hz-Tonruf);
+    Status-Wortlaut wie in der CSV ("Sicht"/"Grenzbereich").
+    km_bereiche (km_empfangsbereiche): voraussichtlicher
+    Empfangsabschnitt je Rufzeichen — km_von/km_bis der Zeile
+    (U8-Befund 2026-07-20; Fallback: der nächstgelegene Strecken-km)."""
+    namen = tg_names or {}
+    bereiche = km_bereiche or {}
+    zeilen: list[dict[str, object]] = []
+    for i, r in enumerate(results):
+        d = r.device
+        fm = r.modus == "fm"
+        if fm:
+            ton = f"{r.fm.ctcss_hz:g} Hz" if r.fm.ctcss_hz else ""
+            talkgroups = None
+        else:
+            ton = f"CC{r.dmr.colorcode}" if r.dmr.colorcode else ""
+            talkgroups = [
+                {"ts": s.slot, "tg": s.talkgroup,
+                 "name": ("Lokal" if s.kind == "implicit"
+                          else namen.get(s.talkgroup, "")),
+                 "art": s.kind, "hinweis": s.note}
+                for s in r.tg_profile.subscriptions]
+        von, bis = bereiche.get(
+            d.callsign, (r.hit.chainage_km, r.hit.chainage_km))
+        zeilen.append({
+            "index": i,
+            "km": round(r.hit.chainage_km, 1),
+            "km_von": round(von, 1),
+            "km_bis": round(bis, 1),
+            "rufzeichen": d.callsign,
+            "standort": d.city,
+            "abstand_km": round(r.hit.distance_km, 1),
+            "modus": MODUS_LABEL[r.modus],
+            "rx": f"{d.tx_mhz:.5f}",   # Relais-TX = dein RX
+            "tx": f"{d.rx_mhz:.5f}",   # Relais-RX = dein TX
+            "ton": ton,
+            "status": "Grenzbereich" if r.marginal_only else "Sicht",
+            "talkgroups": talkgroups,
+        })
+    return zeilen
 
 
 def _tgs(profile: DeviceProfile, slot: int, kind: str) -> str:

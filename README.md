@@ -9,15 +9,21 @@ pro Streckenpunkt über ein Sichtlinien-Geländemodell berechnet, nicht über
 einen bloßen Entfernungsradius.
 
 Jeder Lauf erzeugt einen HTML-Bericht mit fertigen Kanaltabellen je Relais,
-eine interaktive Karte, eine CSV-Datei und fertige Codeplug-Dateien für
-AnyTone-CPS und [CHIRP](https://chirpmyradio.com).
+eine interaktive Karte, eine CSV-Datei, fertige Codeplug-Dateien für
+AnyTone-CPS und [CHIRP](https://chirpmyradio.com) und auf Wunsch einen
+druckfertigen PDF-Bericht. Bedient wird wahlweise über das Programmfenster
+(auf dem Desktop) oder vollwertig im Terminal — interaktiv per Menü oder
+per Flags für Skripte.
 
-![Interaktive Karte eines Laufs: Route mit Relais-Markern und geschätzten Sichtfeldern](docs/beispielkarte.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/fenster-dunkel.png">
+  <img alt="Das Programmfenster nach einem Lauf Hamburg → Lindau: links die Routing-Parameter, rechts Kennzahlen, Karte und Relais-Tabelle" src="docs/fenster-hell.png">
+</picture>
 
-*Die interaktive Karte (`karte.html`) eines Laufs: Die Strecke ist nach
-Erreichbarkeit gezeichnet (durchgezogen = Sicht, gestrichelt = Grenzbereich,
-gepunktet = Schatten), die blauen Flächen sind die berechneten Sichtfelder
-der erreichbaren Relais — je dunkler, desto mehr Relais.*
+*Das Programmfenster nach einem Lauf Hamburg → Lindau: links die
+Routing-Parameter, rechts Kennzahlen, Karte mit Route, Sichtfeldern und
+Relais-Markern sowie die filterbare Relais-Tabelle. Helles und dunkles
+Design, je nach System oder Wahl.*
 
 ## Inhalt
 
@@ -35,10 +41,13 @@ der erreichbaren Relais — je dunkler, desto mehr Relais.*
 Fertige Programme für Windows, Linux und macOS gibt es auf der
 [**Releases-Seite**](https://github.com/DH1NOC/bm-routencheck/releases) —
 Datei für das eigene Betriebssystem herunterladen und starten. Ein
-installiertes Python ist **nicht** nötig.
+installiertes Python ist **nicht** nötig. BM-Routencheck ist eine
+Desktop-App: Der Doppelklick öffnet das Programmfenster; die vollwertige
+Terminal-Bedienung bleibt erhalten und ist je Plattform unten beschrieben.
 
-**Windows (x64):** Die `bmtools-…-windows-x64.exe` herunterladen und
-doppelklicken oder in der Eingabeaufforderung starten. SmartScreen meldet
+**Windows (x64):** Die `BM-Routencheck-…-windows-x64.exe` herunterladen
+und doppelklicken — das Programmfenster öffnet sich, ohne dass ein
+Konsolenfenster aufgeht. SmartScreen meldet
 beim ersten Start „Unbekannter Herausgeber" —
 über „Weitere Informationen" → „Trotzdem ausführen" geht es weiter (die
 `.exe` ist nicht code-signiert; Microsofts Signaturdienst steht
@@ -48,21 +57,33 @@ ohne Ausnahmemöglichkeit blockiert — dann SAC deaktivieren
 (Windows-Sicherheit → App- & Browsersteuerung) oder die
 [Installation aus dem Quellcode](#installation-aus-dem-quellcode) nutzen.
 
-**macOS (Apple Silicon):** Das ZIP herunterladen und entpacken. bmtools ist
-ein Terminalprogramm und wird **im Terminal gestartet — nicht per
-Doppelklick im Finder:**
+*Terminal unter Windows:* Dieselbe Exe versteht alle Kommandos, z. B.
+`BM-Routencheck.exe bahn --help` in cmd oder PowerShell. Bauartbedingt
+kehrt der Prompt dabei sofort zurück und die Ausgabe erscheint darunter —
+die GUI-Exe klinkt sich in das aufrufende Konsolenfenster ein. Für
+interaktive Terminal-Sitzungen `BM-Routencheck.exe --terminal` starten:
+Das Menü öffnet sich in einem eigenen Konsolenfenster (das interaktive
+Menü und PowerShell würden sich sonst dieselbe Konsole teilen).
+
+**macOS (Apple Silicon):** Das ZIP herunterladen und entpacken,
+`BM-Routencheck.app` in den Ordner *Programme* ziehen und per Doppelklick
+starten. Die App ist mit Developer ID signiert, von Apple notarisiert und
+das Ticket ist angeheftet — es ist keine Gatekeeper-Ausnahme nötig.
+
+Für **Macs mit Intel-Prozessor** gibt es bewusst kein fertiges Programm —
+ein Build, der nie auf echter Hardware getestet wurde, wird hier nicht
+ausgeliefert. Auf diesen Geräten funktioniert die
+[Installation aus dem Quellcode](#installation-aus-dem-quellcode) mit
+vollem Funktionsumfang.
+
+*Terminal unter macOS:* Das Binary im Bundle versteht alle Kommandos:
 
 ```bash
-# ZIP entpacken, dann im Terminal:
-chmod +x bmtools && ./bmtools
-```
+/Applications/BM-Routencheck.app/Contents/MacOS/BM-Routencheck bahn --help
 
-Beim Doppelklick zeigt macOS bei *jedem* nackten Unix-Binary die Meldung
-„Apple konnte nicht überprüfen, ob ‚bmtools' frei von Schadsoftware ist".
-Das ist **kein** Signaturproblem — das Binary ist mit Developer ID signiert
-und von Apple notarisiert —, sondern das Standardverhalten von Gatekeeper
-für alles, was kein `.app`-Bundle ist. Eine LIESMICH.txt mit diesem Hinweis
-liegt mit im ZIP.
+# Tipp für häufige Nutzung — Alias in ~/.zshrc:
+alias bmtools='/Applications/BM-Routencheck.app/Contents/MacOS/BM-Routencheck'
+```
 
 **Linux (x64):**
 
@@ -71,10 +92,56 @@ tar -xzf bmtools-*-linux-x64.tar.gz
 ./bmtools
 ```
 
+Ohne Argumente öffnet sich auf einem Desktop das Programmfenster — das
+Binary bringt sein GUI-Backend (Qt) mit, es müssen keine Systempakete
+installiert werden. Im Terminal-Alltag funktionieren alle Kommandos wie
+gewohnt (`./bmtools bahn --help`). Für einen Startmenü-Eintrag mit
+Programm-Icon liegt eine `BM-Routencheck.desktop`-Vorlage bei (Pfade
+anpassen, nach `~/.local/share/applications/` kopieren — siehe
+LIESMICH.txt im Archiv).
+
 ## Bedienung
 
-Ohne Argumente startet das Menü — alle Eingaben werden interaktiv abgefragt
-(Auswahllisten mit ↑/↓ navigieren, Enter bestätigt, Strg-C bricht ab):
+### Das Programmfenster (Desktop)
+
+Auf einem Desktop öffnet `bmtools` ohne Argumente das Programmfenster:
+links die Routing-Parameter, rechts Karte und Relais-Tabelle. Alle
+Eingabewege des Terminals stehen auch hier zur Verfügung — Bahn per
+bahn.de-Link oder Bahnhöfe/Zuggattung/Zeit, Auto/Rad per
+Google-Maps-/Komoot-Link, GPX-Datei oder Start/Ziel. Parameter ändern und
+direkt neu berechnen, ohne Bildschirmwechsel; während der Berechnung
+zeigen Fortschrittsbalken und eine Log-Konsole den Stand, Abbrechen wirkt
+sofort. Rückfragen (mehrdeutige Orte, Verbindungswahl) erscheinen als
+Auswahl-Dialoge.
+
+| ![Verbindungswahl als Auswahl-Dialog](docs/verbindungswahl.png) | ![Fortschrittsansicht mit Log-Konsole](docs/fortschritt.png) |
+|---|---|
+| *Rückfragen als Ein-Klick-Dialog: die Verbindungswahl bei `Bahn`* | *Während der Berechnung: Fortschritt oben, Log-Konsole unten* |
+
+Nach dem Lauf zeigt das Fenster:
+
+- die **interaktive Karte** (Route nach Erreichbarkeit gezeichnet,
+  Sichtfeld-Overlay, Relais-Marker) — Klick auf einen Marker springt zur
+  Tabellenzeile und umgekehrt;
+- die **Relais-Tabelle**, live filterbar und sortierbar; DMR-Zeilen
+  klappen die Talkgroup-Details auf;
+- die Aktionen **CSV-Export**, **PDF-Export** (`bericht.pdf`), **Bericht
+  im Browser öffnen** und **Ausgabeordner öffnen**.
+
+`--terminal` erzwingt das Terminal, `--gui` das Fenster (hinter dem
+Toolnamen, z. B. `bmtools bahn --gui`); ohne Desktop (SSH, Server)
+startet automatisch das Terminal. Auch `bm-bahn`/`bm-auto`/`bm-rad`
+öffnen ohne Routen-Argumente das Fenster mit dem jeweiligen Tool. Das
+Linux-Binary bringt sein GUI-Backend (Qt) mit; nur bei der
+[Installation aus dem Quellcode](#installation-aus-dem-quellcode)
+braucht das Fenster GTK/WebKit2 oder QtWebEngine — fehlt beides, geht
+es mit Hinweis im Terminal weiter.
+
+### Das Terminal
+
+Im Terminal startet ohne Argumente das Menü — alle Eingaben werden
+interaktiv abgefragt (Auswahllisten mit ↑/↓ navigieren, Enter bestätigt,
+Strg-C bricht ab):
 
 ```text
 📡 BM-Routencheck
@@ -107,12 +174,16 @@ Bei der Installation aus dem Quellcode heißen die Tools zusätzlich
 ## Die Ergebnis-Dateien
 
 Jeder Lauf legt seine Ausgaben in `out/<start>-<ziel>/` ab (änderbar mit
-`--ausgabe`):
+`--ausgabe`). Im Terminal liegt `out/` im aktuellen Arbeitsverzeichnis;
+beim Start per Doppelklick (Finder/Explorer) wechselt die App in den
+Ordner `Dokumente/BM-Routencheck` und legt `out/` dort an. Der Knopf
+**Ausgabeordner öffnen** im Programmfenster führt immer direkt hin.
 
 | Datei | Inhalt |
 |---|---|
 | `bericht.html` | Bericht mit fertigen Kanaltabellen je Relais (für manuelle CPS-Eingabe) |
 | `karte.html` | Interaktive Karte: Strecke + erreichbare Relais (blau = DMR, orange = FM) |
+| `bericht.pdf` | Druckbericht DIN A4: Deckblatt mit Übersichtskarte und Kennzahlen, Relais-Tabelle mit Talkgroup-Details — nur mit `--pdf` bzw. per PDF-Export-Knopf im Fenster |
 | `relais.csv` | Alle Daten maschinenlesbar (Semikolon-getrennt; Spalten `modus`, `ctcss_hz` für FM) |
 | `anytone/*.CSV` | Channel/TalkGroups/Zone für den AnyTone-CPS-Import — digitale und analoge Kanäle in einer Zone |
 | `chirp.csv` | Nur die FM-Kanäle im generischen [CHIRP](https://chirpmyradio.com)-CSV-Format — in CHIRP öffnen und auf jedes unterstützte Gerät laden (entfällt bei `--modus dmr`) |
@@ -122,6 +193,20 @@ Frequenzangaben in allen Ausgaben sind aus Sicht des Funkgeräts
 70-cm-Relais (10 m/6 m/23 cm werden aussortiert). TG9 „Lokal" wird immer
 ergänzt, auch wenn die API sie nicht listet. Der AnyTone-Export nutzt
 derzeit das D878UV-Spaltenlayout.
+
+![Interaktive Karte eines Laufs: Route mit Relais-Markern und geschätzten Sichtfeldern](docs/beispielkarte.png)
+
+*Die interaktive Karte (`karte.html`) im Browser: Die Strecke ist nach
+Erreichbarkeit gezeichnet (durchgezogen = Sicht, gestrichelt =
+Grenzbereich, gepunktet = Schatten), die blauen Flächen sind die
+berechneten Sichtfelder der erreichbaren Relais — je dunkler, desto mehr
+Relais.*
+
+<img alt="Deckblatt des PDF-Berichts: Kennzahlen und Übersichtskarte" src="docs/bericht-pdf.png" width="430">
+
+*Der Druckbericht (`bericht.pdf`, DIN A4): Deckblatt mit Kennzahlen und
+Übersichtskarte, danach die Relais-Tabelle mit Talkgroup-Details —
+nummerierte Marker verweisen auf die Tabellenzeilen.*
 
 ## Die Tools im Detail
 
@@ -214,7 +299,9 @@ bm-auto --von "Winkelhaider Str. 4a, Feucht" --nach "Bendorf" --oeffnen
 | `--korridor KM` | Optionales Limit: maximaler Abstand zur Strecke in km. Ohne Angabe zählt allein die rechnerische Erreichbarkeit — auch weit entfernte, aber sichtbare Relais werden aufgenommen |
 | `--ohne-gelaende` | Abdeckungsschätzung ohne Geländemodell; spart den Höhenkachel-Download, ist aber ungenauer |
 | `--aktualisieren` | Relais-Daten frisch laden statt aus dem Cache (BM-Geräteliste und FM-Liste halten sonst 1 Tag, Talkgroup-Profile 12 h) |
+| `--pdf` | Zusätzlich `bericht.pdf` erzeugen (Deckblatt mit Übersichtskarte, Relais-Tabelle mit Talkgroups) |
 | `--oeffnen` | Bericht und Karte nach dem Lauf im Browser öffnen (interaktiv automatisch aktiv) |
+| `--gui` / `--terminal` | Programmfenster bzw. Terminal erzwingen — Standard: ohne Routen-Argumente öffnet sich auf dem Desktop das Fenster |
 | `--ausgabe ORDNER` | Ausgabeverzeichnis (Default: `out/<start>-<ziel>`) |
 
 Alle genutzten Dienste sind ohne Anmeldung nutzbar — keine API-Keys, keine

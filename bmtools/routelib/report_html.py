@@ -102,7 +102,8 @@ def _contact_ranges(coverage: CoverageEstimate) -> list[Range]:
 
 _CSS = """
 :root { color-scheme: light dark; }
-body { font-family: -apple-system, 'Segoe UI', sans-serif; margin: 2rem auto;
+body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+       margin: 2rem auto;
        max-width: 62rem; line-height: 1.45; padding: 0 1rem; }
 h1 { font-size: 1.5rem; } h2 { font-size: 1.15rem; margin-top: 2.2rem; }
 .tablewrap { overflow-x: auto; }

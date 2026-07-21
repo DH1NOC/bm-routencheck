@@ -64,6 +64,20 @@ def add_fm_arguments(ap: argparse.ArgumentParser) -> None:
                          "Ton wird nur gesendet")
 
 
+def add_start_arguments(ap: argparse.ArgumentParser) -> None:
+    """--gui/--terminal in allen Tools (GUI-UMBAU.md, 2026-07-18):
+    Ohne Argumente entscheidet die Desktop-Erkennung, diese Flags
+    erzwingen das jeweilige Verhalten."""
+    g = ap.add_mutually_exclusive_group()
+    g.add_argument("--gui", action="store_true",
+                   help="grafische Oberfläche öffnen (Standard bei Aufruf "
+                        "ohne Argumente, wenn eine Desktop-Umgebung "
+                        "erkannt wird)")
+    g.add_argument("--terminal", action="store_true",
+                   help="im Terminal bleiben (Assistent wie bisher, auch "
+                        "auf dem Desktop)")
+
+
 def modus_frage(default: str = "beide") -> questionary.Question:
     """Interaktive Modus-Auswahl (Aufrufer wickelt Abbruch via _q ab)."""
     return questionary.select(

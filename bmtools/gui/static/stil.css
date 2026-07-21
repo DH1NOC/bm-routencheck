@@ -1,0 +1,954 @@
+/* BM-Routencheck GUI — Single-Window Workspace (GUI-UMBAU.md).
+   Custom Theme statt OS-Mimikry: identische Abstände, Schriften und
+   Komponenten auf macOS/Windows/Linux. Icons: Material Symbols
+   (Inline-Sprite in index.html). Statusfarben Grün/Amber/Rot gelten
+   projektweit (GUI, Karte, PDF). */
+
+/* ------------------------------------------------- Theme-Token */
+/* Hell ist der Grundzustand; Dunkel kommt über das Systemschema
+   (prefers-color-scheme) oder — ab U6 — erzwungen per
+   data-theme="dark" auf <html>. data-theme="light" gewinnt
+   umgekehrt gegen ein dunkles Systemschema. */
+:root {
+  --primaer: #0072B2;        /* Projektblau (CVD-sicher, wie CLI/Karte) */
+  --primaer-tief: #005a8e;
+  --fokus: #56B4E9;
+  --gruen: #10B981;
+  --amber: #F59E0B;
+  --rot: #EF4444;
+
+  --flaeche: #ffffff;        /* Main View */
+  --flaeche-2: #f4f6f8;      /* Panel, Statusleiste */
+  --feld: #eef1f4;           /* Eingabefelder */
+  --text: #1c2733;
+  --text-2: #5a6a7a;
+  --linie: #c9d2db;
+  --hover: rgba(0, 0, 0, .04);
+  --fehler: #b3261e;
+  --fehler-flaeche: #fdf3f2;
+  --schatten: rgba(15, 30, 45, .18);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --primaer: #1c88c9;
+    --primaer-tief: #3aa0dd;
+    --flaeche: #15191d;
+    --flaeche-2: #1d2329;
+    --feld: #262d35;
+    --text: #e6ebf0;
+    --text-2: #9aa7b3;
+    --linie: #3a434d;
+    --hover: rgba(255, 255, 255, .06);
+    --fehler: #f2b8b5;
+    --fehler-flaeche: #3a2224;
+    --schatten: rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+}
+/* U6 setzt data-theme; die Blöcke müssen mit dem Media-Query oben
+   identisch bleiben. */
+:root[data-theme="dark"] {
+  --primaer: #1c88c9;
+  --primaer-tief: #3aa0dd;
+  --flaeche: #15191d;
+  --flaeche-2: #1d2329;
+  --feld: #262d35;
+  --text: #e6ebf0;
+  --text-2: #9aa7b3;
+  --linie: #3a434d;
+  --hover: rgba(255, 255, 255, .06);
+  --fehler: #f2b8b5;
+  --fehler-flaeche: #3a2224;
+  --schatten: rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+
+/* ------------------------------------------------- Grundlagen */
+* { box-sizing: border-box; }
+
+/* [hidden] muss jede Autoren-display-Regel schlagen (G4-Befund
+   2026-07-19: display:flex gewann sonst gegen das UA-Stylesheet). */
+[hidden] { display: none !important; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--flaeche);
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  flex: none;
+  vertical-align: -4px;
+}
+.icon.riesig { width: 56px; height: 56px; }
+
+button { font: inherit; color: inherit; cursor: pointer; }
+
+/* ------------------------------------------------- Werkbank-Raster */
+.werkbank {
+  display: grid;
+  grid-template-columns: 330px 1fr;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100vh;
+}
+
+/* ================================================= Control Panel */
+.panel {
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--flaeche-2);
+  border-right: 1px solid var(--linie);
+}
+
+.panel-inhalt {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem 1.1rem .5rem;
+}
+
+.ueberzeile {
+  margin: 0 0 .45rem;
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+/* Segmented Button (Modus-Wahl) */
+.segmente {
+  display: flex;
+  margin-bottom: 1.2rem;
+  border: 1px solid var(--linie);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--flaeche);
+}
+.segment {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .15rem;
+  padding: .5rem .3rem .4rem;
+  border: none;
+  background: none;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.segment + .segment { border-left: 1px solid var(--linie); }
+.segment:hover { background: var(--hover); }
+.segment.aktiv {
+  background: var(--primaer);
+  color: #fff;
+}
+.segment .icon { width: 22px; height: 22px; }
+
+/* Felder: Outlined-Stil mit stehendem Etikett auf dem Rand */
+.feld { position: relative; margin: 0 0 1.05rem; }
+
+.etikett {
+  position: absolute;
+  top: -7px;
+  left: 10px;
+  z-index: 1;
+  padding: 0 4px;
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--text-2);
+  /* Der Chip ragt 7px (= top-Versatz) in die Feldfläche hinein: oben
+     Panel-, unten Feldfarbe — mit einfarbigem Panel-Hintergrund stand
+     er im Dunkelmodus als dunkler Kasten auf dem helleren Feld
+     (Abnahmebefund U1, 2026-07-20). */
+  background: linear-gradient(var(--flaeche-2) 7px, var(--feld) 7px);
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+input[type=text], input[type=url], select {
+  font: inherit;
+  width: 100%;
+  padding: .62rem .7rem .5rem;
+  border: 1px solid var(--linie);
+  border-radius: 8px;
+  background: var(--feld);
+  color: var(--text);
+}
+input::placeholder { color: var(--text-2); opacity: .75; }
+input:focus, select:focus {
+  outline: 2px solid var(--fokus);
+  outline-offset: -1px;
+  border-color: var(--primaer);
+}
+input.fehlerhaft { border-color: var(--fehler); }
+
+/* Selects ohne native Optik: WKWebView verwarf sonst das Padding
+   (paddingLeft 0 statt 11px — Abnahmebefund U1, 2026-07-20), und
+   jedes OS zeichnete einen anderen Pfeil. Eigener Chevron per
+   CSS-Rahmen, folgt der Textfarbe in beiden Themes. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2.1rem;
+}
+.feld:has(> select)::after {
+  content: "";
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--text-2);
+  border-bottom: 2px solid var(--text-2);
+  transform: translateY(-65%) rotate(45deg);
+  pointer-events: none;
+}
+
+.haken {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin: .15rem 0 .55rem;
+  color: var(--text);
+}
+.haken input { accent-color: var(--primaer); margin: 0; }
+
+.oder {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  margin: 1rem 0;
+  font-size: .78rem;
+  color: var(--text-2);
+}
+.oder::before, .oder::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--linie);
+}
+
+/* Link/GPX gesetzt -> manuelle Felder treten zurück (und umgekehrt) */
+.gedimmt { opacity: .45; pointer-events: none; }
+
+.feldhinweis { margin: .35rem 2px 0; font-size: .78rem;
+               color: var(--text-2); }
+.feldfehler { margin: .35rem 2px 0; font-size: .78rem;
+              color: var(--fehler); }
+.feldfehler:empty { display: none; }
+
+/* GPX-Import */
+.umriss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  width: 100%;
+  padding: .55rem .8rem;
+  border: 1px solid var(--linie);
+  border-radius: 8px;
+  background: var(--flaeche);
+  font-weight: 600;
+  color: var(--text);
+}
+.umriss:hover { background: var(--hover); }
+.umriss .icon { width: 18px; height: 18px; }
+
+.gpxwahl {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  margin-top: .3rem;
+}
+.gpxwahl:not(:has(.gpxpfad:not(:empty))) { display: none; }
+.gpxpfad {
+  flex: 1;
+  min-width: 0;
+  font-size: .82rem;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.rund {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: .45rem;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-2);
+}
+.rund:hover { background: var(--hover); color: var(--text); }
+.rund.klein { padding: .25rem; }
+.rund.klein .icon { width: 15px; height: 15px; }
+
+/* Trennung Routen-Eingabe ↔ Relais-Filter: eigene Linie statt
+   border-top am Feld — das Etikett sitzt bei top:-7px und läge sonst
+   auf der Linie. */
+.trennung {
+  border: none;
+  border-top: 1px solid var(--linie);
+  margin: 1.5rem 0 1.4rem;
+}
+.filterfeld { margin-bottom: .35rem; }
+
+/* Panel-Fuß: Meldung + Berechnen + Einstellungen */
+.panel-fuss {
+  padding: .8rem 1.1rem;
+  border-top: 1px solid var(--linie);
+}
+
+.meldung {
+  margin: 0 0 .7rem;
+  padding: .55rem .75rem;
+  font-size: .82rem;
+  border: 1px solid var(--fokus);
+  border-radius: 8px;
+  background: var(--flaeche);
+}
+.meldung.fehler {
+  border-color: var(--fehler);
+  background: var(--fehler-flaeche);
+  color: var(--fehler);
+}
+
+.primaer {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  width: 100%;
+  padding: .55rem .9rem;
+  border: none;
+  border-radius: 10px;
+  background: var(--primaer);
+  color: #fff;
+  text-align: left;
+}
+.primaer:hover { background: var(--primaer-tief); }
+.primaer .icon { width: 22px; height: 22px; }
+.primaer-text {
+  display: flex;
+  flex-direction: column;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.primaer-text small {
+  font-size: .72rem;
+  font-weight: 400;
+  opacity: .85;
+}
+
+/* Während des Laufs: Abbrechen in Amber (Spezifikation §1.1); dunkler
+   Text, weil Weiß auf Amber zu wenig Kontrast hat. */
+.primaer.abbruch { background: var(--amber); color: #402c00; }
+.primaer.abbruch:hover { background: #d97706; }
+
+
+/* ==================================================== Main View */
+.hauptbereich {
+  grid-row: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--flaeche);
+}
+
+.hauptkopf {
+  padding: .85rem 1.4rem;
+  border-bottom: 1px solid var(--linie);
+}
+.hauptkopf h1 { margin: 0; font-size: 1.25rem; font-weight: 650; }
+
+.leerzustand {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-2);
+}
+.leerzustand .icon { color: var(--linie); }
+.leerzustand h2 {
+  margin: 1rem 0 .4rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.leerzustand p { margin: 0; max-width: 34rem; }
+
+/* ====================================== Fortschrittsansicht (U2) */
+/* Oben die Fortschritts-Karte, unten die Log-Konsole mit ~20 %
+   Höhe (Abnahmebefund U2, 2026-07-20 — vorher hälftig);
+   minmax(0, …) hält beide Bereiche scrollbar. */
+.laufansicht {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 4fr) minmax(0, 1fr);
+}
+
+.fortschritt-bereich {
+  display: flex;
+  min-height: 0;
+  padding: 1.2rem 1.4rem;
+  overflow-y: auto;
+}
+
+.fortschritt-karte {
+  /* margin:auto zentriert auch dann korrekt, wenn die Karte höher
+     wird als der Bereich (flex-Zentrierung schnitte oben ab) */
+  margin: auto;
+  width: min(100%, 30rem);
+  padding: 1.3rem 1.5rem 1.4rem;
+  border: 1px solid var(--linie);
+  border-radius: 14px;
+  background: var(--flaeche-2);
+}
+
+.lauf-kopf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .7rem;
+  text-align: center;
+}
+.lauf-kopf h2 { margin: 0; font-size: 1.02rem; font-weight: 650; }
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid var(--feld);
+  border-top-color: var(--primaer);
+  border-radius: 50%;
+  animation: drehung .9s linear infinite;
+}
+@keyframes drehung { to { transform: rotate(360deg); } }
+
+.lauf-icon { width: 34px; height: 34px; }
+.lauf-icon.gut { color: var(--gruen); }
+.lauf-icon.warnung { color: var(--amber); }
+.lauf-icon.schlecht { color: var(--rot); }
+
+/* Gesamt- und Einzelschritt-Balken: Beschriftung + Prozent/ETA
+   über schmaler Spur */
+.phasen {
+  display: flex;
+  flex-direction: column;
+  gap: .8rem;
+  margin-top: 1.15rem;
+}
+.phase-kopf {
+  display: flex;
+  justify-content: space-between;
+  gap: .8rem;
+  margin-bottom: .3rem;
+  font-size: .82rem;
+}
+.phase-name { overflow-wrap: anywhere; }
+.phase-wert {
+  color: var(--text-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.phase-spur {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--feld);
+  overflow: hidden;
+}
+.phase-fuellung {
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: var(--primaer);
+  transition: width .15s linear;
+}
+/* Einzelschritt unter dem Gesamt-Balken: hellerer Füllton und
+   gedämpfte Beschriftung — klar als Unterschritt erkennbar */
+.phase.unter .phase-fuellung { background: var(--fokus); }
+.phase.unter .phase-name { color: var(--text-2); }
+
+.lauf-hinweis {
+  margin: 1rem 0 0;
+  padding: .55rem .75rem;
+  font-size: .85rem;
+  border: 1px solid var(--fehler);
+  border-radius: 8px;
+  background: var(--fehler-flaeche);
+  color: var(--fehler);
+  overflow-wrap: anywhere;
+}
+
+.lauf-erfolg {
+  margin: 1rem 0 0;
+  padding: .6rem .75rem;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: .76rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-radius: 8px;
+  background: var(--feld);
+  color: var(--text);
+}
+
+.lauf-aktionen {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  margin-top: 1.1rem;
+}
+
+/* Log-Konsole: bewusst in BEIDEN Themes dunkel (Konsolen-Charakter,
+   Spezifikation §1.2) — daher Festfarben statt Token; color-scheme
+   dunkelt auch die Scrollbar im hellen Theme ab. */
+.konsole {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: .7rem .9rem;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: .78rem;
+  line-height: 1.5;
+  background: #10151a;
+  color: #c7d1da;
+  border-top: 1px solid var(--linie);
+  color-scheme: dark;
+}
+.kzeile { white-space: pre-wrap; overflow-wrap: anywhere; }
+.kpraefix { color: #6f8296; }
+.kzeile.kfehler { color: #ff8a80; }
+.kzeile.kfehler .kpraefix { color: #ff8a80; }
+
+/* ====================================== Ergebnisansicht (U4) */
+.ergebnisansicht {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Top-Bar (U5): Route, Kennzahlen mit Status-Icons, Aktionen */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  padding: .45rem .9rem;
+  border-bottom: 1px solid var(--linie);
+  font-size: .85rem;
+}
+.ergebnis-route {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kennzahl {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.kennzahl .icon { width: 17px; height: 17px; }
+.kennzahl.gut .icon { color: var(--gruen); }
+.kennzahl.warnung .icon { color: var(--amber); }
+.kennzahl.schlecht .icon { color: var(--rot); }
+#kz-distanz { color: var(--text-2); }
+
+.leiste-aktionen {
+  display: flex;
+  gap: .5rem;
+  margin-left: auto;
+  flex: none;
+}
+/* schmale Leisten-Variante der Umriss-Knöpfe */
+.umriss.schmal { width: auto; padding: .35rem .7rem; font-size: .8rem; }
+.umriss.schmal .icon { width: 16px; height: 16px; }
+.umriss:disabled { opacity: .5; cursor: default; }
+
+/* Split-View Karte/Tabelle mit ziehbarem Splitter (U5) */
+.split {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.splitter {
+  flex: none;
+  height: 7px;
+  cursor: row-resize;
+  background: var(--flaeche-2);
+  border-top: 1px solid var(--linie);
+  border-bottom: 1px solid var(--linie);
+  position: relative;
+}
+/* Grip: drei Punkte in der Mitte */
+.splitter::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 26px;
+  height: 3px;
+  transform: translate(-50%, -50%);
+  border-radius: 2px;
+  background: radial-gradient(circle 1.5px, var(--text-2) 95%,
+                              transparent) 0 0 / 8px 3px repeat-x;
+}
+.splitter:hover { background: var(--hover); }
+
+/* Die Karte folgt bewusst NICHT dem Dunkelmodus (Spezifikation §2) */
+.karte-halter {
+  position: relative;
+  flex: 0 0 55%;
+  min-height: 0;
+}
+
+/* DataGrid (U5) */
+.datenbereich {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--flaeche);
+}
+.daten-kopf {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  padding: .4rem .9rem;
+  border-bottom: 1px solid var(--linie);
+}
+.suchfeld {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  flex: 0 1 22rem;
+  padding: .25rem .6rem;
+  border: 1px solid var(--linie);
+  border-radius: 8px;
+  background: var(--feld);
+  color: var(--text-2);
+}
+.suchfeld .icon { width: 16px; height: 16px; }
+.suchfeld input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-size: .85rem;
+  color: var(--text);
+}
+.daten-zaehler { font-size: .78rem; color: var(--text-2); }
+
+.tabellen-halter {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.relais-tabelle {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .82rem;
+}
+.relais-tabelle th, .relais-tabelle td {
+  padding: .35rem .55rem;
+  text-align: left;
+  white-space: nowrap;
+}
+.relais-tabelle td.num, .relais-tabelle th.num { text-align: right; }
+.relais-tabelle thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--flaeche-2);
+  border-bottom: 1px solid var(--linie);
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+  user-select: none;
+}
+.relais-tabelle thead th:hover { color: var(--text); }
+.relais-tabelle thead th.sortiert { color: var(--primaer); }
+.relais-tabelle thead th.sortiert[data-richtung="auf"]::after {
+  content: " ▲"; font-size: .6rem;
+}
+.relais-tabelle thead th.sortiert[data-richtung="ab"]::after {
+  content: " ▼"; font-size: .6rem;
+}
+.th-auf, .td-auf { width: 1.9rem; }
+.relais-tabelle tbody tr[data-index] { cursor: pointer; }
+.relais-tabelle tbody tr[data-index]:hover { background: var(--hover); }
+.relais-tabelle tbody tr { border-bottom: 1px solid var(--linie); }
+.relais-tabelle tr.grenz td { opacity: .6; }
+.relais-tabelle tr.aktiv {
+  background: var(--hover);
+  box-shadow: inset 3px 0 0 var(--primaer);
+}
+.relais-tabelle td.status .icon {
+  width: 15px;
+  height: 15px;
+  vertical-align: -3px;
+}
+.relais-tabelle td.status.gut .icon { color: var(--gruen); }
+.relais-tabelle td.status.warnung .icon { color: var(--amber); }
+
+.aufklappen .icon { transition: transform .15s ease; }
+.aufklappen.offen .icon { transform: rotate(90deg); }
+
+/* Talkgroup-Details (aufgeklappte DMR-Zeile) */
+.tg-zeile > td { padding: 0 .55rem .5rem 2.4rem; }
+.tg-tabelle {
+  border-collapse: collapse;
+  font-size: .78rem;
+  background: var(--flaeche-2);
+  border-radius: 8px;
+}
+.tg-tabelle th, .tg-tabelle td {
+  padding: .2rem .7rem;
+  text-align: left;
+}
+.tg-tabelle td.num { text-align: right; }
+.tg-tabelle th {
+  font-size: .72rem;
+  color: var(--text-2);
+  font-weight: 600;
+}
+#karte { position: absolute; inset: 0; background: #d9dee3;
+         color-scheme: light; }
+
+/* Marker: farbiger Kreis mit Material-Glyphe (Statusfarben wie
+   Legende/Bericht: blau = DMR, orange = FM, grau = nur Grenzbereich,
+   vermilion = Wegpunkt — CVD-sichere Palette ohne Rot/Grün) */
+.kmarker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .45);
+  color: #fff;
+}
+.kmarker .icon { width: 16px; height: 16px; }
+.kmarker.dmr { background: #0072B2; }
+.kmarker.fm { background: #E69F00; }
+.kmarker.grenz { background: #808A93; }
+.kmarker.station { background: #D55E00; }
+
+/* Ausgewähltes Relais (Tabelle↔Karte, U5) */
+.leaflet-marker-icon.aktiv .kmarker {
+  transform: scale(1.25);
+  box-shadow: 0 0 0 3px var(--fokus), 0 1px 6px rgba(0, 0, 0, .5);
+}
+
+/* Legende wie auf der folium-Karte: fest hell (Karte wird nicht
+   invertiert), unten links über der Karte */
+.karten-legende {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  z-index: 800;
+  max-width: 24rem;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #fff;
+  color: #111;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .4);
+  font: 12px/1.6 sans-serif;
+}
+.karten-legende svg { vertical-align: middle; }
+.legende-rampe {
+  display: inline-block;
+  width: 30px;
+  height: 10px;
+  vertical-align: middle;
+  /* Rampe = mapview.HEATMAP_RAMP */
+  background: linear-gradient(90deg, #A6D6EB, #56B4E9, #0072B2, #03395C);
+}
+
+/* ================================================= Statusleiste */
+.statusleiste {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  padding: .3rem 1.1rem;
+  font-size: .78rem;
+  color: var(--text-2);
+  background: var(--flaeche-2);
+  border-top: 1px solid var(--linie);
+}
+.trenner { opacity: .6; }
+#status-rechts { margin-left: auto; }
+
+/* Zahnrad ganz rechts in der Statusleiste (Spezifikation §1.3) —
+   negativer Rand, damit die schmale Leiste nicht wächst */
+.statusleiste .rund.klein { margin: -.2rem 0; }
+
+.fusslink {
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: inherit;
+  color: var(--primaer);
+  text-decoration: underline;
+}
+
+/* ====================================== Einstellungen-Menü (U6) */
+.menue {
+  position: fixed;
+  right: 10px;
+  bottom: 34px;
+  z-index: 9;
+  min-width: 15.5rem;
+  padding: .45rem;
+  border: 1px solid var(--linie);
+  border-radius: 12px;
+  background: var(--flaeche);
+  box-shadow: 0 8px 28px var(--schatten);
+  animation: dialog-auf .15s ease;
+}
+.menue-titel {
+  margin: .2rem .6rem .3rem;
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.menue-eintrag {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  width: 100%;
+  padding: .45rem .6rem;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  font-size: .85rem;
+}
+.menue-eintrag:hover:not(:disabled) { background: var(--hover); }
+.menue-eintrag:disabled { color: var(--text-2); cursor: default;
+                          opacity: .55; }
+.menue-eintrag .icon { width: 17px; height: 17px; }
+/* Theme-Haken: nur die aktive Wahl zeigt ihn */
+.menue-haken { visibility: hidden; color: var(--primaer); }
+.menue-eintrag.aktiv .menue-haken { visibility: visible; }
+.menue-eintrag.aktiv { font-weight: 600; }
+.menue-info {
+  margin: .3rem .6rem .25rem;
+  font-size: .78rem;
+  color: var(--text-2);
+}
+.menue-linie {
+  border: none;
+  border-top: 1px solid var(--linie);
+  margin: .35rem .2rem;
+}
+
+/* ============================================ Material-Dialog (U3) */
+#dialog-hintergrund {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 25, 35, .5);
+}
+#dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(90vw, 34rem);
+  max-height: 80vh;
+  padding: 1.2rem 1.4rem;
+  border-radius: 14px;
+  background: var(--flaeche);
+  box-shadow: 0 12px 40px var(--schatten);
+  animation: dialog-auf .18s ease;
+}
+@keyframes dialog-auf {
+  from { opacity: 0; transform: translateY(10px) scale(.97); }
+}
+#dialog-frage { margin: 0 0 .9rem; font-size: 1rem; font-weight: 650; }
+
+/* Optionsliste scrollt bei vielen Kandidaten, Kopf und Knöpfe bleiben
+   stehen; 2px Innenabstand, damit der Fokus-Ring nicht abgeschnitten
+   wird. */
+#dialog-optionen {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px;
+  margin: -2px;
+}
+
+.dialog-eintrag {
+  display: block;
+  width: 100%;
+  margin-bottom: .4rem;
+  padding: .6rem .8rem;
+  border: 1px solid var(--linie);
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.dialog-eintrag:hover { background: var(--hover); }
+.dialog-eintrag:focus-visible {
+  outline: 2px solid var(--fokus);
+  outline-offset: -1px;
+}
+/* Vorgabe (Top-Treffer): markiert wie die Terminal-Vorauswahl —
+   Enter übernimmt sie direkt */
+.dialog-eintrag.vorgabe { border-color: var(--primaer); }
+
+.dialog-knoepfe {
+  display: flex;
+  justify-content: flex-end;
+  gap: .6rem;
+  margin-top: 1rem;
+}
+.dialog-knoepfe .start {
+  padding: .5rem 1.1rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--primaer);
+  color: #fff;
+  font-weight: 600;
+}
+.dialog-knoepfe .start:hover { background: var(--primaer-tief); }
+.dialog-knoepfe .neben {
+  padding: .5rem 1.1rem;
+  border: 1px solid var(--linie);
+  border-radius: 8px;
+  background: none;
+  font-weight: 600;
+}
+.dialog-knoepfe .neben:hover { background: var(--hover); }

@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>BM-Routencheck</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="stil.css">
+</head>
+<body>
+
+<!-- Material-Symbols-Sprite (generiert, siehe
+     packaging/sprite_erzeugen.py — nicht von Hand pflegen) -->
+<!-- sprite:anfang -->
+<svg id="symbole" xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+<symbol id="i-cancel" viewBox="0 -960 960 960"><path d="m336-280 144-144 144 144 56-56-144-144 144-144-56-56-144 144-144-144-56 56 144 144-144 144 56 56ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></symbol>
+<symbol id="i-cell_tower" viewBox="0 -960 960 960"><path d="M196-276q-57-60-86.5-133T80-560q0-78 29.5-151T196-844l48 48q-48 48-72 110.5T148-560q0 63 24 125.5T244-324l-48 48Zm96-96q-39-39-59.5-88T212-560q0-51 20.5-100t59.5-88l48 48q-30 27-45 64t-15 76q0 36 15 73t45 67l-48 48ZM280-80l135-405q-16-14-25.5-33t-9.5-42q0-42 29-71t71-29q42 0 71 29t29 71q0 23-9.5 42T545-485L680-80h-80l-26-80H387l-27 80h-80Zm133-160h134l-67-200-67 200Zm255-132-48-48q30-27 45-64t15-76q0-36-15-73t-45-67l48-48q39 39 58 88t22 100q0 51-20.5 100T668-372Zm96 96-48-48q48-48 72-110.5T812-560q0-63-24-125.5T716-796l48-48q57 60 86.5 133T880-560q0 78-28 151t-88 133Z"/></symbol>
+<symbol id="i-check_circle" viewBox="0 -960 960 960"><path d="m424-296 282-282-56-56-226 226-114-114-56 56 170 170Zm56 216q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></symbol>
+<symbol id="i-chevron_right" viewBox="0 -960 960 960"><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z"/></symbol>
+<symbol id="i-close" viewBox="0 -960 960 960"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></symbol>
+<symbol id="i-delete" viewBox="0 -960 960 960"><path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"/></symbol>
+<symbol id="i-directions_car" viewBox="0 -960 960 960"><path d="M240-200v40q0 17-11.5 28.5T200-120h-40q-17 0-28.5-11.5T120-160v-320l84-240q6-18 21.5-29t34.5-11h440q19 0 34.5 11t21.5 29l84 240v320q0 17-11.5 28.5T800-120h-40q-17 0-28.5-11.5T720-160v-40H240Zm-8-360h496l-42-120H274l-42 120Zm-32 80v200-200Zm100 160q25 0 42.5-17.5T360-380q0-25-17.5-42.5T300-440q-25 0-42.5 17.5T240-380q0 25 17.5 42.5T300-320Zm360 0q25 0 42.5-17.5T720-380q0-25-17.5-42.5T660-440q-25 0-42.5 17.5T600-380q0 25 17.5 42.5T660-320Zm-460 40h560v-200H200v200Z"/></symbol>
+<symbol id="i-download" viewBox="0 -960 960 960"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></symbol>
+<symbol id="i-expand_more" viewBox="0 -960 960 960"><path d="M480-345 240-585l56-56 184 184 184-184 56 56-240 240Z"/></symbol>
+<symbol id="i-filter_list" viewBox="0 -960 960 960"><path d="M400-240v-80h160v80H400ZM240-440v-80h480v80H240ZM120-640v-80h720v80H120Z"/></symbol>
+<symbol id="i-flag" viewBox="0 -960 960 960"><path d="M200-120v-680h360l16 80h224v400H520l-16-80H280v280h-80Zm300-440Zm86 160h134v-240H510l-16-80H280v240h290l16 80Z"/></symbol>
+<symbol id="i-folder_open" viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640H447l-80-80H160v480l96-320h684L837-217q-8 26-29.5 41.5T760-160H160Zm84-80h516l72-240H316l-72 240Zm0 0 72-240-72 240Zm-84-400v-80 80Z"/></symbol>
+<symbol id="i-layers" viewBox="0 -960 960 960"><path d="M480-118 120-398l66-50 294 228 294-228 66 50-360 280Zm0-202L120-600l360-280 360 280-360 280Zm0-280Zm0 178 230-178-230-178-230 178 230 178Z"/></symbol>
+<symbol id="i-open_in_browser" viewBox="0 -960 960 960"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H600v-80h160v-480H200v480h160v80H200Zm240 0v-246l-64 64-56-58 160-160 160 160-56 58-64-64v246h-80Z"/></symbol>
+<symbol id="i-pedal_bike" viewBox="0 -960 960 960"><path d="M200-160q-85 0-142.5-57.5T0-360q0-85 58.5-142.5T200-560q77 0 129.5 46T396-400h26l-72-200h-70v-80h200v80h-44l14 40h192l-58-160H480v-80h104q26 0 46.5 14t29.5 38l68 186h32q83 0 141.5 58.5T960-362q0 84-58 143t-142 59q-72 0-126.5-45T564-320H396q-14 69-68 114.5T200-160Zm0-80q41 0 70.5-22.5T312-320H200v-80h112q-12-36-41.5-58T200-480q-51 0-85.5 34.5T80-360q0 50 34.5 85t85.5 35Zm308-160h56q5-23 13.5-43t22.5-37H478l30 80Zm252 160q51 0 85.5-35t34.5-85q0-51-34.5-85.5T760-480h-4l40 106-76 28-38-106q-20 17-31 40t-11 52q0 50 34.5 85t85.5 35ZM196-360Zm564 0Z"/></symbol>
+<symbol id="i-picture_as_pdf" viewBox="0 -960 960 960"><path d="M360-460h40v-80h40q17 0 28.5-11.5T480-580v-40q0-17-11.5-28.5T440-660h-80v200Zm40-120v-40h40v40h-40Zm120 120h80q17 0 28.5-11.5T640-500v-120q0-17-11.5-28.5T600-660h-80v200Zm40-40v-120h40v120h-40Zm120 40h40v-80h40v-40h-40v-40h40v-40h-80v200ZM320-240q-33 0-56.5-23.5T240-320v-480q0-33 23.5-56.5T320-880h480q33 0 56.5 23.5T880-800v480q0 33-23.5 56.5T800-240H320Zm0-80h480v-480H320v480ZM160-80q-33 0-56.5-23.5T80-160v-560h80v560h560v80H160Zm160-720v480-480Z"/></symbol>
+<symbol id="i-route" viewBox="0 -960 960 960"><path d="M360-120q-66 0-113-47t-47-113v-327q-35-13-57.5-43.5T120-720q0-50 35-85t85-35q50 0 85 35t35 85q0 39-22.5 69.5T280-607v327q0 33 23.5 56.5T360-200q33 0 56.5-23.5T440-280v-400q0-66 47-113t113-47q66 0 113 47t47 113v327q35 13 57.5 43.5T840-240q0 50-35 85t-85 35q-50 0-85-35t-35-85q0-39 22.5-70t57.5-43v-327q0-33-23.5-56.5T600-760q-33 0-56.5 23.5T520-680v400q0 66-47 113t-113 47ZM240-680q17 0 28.5-11.5T280-720q0-17-11.5-28.5T240-760q-17 0-28.5 11.5T200-720q0 17 11.5 28.5T240-680Zm480 480q17 0 28.5-11.5T760-240q0-17-11.5-28.5T720-280q-17 0-28.5 11.5T680-240q0 17 11.5 28.5T720-200ZM240-720Zm480 480Z"/></symbol>
+<symbol id="i-search" viewBox="0 -960 960 960"><path d="M784-120 532-372q-30 24-69 38t-83 14q-109 0-184.5-75.5T120-580q0-109 75.5-184.5T380-840q109 0 184.5 75.5T640-580q0 44-14 83t-38 69l252 252-56 56ZM380-400q75 0 127.5-52.5T560-580q0-75-52.5-127.5T380-760q-75 0-127.5 52.5T200-580q0 75 52.5 127.5T380-400Z"/></symbol>
+<symbol id="i-settings" viewBox="0 -960 960 960"><path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm70-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z"/></symbol>
+<symbol id="i-train" viewBox="0 -960 960 960"><path d="M160-340v-380q0-53 27.5-84.5t72.5-48q45-16.5 102.5-22T480-880q66 0 124.5 5.5t102 22q43.5 16.5 68.5 48t25 84.5v380q0 59-40.5 99.5T660-200l60 60v20h-80l-80-80H400l-80 80h-80v-20l60-60q-59 0-99.5-40.5T160-340Zm320-460q-106 0-155 12.5T258-760h448q-15-17-64.5-28.5T480-800ZM240-560h200v-120H240v120Zm420 80H240h480-60Zm-140-80h200v-120H520v120ZM340-320q26 0 43-17t17-43q0-26-17-43t-43-17q-26 0-43 17t-17 43q0 26 17 43t43 17Zm280 0q26 0 43-17t17-43q0-26-17-43t-43-17q-26 0-43 17t-17 43q0 26 17 43t43 17Zm-320 40h360q26 0 43-17t17-43v-140H240v140q0 26 17 43t43 17Zm180-480h226-448 222Z"/></symbol>
+<symbol id="i-upload_file" viewBox="0 -960 960 960"><path d="M440-200h80v-167l64 64 56-57-160-160-160 160 57 56 63-63v167ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v480q0 33-23.5 56.5T720-80H240Zm280-520v-200H240v640h480v-440H520ZM240-800v200-200 640-640Z"/></symbol>
+<symbol id="i-warning" viewBox="0 -960 960 960"><path d="m40-120 440-760 440 760H40Zm138-80h604L480-720 178-200Zm302-40q17 0 28.5-11.5T520-280q0-17-11.5-28.5T480-320q-17 0-28.5 11.5T440-280q0 17 11.5 28.5T480-240Zm-40-120h80v-200h-80v200Zm40-100Z"/></symbol>
+</svg>
+<!-- sprite:ende -->
+
+<div class="werkbank">
+
+<!-- ============================================== Control Panel -->
+<aside class="panel">
+
+  <div class="panel-inhalt">
+    <p class="ueberzeile" id="segmente-etikett">Modus</p>
+    <div class="segmente" role="tablist" aria-labelledby="segmente-etikett">
+      <button type="button" class="segment" data-modus="bahn" role="tab">
+        <svg class="icon"><use href="#i-train"/></svg><span>Bahn</span>
+      </button>
+      <button type="button" class="segment" data-modus="auto" role="tab">
+        <svg class="icon"><use href="#i-directions_car"/></svg><span>Auto</span>
+      </button>
+      <button type="button" class="segment" data-modus="rad" role="tab">
+        <svg class="icon"><use href="#i-pedal_bike"/></svg><span>Rad</span>
+      </button>
+    </div>
+
+    <!-- ------------------------------------------------- Bahn -->
+    <section class="formular" id="form-bahn" hidden>
+      <div class="manuell" data-tool="bahn">
+        <div class="feld">
+          <span class="etikett">Startbahnhof</span>
+          <input type="text" id="bahn-von" data-feld="von"
+                 placeholder="z. B. Nürnberg Hbf">
+        </div>
+        <div class="feld">
+          <span class="etikett">Zwischenhalte (optional)</span>
+          <input type="text" id="bahn-via" data-feld="via"
+                 placeholder="Komma-getrennt">
+        </div>
+        <div class="feld">
+          <span class="etikett">Zielbahnhof</span>
+          <input type="text" id="bahn-nach" data-feld="nach"
+                 placeholder="z. B. Berlin Hbf">
+        </div>
+        <div class="feld">
+          <span class="etikett">Zuggattung</span>
+          <select id="bahn-zuggattung" data-feld="zuggattung">
+            <option value="alle">Fern- und Nahverkehr</option>
+            <option value="fern">Fernverkehr (ICE/IC/EC, Nachtzüge)</option>
+            <option value="nah">Nahverkehr (RE/RB/S-Bahn)</option>
+          </select>
+        </div>
+        <div class="feld">
+          <span class="etikett">Abfahrtszeit (leer = jetzt)</span>
+          <input type="text" id="bahn-zeit" data-feld="zeit"
+                 placeholder="z. B. 2026-07-20 08:00 oder 08:00">
+          <p class="feldfehler" data-fuer="bahn-zeit"></p>
+        </div>
+        <label class="haken"><input type="checkbox" id="bahn-direkt"
+          data-feld="direkt"> Nur Direktverbindungen</label>
+        <label class="haken"><input type="checkbox" id="bahn-ankunft"
+          data-feld="ankunft"> Zeit ist die Ankunftszeit</label>
+      </div>
+
+      <p class="oder">oder</p>
+
+      <div class="feld">
+        <span class="etikett">bahn.de-Verbindungslink</span>
+        <input type="url" id="bahn-link" data-feld="link"
+               placeholder="https://www.bahn.de/buchung/start?vbid=…"
+               spellcheck="false">
+        <p class="feldfehler" data-fuer="bahn-link"></p>
+        <p class="feldhinweis">Die dort gewählte Verbindung wird direkt
+           übernommen — die Felder oben entfallen dann.</p>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------- Auto -->
+    <section class="formular" id="form-auto" hidden>
+      <div class="manuell" data-tool="auto">
+        <div class="feld">
+          <span class="etikett">Start</span>
+          <input type="text" id="auto-von" data-feld="von"
+                 placeholder="Ort oder Adresse, z. B. Koblenz">
+        </div>
+        <div class="feld">
+          <span class="etikett">Zwischenziele (optional)</span>
+          <input type="text" id="auto-via" data-feld="via"
+                 placeholder="Komma-getrennt">
+        </div>
+        <div class="feld">
+          <span class="etikett">Ziel</span>
+          <input type="text" id="auto-nach" data-feld="nach"
+                 placeholder="z. B. Nürnberg Zollhaus">
+        </div>
+      </div>
+
+      <p class="oder">oder</p>
+
+      <div class="feld">
+        <span class="etikett">Routen-Link (Google Maps/Komoot)</span>
+        <input type="url" id="auto-link" data-feld="link"
+               placeholder="https://maps.app.goo.gl/…"
+               spellcheck="false">
+        <p class="feldfehler" data-fuer="auto-link"></p>
+      </div>
+
+      <div class="feld">
+        <button type="button" class="umriss" data-gpx="auto">
+          <svg class="icon"><use href="#i-upload_file"/></svg>
+          GPX-Route importieren
+        </button>
+        <div class="gpxwahl">
+          <span class="gpxpfad" id="auto-gpx" data-feld="gpx"
+                data-pfad=""></span>
+          <button type="button" class="rund klein" data-gpx-leeren="auto"
+                  title="GPX-Auswahl entfernen" hidden>
+            <svg class="icon"><use href="#i-close"/></svg>
+          </button>
+        </div>
+        <p class="feldfehler" data-fuer="auto-gpx"></p>
+      </div>
+    </section>
+
+    <!-- -------------------------------------------------- Rad -->
+    <section class="formular" id="form-rad" hidden>
+      <div class="manuell" data-tool="rad">
+        <div class="feld">
+          <span class="etikett">Start</span>
+          <input type="text" id="rad-von" data-feld="von"
+                 placeholder="Ort oder Adresse, z. B. Koblenz">
+        </div>
+        <div class="feld">
+          <span class="etikett">Zwischenziele (optional)</span>
+          <input type="text" id="rad-via" data-feld="via"
+                 placeholder="Komma-getrennt">
+        </div>
+        <div class="feld">
+          <span class="etikett">Ziel</span>
+          <input type="text" id="rad-nach" data-feld="nach"
+                 placeholder="z. B. Bendorf">
+        </div>
+      </div>
+
+      <p class="oder">oder</p>
+
+      <div class="feld">
+        <span class="etikett">Routen-Link (Google Maps/Komoot)</span>
+        <input type="url" id="rad-link" data-feld="link"
+               placeholder="https://www.komoot.com/tour/…"
+               spellcheck="false">
+        <p class="feldfehler" data-fuer="rad-link"></p>
+      </div>
+
+      <div class="feld">
+        <button type="button" class="umriss" data-gpx="rad">
+          <svg class="icon"><use href="#i-upload_file"/></svg>
+          GPX-Route importieren
+        </button>
+        <div class="gpxwahl">
+          <span class="gpxpfad" id="rad-gpx" data-feld="gpx"
+                data-pfad=""></span>
+          <button type="button" class="rund klein" data-gpx-leeren="rad"
+                  title="GPX-Auswahl entfernen" hidden>
+            <svg class="icon"><use href="#i-close"/></svg>
+          </button>
+        </div>
+        <p class="feldfehler" data-fuer="rad-gpx"></p>
+      </div>
+    </section>
+
+    <!-- Relais-Filter zuletzt (Assistenten-Reihenfolge: Modus-Frage
+         zuletzt, Nutzerwunsch 2026-07-15), optisch von der
+         Routen-Eingabe abgesetzt -->
+    <hr class="trennung">
+    <div class="feld filterfeld">
+      <span class="etikett">Relais-Filter</span>
+      <select id="modus">
+        <option value="beide">DMR (BM) &amp; analoge FM-Relais</option>
+        <option value="dmr">Nur Brandmeister-DMR</option>
+        <option value="fm">Nur analoge FM-Relais</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="panel-fuss">
+    <p class="meldung" id="meldung" hidden></p>
+    <button type="button" id="berechnen" class="primaer">
+      <svg class="icon"><use id="berechnen-icon" href="#i-route"/></svg>
+      <span class="primaer-text"><span id="berechnen-text">Berechnen</span>
+        <small id="berechnen-untertitel">Route berechnen</small></span>
+    </button>
+  </div>
+
+</aside>
+
+<!-- ================================================= Main View -->
+<main class="hauptbereich">
+  <header class="hauptkopf">
+    <h1>BM-Routencheck</h1>
+  </header>
+
+  <!-- Leerzustand (vor dem ersten Lauf) -->
+  <section id="leer" class="leerzustand">
+    <svg class="icon riesig"><use href="#i-route"/></svg>
+    <h2>Welche DMR- und FM-Relais erreichst du unterwegs?</h2>
+    <p>Links Modus und Route wählen, dann <strong>Berechnen</strong> —
+       Bericht, Karte, CSV und Codeplug entstehen je Route.</p>
+  </section>
+
+  <!-- Fortschrittsansicht (U2): oben die Fortschritts-Karte, unten
+       die Log-Konsole. Nach dem Lauf zeigt die Karte den Abschluss —
+       die Ergebnisansicht (Karte + Tabelle) folgt mit U4/U5. -->
+  <section id="lauf" class="laufansicht" hidden>
+    <div class="fortschritt-bereich">
+      <div class="fortschritt-karte">
+        <div class="lauf-kopf">
+          <div class="spinner" id="lauf-spinner"></div>
+          <svg class="icon lauf-icon" id="lauf-icon" hidden>
+            <use id="lauf-icon-use" href="#i-check_circle"/></svg>
+          <h2 id="lauf-titel">Routenberechnung läuft…</h2>
+        </div>
+        <!-- Zwei Balken (U2-Befund 2026-07-20): oben der Gesamt-
+             Fortschritt über die Pipeline-Schritte, darunter der
+             jeweils aktuelle Einzelschritt. -->
+        <div class="phasen">
+          <div class="phase">
+            <div class="phase-kopf">
+              <span class="phase-name" id="gesamt-name">Route
+                vorbereiten …</span>
+              <span class="phase-wert" id="gesamt-wert"></span>
+            </div>
+            <div class="phase-spur">
+              <div class="phase-fuellung" id="gesamt-fuellung"></div>
+            </div>
+          </div>
+          <div class="phase unter" id="phase-schritt" hidden>
+            <div class="phase-kopf">
+              <span class="phase-name" id="schritt-name"></span>
+              <span class="phase-wert" id="schritt-wert"></span>
+            </div>
+            <div class="phase-spur">
+              <div class="phase-fuellung" id="schritt-fuellung"></div>
+            </div>
+          </div>
+        </div>
+        <p class="lauf-hinweis" id="lauf-hinweis" hidden></p>
+        <pre class="lauf-erfolg" id="lauf-erfolg" hidden></pre>
+        <div class="lauf-aktionen" id="lauf-aktionen" hidden>
+          <button type="button" class="umriss" id="lauf-bericht">
+            <svg class="icon"><use href="#i-open_in_browser"/></svg>
+            Bericht &amp; Karte im Browser öffnen
+          </button>
+          <button type="button" class="umriss" id="lauf-ordner">
+            <svg class="icon"><use href="#i-folder_open"/></svg>
+            Ausgabeordner öffnen
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="konsole" id="konsole"></div>
+  </section>
+
+  <!-- Ergebnisansicht (U4/U5): Kennzahlen-Top-Bar, Leaflet-Karte und
+       DataGrid mit ziehbarem Splitter dazwischen. -->
+  <section id="ergebnis" class="ergebnisansicht" hidden>
+    <div class="topbar">
+      <span id="ergebnis-route" class="ergebnis-route"></span>
+      <span class="kennzahl" id="kz-distanz"
+            title="Streckenlänge"></span>
+      <span class="kennzahl gut" id="kz-sicht">
+        <svg class="icon"><use href="#i-check_circle"/></svg>
+        <span class="kz-wert"></span></span>
+      <span class="kennzahl warnung" id="kz-grenz">
+        <svg class="icon"><use href="#i-warning"/></svg>
+        <span class="kz-wert"></span></span>
+      <span class="kennzahl schlecht" id="kz-schatten">
+        <svg class="icon"><use href="#i-cancel"/></svg>
+        <span class="kz-wert"></span></span>
+      <span class="leiste-aktionen">
+        <button type="button" class="umriss schmal" id="ergebnis-pdf"
+                title="PDF Export — bericht.pdf erzeugen und öffnen">
+          <svg class="icon"><use href="#i-picture_as_pdf"/></svg>
+          PDF
+        </button>
+        <button type="button" class="umriss schmal" id="ergebnis-csv"
+                title="CSV Export — relais.csv speichern unter …">
+          <svg class="icon"><use href="#i-download"/></svg>
+          CSV
+        </button>
+        <button type="button" class="umriss schmal" id="ergebnis-bericht"
+                title="Bericht &amp; Karte im Browser öffnen">
+          <svg class="icon"><use href="#i-open_in_browser"/></svg>
+          Bericht
+        </button>
+        <button type="button" class="umriss schmal" id="ergebnis-ordner"
+                title="Ausgabeordner im Dateimanager öffnen">
+          <svg class="icon"><use href="#i-folder_open"/></svg>
+          Ordner
+        </button>
+      </span>
+    </div>
+    <div class="split">
+      <div class="karte-halter" id="karten-bereich">
+        <div id="karte"></div>
+        <div id="karten-legende" class="karten-legende" hidden></div>
+      </div>
+      <div class="splitter" id="splitter" role="separator"
+           aria-orientation="horizontal"
+           title="Ziehen: Aufteilung Karte/Tabelle"></div>
+      <div class="datenbereich">
+        <div class="daten-kopf">
+          <div class="suchfeld">
+            <svg class="icon"><use href="#i-search"/></svg>
+            <input type="search" id="relais-suche"
+                   placeholder="Filtern: Rufzeichen, Standort, Modus …">
+          </div>
+          <span class="daten-zaehler" id="relais-zaehler"></span>
+        </div>
+        <div class="tabellen-halter">
+          <table class="relais-tabelle">
+            <thead id="relais-kopf"></thead>
+            <tbody id="relais-zeilen"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- =============================================== Statusleiste -->
+<footer class="statusleiste">
+  <span id="status-links">Bereit</span>
+  <span class="trenner">·</span>
+  <button type="button" id="cache-leeren" class="fusslink">Cache
+    leeren …</button>
+  <span id="status-rechts"></span>
+  <button type="button" class="rund klein" id="einstellungen"
+          title="Einstellungen">
+    <svg class="icon"><use href="#i-settings"/></svg>
+  </button>
+</footer>
+
+</div>
+
+<!-- Einstellungen (U6): kleines Menü am Zahnrad der Statusleiste —
+     Theme (System/Hell/Dunkel, persistiert), Cache, Ausgabeordner. -->
+<div id="menue" class="menue" hidden>
+  <p class="menue-titel">Erscheinungsbild</p>
+  <button type="button" class="menue-eintrag" data-theme-wahl="system">
+    <svg class="icon menue-haken"><use href="#i-check_circle"/></svg>
+    System
+  </button>
+  <button type="button" class="menue-eintrag" data-theme-wahl="hell">
+    <svg class="icon menue-haken"><use href="#i-check_circle"/></svg>
+    Hell
+  </button>
+  <button type="button" class="menue-eintrag" data-theme-wahl="dunkel">
+    <svg class="icon menue-haken"><use href="#i-check_circle"/></svg>
+    Dunkel
+  </button>
+  <hr class="menue-linie">
+  <p class="menue-info" id="menue-cache-info">Cache: …</p>
+  <button type="button" class="menue-eintrag" id="menue-cache-leeren">
+    <svg class="icon"><use href="#i-delete"/></svg>
+    Cache leeren …
+  </button>
+  <hr class="menue-linie">
+  <button type="button" class="menue-eintrag" id="menue-ordner" disabled>
+    <svg class="icon"><use href="#i-folder_open"/></svg>
+    Ausgabeordner öffnen
+  </button>
+</div>
+
+<!-- Frage-Dialog (U3): zentrierter Material-Dialog. Auswahl-Fragen
+     (Geocoding, Bahn-Verbindungswahl) als klickbare Liste — EIN Klick
+     wählt und schließt; Abbrechen bricht den Lauf ab. -->
+<div id="dialog-hintergrund" hidden>
+  <div id="dialog" role="dialog" aria-modal="true"
+       aria-labelledby="dialog-frage">
+    <h2 id="dialog-frage"></h2>
+    <div id="dialog-optionen"></div>
+    <div class="dialog-knoepfe" id="dialog-knoepfe"></div>
+  </div>
+</div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
