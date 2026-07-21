@@ -61,7 +61,9 @@ ohne Ausnahmemöglichkeit blockiert — dann SAC deaktivieren
 `BM-Routencheck.exe bahn --help` in cmd oder PowerShell. Bauartbedingt
 kehrt der Prompt dabei sofort zurück und die Ausgabe erscheint darunter —
 die GUI-Exe klinkt sich in das aufrufende Konsolenfenster ein. Für
-interaktive Terminal-Sitzungen `BM-Routencheck.exe --terminal` starten.
+interaktive Terminal-Sitzungen `BM-Routencheck.exe --terminal` starten:
+Das Menü öffnet sich in einem eigenen Konsolenfenster (das interaktive
+Menü und PowerShell würden sich sonst dieselbe Konsole teilen).
 
 **macOS (Apple Silicon):** Das ZIP herunterladen und entpacken,
 `BM-Routencheck.app` in den Ordner *Programme* ziehen und per Doppelklick

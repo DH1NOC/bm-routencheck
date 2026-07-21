@@ -10,17 +10,28 @@ import sys
 
 if sys.platform == "win32" and sys.stdout is None:
     # Windowed-Exe (--windowed, A1): Es gibt keine eigene Konsole und
-    # sys.std* sind None. Zwei Fälle:
-    #   * Aufruf aus cmd/PowerShell (Terminal-Fähigkeit): per
-    #     AttachConsole an die Konsole des Aufrufers anklinken — Ausgabe
-    #     und Eingabe landen dort. Eigenheit der Bauart: Der Prompt des
-    #     Aufrufers kehrt sofort zurück, die Ausgabe erscheint darunter.
-    #   * Doppelklick im Explorer: keine Elternkonsole, AttachConsole
-    #     schlägt fehl — Streams auf os.devnull, damit print()/rich
-    #     nie an None-Streams scheitern.
+    # sys.std* sind None. Drei Fälle:
+    #   * --terminal (interaktiv): eigenes Konsolenfenster per
+    #     AllocConsole. In der Konsole des Aufrufers ginge es nicht —
+    #     PowerShell liest dort parallel seinen eigenen Prompt (beide
+    #     Prozesse streiten um die Tastatur), und prompt_toolkit
+    #     verlangt echte Console-Std-Handles, die nur AllocConsole
+    #     setzt (Beta-Befund 2026-07-21: NoConsoleScreenBufferError).
+    #   * Aufruf aus cmd/PowerShell (nicht-interaktiv, z. B. --help,
+    #     Flag-Läufe): per AttachConsole an die Konsole des Aufrufers
+    #     anklinken. Eigenheit der Bauart: Der Prompt des Aufrufers
+    #     kehrt sofort zurück, die Ausgabe erscheint darunter.
+    #   * Doppelklick im Explorer: keine Elternkonsole — Streams auf
+    #     os.devnull, damit print()/rich nie an None-Streams scheitern.
     import ctypes
+    _k32 = ctypes.windll.kernel32
     ATTACH_PARENT_PROCESS = ctypes.c_uint32(-1)
-    if ctypes.windll.kernel32.AttachConsole(ATTACH_PARENT_PROCESS):
+    if "--terminal" in sys.argv[1:] and _k32.AllocConsole():
+        _k32.SetConsoleTitleW("BM-Routencheck")
+        _konsole = True
+    else:
+        _konsole = bool(_k32.AttachConsole(ATTACH_PARENT_PROCESS))
+    if _konsole:
         sys.stdin = open("CONIN$", encoding="utf-8", errors="replace")
         sys.stdout = open("CONOUT$", "w", encoding="utf-8",
                           errors="replace", buffering=1)
