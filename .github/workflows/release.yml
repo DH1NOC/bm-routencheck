@@ -10,8 +10,14 @@
 #   major = Featureversion (0.1.0 → 0.2.0)
 #   minor = Patch          (0.1.0 → 0.1.1)
 #
-# Assets: Quell-ZIP sowie Binaries für Windows, Linux und macOS.
-# Das macOS-Binary wird signiert und notarisiert, sofern die Secrets
+# Assets: Quell-ZIP sowie die GUI-Apps (A3, GUI-first):
+#   Windows  BM-Routencheck.exe (windowed, Exe-Icon; Terminal-Aufruf
+#            klinkt sich per AttachConsole in cmd/PowerShell ein)
+#   macOS    BM-Routencheck.app im ZIP (Terminal über das Binary im
+#            Bundle: BM-Routencheck.app/Contents/MacOS/BM-Routencheck)
+#   Linux    bmtools als tar.gz (GUI startet aus dem Terminal oder
+#            Dateimanager; Fenster-Icon kommt aus dem Paket)
+# Das macOS-Bundle wird signiert und notarisiert, sofern die Secrets
 # APPLE_CERT_P12, APPLE_CERT_PASSWORD, APPLE_ID, APPLE_TEAM_ID und
 # APPLE_APP_PASSWORD hinterlegt sind (siehe DEVELOPER.md, Abschnitt Releases).
 name: Release
@@ -157,31 +163,56 @@ jobs:
             | awk -F'"' '/Developer ID Application/ {print $2; exit}')
           echo "SIGNIER_IDENTITAET=$IDENTITAET" >> "$GITHUB_ENV"
 
-      - name: Binary bauen (PyInstaller)
+      - name: App bauen (PyInstaller)
         run: |
           set -euo pipefail
-          EXTRA=()
-          if [ -n "${SIGNIER_IDENTITAET:-}" ]; then
-            # Signiert auch alle eingebetteten Bibliotheken (Pflicht für
-            # Notarisierung mit Hardened Runtime).
-            EXTRA+=(--codesign-identity "$SIGNIER_IDENTITAET"
-                    --osx-entitlements-file packaging/entitlements.plist)
-          fi
           # --collect-all tzdata: zoneinfo lädt das Paket dynamisch
           # (string-basiert) — die statische Analyse sieht es nicht.
           # --collect-data bmtools: GUI-Frontend (static/ inkl. Leaflet
           # und Material Symbols samt Lizenzen) ins Binary.
-          pyinstaller --onefile --name bmtools \
-            --collect-submodules bmtools --collect-data bmtools \
-            --collect-data folium --collect-data branca \
-            --collect-all tzdata \
-            ${EXTRA[@]+"${EXTRA[@]}"} packaging/entry.py
+          GEMEINSAM=(--collect-submodules bmtools --collect-data bmtools
+                     --collect-data folium --collect-data branca
+                     --collect-all tzdata)
+          case "$RUNNER_OS" in
+            macOS)
+              # onedir statt onefile: ein onefile-.app entpackt sich bei
+              # jedem Start selbst (spürbar träge); das Bundle ist ohnehin
+              # ein Ordner. --windowed erzeugt das .app, der Terminal-
+              # Aufruf läuft über das Binary im Bundle.
+              EXTRA=()
+              if [ -n "${SIGNIER_IDENTITAET:-}" ]; then
+                # Signiert auch alle eingebetteten Bibliotheken (Pflicht
+                # für Notarisierung mit Hardened Runtime).
+                EXTRA+=(--codesign-identity "$SIGNIER_IDENTITAET"
+                        --osx-entitlements-file packaging/entitlements.plist)
+              fi
+              pyinstaller --windowed --name "BM-Routencheck" \
+                --osx-bundle-identifier de.dh1noc.bm-routencheck \
+                --icon packaging/icon/icon.icns \
+                "${GEMEINSAM[@]}" ${EXTRA[@]+"${EXTRA[@]}"} \
+                packaging/entry.py ;;
+            Windows)
+              # Eine windowed Exe (Nutzerfestlegung 2026-07-21): kein
+              # Konsolenfenster beim Doppelklick; Terminal-Ausgabe über
+              # den AttachConsole-Shim in packaging/entry.py.
+              pyinstaller --onefile --windowed --name "BM-Routencheck" \
+                --icon packaging/icon/icon.ico \
+                "${GEMEINSAM[@]}" packaging/entry.py ;;
+            Linux)
+              pyinstaller --onefile --name bmtools \
+                "${GEMEINSAM[@]}" packaging/entry.py ;;
+          esac
 
       - name: Binary rauchtesten
         run: |
           set -euo pipefail
-          BIN=dist/bmtools
-          [ -f dist/bmtools.exe ] && BIN=dist/bmtools.exe
+          case "$RUNNER_OS" in
+            macOS)   BIN="dist/BM-Routencheck.app/Contents/MacOS/BM-Routencheck" ;;
+            Windows) BIN="dist/BM-Routencheck.exe" ;;
+            Linux)   BIN=dist/bmtools ;;
+          esac
+          # Windows: Die windowed Exe hat im CI keine sichtbare Ausgabe,
+          # geprüft werden Exit-Codes (Importe, tzdata, Datenpakete).
           "$BIN" --help
           # PYTHONTZPATH leer: erzwingt den tzdata-Fallback auch auf
           # Linux/macOS — bahn lädt ZoneInfo("Europe/Berlin") beim Import
@@ -218,27 +249,28 @@ jobs:
             fi
           }
 
-          ditto -c -k dist/bmtools "$RUNNER_TEMP/notarisierung.zip"
+          ditto -c -k --keepParent "dist/BM-Routencheck.app" \
+            "$RUNNER_TEMP/notarisierung.zip"
           notarisieren "$RUNNER_TEMP/notarisierung.zip"
 
-      - name: Gatekeeper-Freigabe abwarten (macOS)
+      - name: Ticket antackern und Gatekeeper prüfen (macOS)
         if: runner.os == 'macOS' && env.SIGNIER_IDENTITAET != ''
         run: |
           set -euo pipefail
-          # Beta-Befund 2026-07-17: Direkt nach der Notarisierung braucht
-          # Apples CDN einige Minuten, bis das Ticket abrufbar ist — wer
-          # sofort herunterlädt, sieht sonst "Apple konnte nicht
-          # überprüfen …". Der Release wird erst freigegeben, wenn
-          # Gatekeeper das Binary tatsächlich akzeptiert.
+          # Stapling heftet das Notarisierungs-Ticket ans Bundle — die
+          # Gatekeeper-Prüfung beim Nutzer läuft dann offline. Ersetzt
+          # die frühere CDN-Warteschleife (Beta-Befund 2026-07-17: Ticket
+          # direkt nach der Notarisierung noch nicht abrufbar); stapler
+          # braucht dasselbe CDN, daher hier die Wiederholungen.
           for versuch in $(seq 1 20); do
-            if spctl --assess --type install dist/bmtools 2>/dev/null; then
-              spctl --assess --type install -vv dist/bmtools
+            if xcrun stapler staple "dist/BM-Routencheck.app"; then
+              spctl --assess --type execute -vv "dist/BM-Routencheck.app"
               exit 0
             fi
             echo "Ticket noch nicht verteilt — warte 15 s (Versuch $versuch/20)"
             sleep 15
           done
-          echo "::error::Gatekeeper akzeptiert das Binary nach 5 Minuten nicht."
+          echo "::error::Stapling nach 5 Minuten nicht möglich."
           exit 1
 
       - name: Paket schnüren
@@ -249,30 +281,30 @@ jobs:
           set -euo pipefail
           mkdir -p out/release
           case "$PLATTFORM" in
-            windows-*) cp dist/bmtools.exe "out/release/bmtools-$LABEL-$PLATTFORM.exe" ;;
+            windows-*) cp "dist/BM-Routencheck.exe" \
+                         "out/release/BM-Routencheck-$LABEL-$PLATTFORM.exe" ;;
             linux-*)   tar -C dist -czf "out/release/bmtools-$LABEL-$PLATTFORM.tar.gz" bmtools ;;
             macos-*)
-              # ZIP mit Binary + Hinweis-Datei (Nutzerfestlegung 2026-07-17:
-              # kein Installer, kein DMG). Die LIESMICH erklärt die
-              # Gatekeeper-Meldung beim Doppelklick — bmtools ist ein
-              # Terminalprogramm, gestartet wird im Terminal.
+              # ZIP mit dem .app-Bundle + Hinweis-Datei (Nutzerfestlegung
+              # 2026-07-17: kein Installer, kein DMG; 2026-07-21: nur das
+              # .app im ZIP). ditto erhält Symlinks und Signatur im Bundle.
               mkdir -p zipinhalt
-              # -X: ohne erweiterte Attribute (sonst ._-Dateien im ZIP)
-              cp -X dist/bmtools zipinhalt/bmtools
+              ditto "dist/BM-Routencheck.app" "zipinhalt/BM-Routencheck.app"
               printf '%s\n' \
-                "bmtools — BM-Routencheck" \
+                "BM-Routencheck" \
                 "" \
-                "bmtools ist ein Terminalprogramm und wird im Terminal gestartet:" \
-                "    chmod +x bmtools && ./bmtools" \
+                "Die App am besten in den Ordner Programme ziehen und per" \
+                "Doppelklick starten. Sie ist mit Developer ID signiert und" \
+                "von Apple notarisiert — es ist keine Gatekeeper-Ausnahme" \
+                "nötig." \
                 "" \
-                "WICHTIG: Nicht per Doppelklick im Finder starten. macOS zeigt" \
-                "dabei bei jedem Terminalprogramm die Meldung 'Apple konnte" \
-                "nicht überprüfen, ob bmtools frei von Schadsoftware ist'." \
-                "Das ist kein Signaturproblem: Das Binary ist mit Developer ID" \
-                "signiert und von Apple notarisiert — Gatekeeper behandelt per" \
-                "Doppelklick nur .app-Bundles als Apps." \
+                "Terminal-Nutzung (optional): Das Binary im Bundle versteht" \
+                "alle Kommandos, z. B." \
+                "    /Applications/BM-Routencheck.app/Contents/MacOS/BM-Routencheck bahn --help" \
+                "Tipp für häufige Nutzung ein Alias in ~/.zshrc:" \
+                "    alias bmtools='/Applications/BM-Routencheck.app/Contents/MacOS/BM-Routencheck'" \
                 > zipinhalt/LIESMICH.txt
-              ditto -c -k zipinhalt "out/release/bmtools-$LABEL-$PLATTFORM.zip" ;;
+              ditto -c -k zipinhalt "out/release/BM-Routencheck-$LABEL-$PLATTFORM.zip" ;;
           esac
       - uses: actions/upload-artifact@v7
         with:
