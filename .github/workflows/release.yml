@@ -241,11 +241,16 @@ jobs:
             # timeout es beendet (Exit 124) — nur das gilt als bestanden.
             # --no-sandbox: Ubuntu-24.04-Runner blocken die User-Namespaces
             # der Chromium-Sandbox von QtWebEngine.
-            # libegl1/libopengl0: PyInstaller bündelt GPU-Bibliotheken
-            # bewusst nie (müssen zum Host-Treiber passen); auf jedem
-            # Desktop-Linux vorhanden, dem headless Runner fehlen sie.
+            # GPU- und XCB-Bibliotheken des Desktops: PyInstaller bündelt
+            # sie bewusst nie (müssen zum Host passen); auf jedem
+            # Desktop-Linux vorhanden, dem headless Runner fehlen sie
+            # (libEGL, dann libxcb-cursor0 — Qt ≥ 6.5 braucht es fürs
+            # xcb-Plugin; gleich der komplette Qt6-xcb-Satz).
             sudo apt-get -yq install xvfb libegl1 libopengl0 \
-              libxkbcommon0 > /dev/null
+              libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 \
+              libxcb-icccm4 libxcb-keysyms1 libxcb-randr0 \
+              libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
+              libxcb-xkb1 > /dev/null
             set +e
             QTWEBENGINE_CHROMIUM_FLAGS="--no-sandbox" \
               xvfb-run -a timeout 20 "$BIN"
