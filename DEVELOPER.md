@@ -235,8 +235,10 @@ Releases werden manuell über GitHub Actions gebaut:
   `BM-Routencheck.exe` (Exe-Icon; Terminal-Ausgabe über den
   AttachConsole-Shim in `packaging/entry.py`), macOS (Apple Silicon) als
   `BM-Routencheck.app` (onedir-Bundle, Icon aus `icon.icns`) im ZIP mit
-  LIESMICH.txt, Linux (x64) als Terminal-Binary `bmtools` im `.tar.gz`.
-  Kein installiertes Python nötig. Bewusst keine Installer-Pakete
+  LIESMICH.txt, Linux (x64) als `bmtools` im `.tar.gz` — mit gebündeltem
+  Qt/WebEngine-Backend fürs Fenster (deshalb deutlich größer; ohne
+  Bundle könnte das PyInstaller-Binary nie eine GUI öffnen, Beta-Befund
+  2026-07-21). Kein installiertes Python nötig. Bewusst keine Installer-Pakete
   (.pkg/MSI; allenfalls wäre ein DMG zulässig — Nutzerfestlegung
   2026-07-17).
 - **Gatekeeper/SmartScreen:** Die Endnutzer-Hinweise zu macOS-Start und

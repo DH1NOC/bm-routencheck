@@ -136,7 +136,17 @@ jobs:
           sed -i.bak 's/^version = ".*"/version = "${{ needs.version.outputs.version }}"/' pyproject.toml
           rm pyproject.toml.bak
       - name: Abhängigkeiten installieren
-        run: pip install . pyinstaller
+        run: |
+          pip install . pyinstaller
+          # Linux-GUI (Nutzerfestlegung 2026-07-21): Qt-Backend wird ins
+          # Binary gebündelt (PyQt6 + WebEngine) — ohne Bundle kann das
+          # PyInstaller-Binary nie ein Fenster öffnen, System-Pakete des
+          # Nutzers erreichen sein eingebautes Python nicht
+          # (Beta-Befund 2026-07-21, Mint 22.3: Dateimanager-Start tat
+          # nichts). Preis: deutlich größeres tar.gz.
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            pip install "pywebview[qt]"
+          fi
 
       - name: Signatur-Zertifikat importieren (macOS)
         if: runner.os == 'macOS'
@@ -199,7 +209,11 @@ jobs:
                 --icon packaging/icon/icon.ico \
                 "${GEMEINSAM[@]}" packaging/entry.py ;;
             Linux)
+              # --hidden-import webview.platforms.qt: stellt sicher, dass
+              # die Analyse das Qt-Backend sieht und die PyQt6-/qtpy-Hooks
+              # das WebEngine-Bundle einsammeln.
               pyinstaller --onefile --name bmtools \
+                --hidden-import webview.platforms.qt \
                 "${GEMEINSAM[@]}" packaging/entry.py ;;
           esac
 
@@ -220,6 +234,24 @@ jobs:
           PYTHONTZPATH= "$BIN" bahn --help > /dev/null
           "$BIN" auto --help > /dev/null
           "$BIN" rad --help > /dev/null
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            # Regressionstest zum Beta-Befund 2026-07-21: Ohne gebündeltes
+            # Qt beendet sich das Binary unter einem Display sofort mit
+            # Code 2 („GUI nicht verfügbar“). Mit GUI läuft es, bis
+            # timeout es beendet (Exit 124) — nur das gilt als bestanden.
+            # --no-sandbox: Ubuntu-24.04-Runner blocken die User-Namespaces
+            # der Chromium-Sandbox von QtWebEngine.
+            sudo apt-get -yq install xvfb > /dev/null
+            set +e
+            QTWEBENGINE_CHROMIUM_FLAGS="--no-sandbox" \
+              xvfb-run -a timeout 20 "$BIN"
+            code=$?
+            set -e
+            if [ "$code" -ne 124 ]; then
+              echo "::error::GUI-Start unter Xvfb: Exit $code statt 124 — Qt-Bundle prüfen."
+              exit 1
+            fi
+          fi
 
       - name: Notarisieren (macOS)
         if: runner.os == 'macOS' && env.SIGNIER_IDENTITAET != ''

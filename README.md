@@ -86,9 +86,10 @@ tar -xzf bmtools-*-linux-x64.tar.gz
 ./bmtools
 ```
 
-Ohne Argumente öffnet sich auf einem Desktop das Programmfenster, im
-Terminal-Alltag funktionieren alle Kommandos wie gewohnt (`./bmtools
-bahn --help`). Fürs Fenster braucht es GTK/WebKit2 oder QtWebEngine.
+Ohne Argumente öffnet sich auf einem Desktop das Programmfenster — das
+Binary bringt sein GUI-Backend (Qt) mit, es müssen keine Systempakete
+installiert werden. Im Terminal-Alltag funktionieren alle Kommandos wie
+gewohnt (`./bmtools bahn --help`).
 
 ## Bedienung
 
@@ -121,9 +122,11 @@ Nach dem Lauf zeigt das Fenster:
 `--terminal` erzwingt das Terminal, `--gui` das Fenster (hinter dem
 Toolnamen, z. B. `bmtools bahn --gui`); ohne Desktop (SSH, Server)
 startet automatisch das Terminal. Auch `bm-bahn`/`bm-auto`/`bm-rad`
-öffnen ohne Routen-Argumente das Fenster mit dem jeweiligen Tool. Unter
-Linux braucht das Fenster GTK/WebKit2 oder QtWebEngine — fehlt beides,
-geht es mit Hinweis im Terminal weiter.
+öffnen ohne Routen-Argumente das Fenster mit dem jeweiligen Tool. Das
+Linux-Binary bringt sein GUI-Backend (Qt) mit; nur bei der
+[Installation aus dem Quellcode](#installation-aus-dem-quellcode)
+braucht das Fenster GTK/WebKit2 oder QtWebEngine — fehlt beides, geht
+es mit Hinweis im Terminal weiter.
 
 ### Das Terminal
 
