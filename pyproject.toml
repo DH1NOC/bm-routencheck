@@ -77,6 +77,10 @@ ignore = [
     "RUF003",  # … und Kommentaren
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Konsolen-Streams der Windowed-Exe leben prozesslang — kein with-Block.
+"packaging/entry.py" = ["SIM115"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["bmtools"]
 
