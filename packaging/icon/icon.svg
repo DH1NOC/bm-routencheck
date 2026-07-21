@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Programmicon BM-Routencheck: Navi-Karten-Prinzip wie bei
+       Apple/Google Maps — wenige breite, flache Bänder schneiden das
+       Icon hart durch: senkrechtes Routenband (#1A86C6), gelbe
+       Diagonalstraße (#F0B429) und eine dunkelblaue Querstraße
+       (#004a75), die als T-Kreuzung unter dem Routenband endet.
+       Zentral dominant der Sendemast mit Funkwellen als Ziel —
+       "welche Relais erreiche ich entlang der Strecke". Grund #005a8e;
+       Eckradius 230/1024 ≈ 22,5 % ergibt beim macOS-Raster (824/1024)
+       genau Apples Squircle-Radius. Master für icon_erzeugen.py
+       (ico/icns/PNG). -->
+  <defs>
+    <clipPath id="form"><rect width="1024" height="1024" rx="230"/></clipPath>
+  </defs>
+  <rect width="1024" height="1024" rx="230" fill="#005a8e"/>
+  <g clip-path="url(#form)">
+    <path d="M -60 900 L 1084 600" stroke="#F0B429" stroke-width="170" fill="none"/>
+    <path d="M -40 320 L 512 320" stroke="#004a75" stroke-width="140" fill="none"/>
+    <rect x="412" y="-20" width="200" height="1064" fill="#1A86C6"/>
+  </g>
+  <!-- Sendemast auf 115 % skaliert, Fuß auf y=880 -->
+  <g transform="translate(-76.8, 6.0) scale(1.15)">
+    <circle cx="512" cy="340" r="46" fill="#ffffff"/>
+    <path d="M 500 392 L 428 760 M 524 392 L 596 760" fill="none"
+          stroke="#ffffff" stroke-width="40" stroke-linecap="round"/>
+    <path d="M 474 560 L 550 560 M 452 675 L 572 675" fill="none"
+          stroke="#ffffff" stroke-width="34" stroke-linecap="round"/>
+    <path d="M 627 456 A 150 150 0 0 0 627 224" fill="none"
+          stroke="#ffffff" stroke-width="52" stroke-linecap="round"/>
+    <path d="M 704 521 A 250 250 0 0 0 704 159" fill="none"
+          stroke="#dff1fc" stroke-width="52" stroke-linecap="round"/>
+    <path d="M 397 456 A 150 150 0 0 1 397 224" fill="none"
+          stroke="#ffffff" stroke-width="52" stroke-linecap="round"/>
+    <path d="M 320 521 A 250 250 0 0 1 320 159" fill="none"
+          stroke="#dff1fc" stroke-width="52" stroke-linecap="round"/>
+  </g>
+</svg>
