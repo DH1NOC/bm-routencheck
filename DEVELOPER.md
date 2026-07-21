@@ -241,6 +241,17 @@ Releases werden manuell über GitHub Actions gebaut:
   2026-07-21). Kein installiertes Python nötig. Bewusst keine Installer-Pakete
   (.pkg/MSI; allenfalls wäre ein DMG zulässig — Nutzerfestlegung
   2026-07-17).
+- **Plattformen:** Windows x64, Linux x64, macOS arm64 (Apple Silicon).
+  Für Intel-Macs wird bewusst nichts gebaut — mangels Testgerät wäre das
+  ein ungetestetes Asset; die README verweist diese Nutzer auf die
+  Installation aus dem Quellcode.
+- **Nachbereitung eines Releases:** Die Betas zur veröffentlichten
+  Version aufräumen — auf GitHub das Pre-Release löschen und den Tag
+  dazu (`git push origin :refs/tags/v0.2.0-beta.6`). **Erst nach dem
+  regulären Release**, nie vorher: Die Beta-Nummerierung in `release.yml`
+  zählt die vorhandenen Tags hoch, ein zu früh gelöschter Tag lässt die
+  nächste Beta auf eine schon vergebene Nummer laufen (Befund
+  2026-07-17).
 - **Gatekeeper/SmartScreen:** Die Endnutzer-Hinweise zu macOS-Start und
   Windows-Warnungen stehen in der [README](README.md#download--start);
   eine LIESMICH.txt (Doppelklick-Start, Terminal-Pfad ins Bundle) wird

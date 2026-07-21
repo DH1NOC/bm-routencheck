@@ -70,6 +70,12 @@ Menü und PowerShell würden sich sonst dieselbe Konsole teilen).
 starten. Die App ist mit Developer ID signiert, von Apple notarisiert und
 das Ticket ist angeheftet — es ist keine Gatekeeper-Ausnahme nötig.
 
+Für **Macs mit Intel-Prozessor** gibt es bewusst kein fertiges Programm —
+ein Build, der nie auf echter Hardware getestet wurde, wird hier nicht
+ausgeliefert. Auf diesen Geräten funktioniert die
+[Installation aus dem Quellcode](#installation-aus-dem-quellcode) mit
+vollem Funktionsumfang.
+
 *Terminal unter macOS:* Das Binary im Bundle versteht alle Kommandos:
 
 ```bash
