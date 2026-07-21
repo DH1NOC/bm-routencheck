@@ -41,10 +41,13 @@ Design, je nach System oder Wahl.*
 Fertige Programme für Windows, Linux und macOS gibt es auf der
 [**Releases-Seite**](https://github.com/DH1NOC/bm-routencheck/releases) —
 Datei für das eigene Betriebssystem herunterladen und starten. Ein
-installiertes Python ist **nicht** nötig.
+installiertes Python ist **nicht** nötig. BM-Routencheck ist eine
+Desktop-App: Der Doppelklick öffnet das Programmfenster; die vollwertige
+Terminal-Bedienung bleibt erhalten und ist je Plattform unten beschrieben.
 
-**Windows (x64):** Die `bmtools-…-windows-x64.exe` herunterladen und
-doppelklicken oder in der Eingabeaufforderung starten. SmartScreen meldet
+**Windows (x64):** Die `BM-Routencheck-…-windows-x64.exe` herunterladen
+und doppelklicken — das Programmfenster öffnet sich, ohne dass ein
+Konsolenfenster aufgeht. SmartScreen meldet
 beim ersten Start „Unbekannter Herausgeber" —
 über „Weitere Informationen" → „Trotzdem ausführen" geht es weiter (die
 `.exe` ist nicht code-signiert; Microsofts Signaturdienst steht
@@ -54,21 +57,25 @@ ohne Ausnahmemöglichkeit blockiert — dann SAC deaktivieren
 (Windows-Sicherheit → App- & Browsersteuerung) oder die
 [Installation aus dem Quellcode](#installation-aus-dem-quellcode) nutzen.
 
-**macOS (Apple Silicon):** Das ZIP herunterladen und entpacken. bmtools
-wird **im Terminal gestartet — nicht per Doppelklick im Finder** (auf dem
-Desktop öffnet sich dann das Programmfenster):
+*Terminal unter Windows:* Dieselbe Exe versteht alle Kommandos, z. B.
+`BM-Routencheck.exe bahn --help` in cmd oder PowerShell. Bauartbedingt
+kehrt der Prompt dabei sofort zurück und die Ausgabe erscheint darunter —
+die GUI-Exe klinkt sich in das aufrufende Konsolenfenster ein. Für
+interaktive Terminal-Sitzungen `BM-Routencheck.exe --terminal` starten.
+
+**macOS (Apple Silicon):** Das ZIP herunterladen und entpacken,
+`BM-Routencheck.app` in den Ordner *Programme* ziehen und per Doppelklick
+starten. Die App ist mit Developer ID signiert, von Apple notarisiert und
+das Ticket ist angeheftet — es ist keine Gatekeeper-Ausnahme nötig.
+
+*Terminal unter macOS:* Das Binary im Bundle versteht alle Kommandos:
 
 ```bash
-# ZIP entpacken, dann im Terminal:
-chmod +x bmtools && ./bmtools
-```
+/Applications/BM-Routencheck.app/Contents/MacOS/BM-Routencheck bahn --help
 
-Beim Doppelklick zeigt macOS bei *jedem* nackten Unix-Binary die Meldung
-„Apple konnte nicht überprüfen, ob ‚bmtools' frei von Schadsoftware ist".
-Das ist **kein** Signaturproblem — das Binary ist mit Developer ID signiert
-und von Apple notarisiert —, sondern das Standardverhalten von Gatekeeper
-für alles, was kein `.app`-Bundle ist. Eine LIESMICH.txt mit diesem Hinweis
-liegt mit im ZIP.
+# Tipp für häufige Nutzung — Alias in ~/.zshrc:
+alias bmtools='/Applications/BM-Routencheck.app/Contents/MacOS/BM-Routencheck'
+```
 
 **Linux (x64):**
 
@@ -76,6 +83,10 @@ liegt mit im ZIP.
 tar -xzf bmtools-*-linux-x64.tar.gz
 ./bmtools
 ```
+
+Ohne Argumente öffnet sich auf einem Desktop das Programmfenster, im
+Terminal-Alltag funktionieren alle Kommandos wie gewohnt (`./bmtools
+bahn --help`). Fürs Fenster braucht es GTK/WebKit2 oder QtWebEngine.
 
 ## Bedienung
 

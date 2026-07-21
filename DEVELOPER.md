@@ -230,21 +230,25 @@ Releases werden manuell über GitHub Actions gebaut:
   unverändert).
 - **Versionssprung:** `major` erhöht die Featureversion (`0.1.0 → 0.2.0`),
   `minor` den Patch (`0.1.0 → 0.1.1`).
-- **Assets:** Quell-ZIP sowie eigenständige PyInstaller-Binaries — Windows
-  (x64) als nackte `.exe`, Linux (x64) als `.tar.gz`, macOS (Apple Silicon)
-  als ZIP mit LIESMICH.txt. Die Binaries brauchen kein installiertes
-  Python. Bewusst keine Installer-Pakete (.pkg/MSI; allenfalls wäre ein
-  DMG zulässig — Nutzerfestlegung 2026-07-17).
+- **Assets** (GUI-first, Nutzerfestlegung 2026-07-21): Quell-ZIP sowie
+  eigenständige PyInstaller-Builds — Windows (x64) als windowed
+  `BM-Routencheck.exe` (Exe-Icon; Terminal-Ausgabe über den
+  AttachConsole-Shim in `packaging/entry.py`), macOS (Apple Silicon) als
+  `BM-Routencheck.app` (onedir-Bundle, Icon aus `icon.icns`) im ZIP mit
+  LIESMICH.txt, Linux (x64) als Terminal-Binary `bmtools` im `.tar.gz`.
+  Kein installiertes Python nötig. Bewusst keine Installer-Pakete
+  (.pkg/MSI; allenfalls wäre ein DMG zulässig — Nutzerfestlegung
+  2026-07-17).
 - **Gatekeeper/SmartScreen:** Die Endnutzer-Hinweise zu macOS-Start und
   Windows-Warnungen stehen in der [README](README.md#download--start);
-  eine LIESMICH.txt mit dem macOS-Hinweis wird ins ZIP gepackt. Der
-  Release-Workflow veröffentlicht erst, wenn Apples Server das
-  Notarisierungs-Ticket ausliefern — die Gatekeeper-Prüfung funktioniert
-  also direkt ab Veröffentlichung.
+  eine LIESMICH.txt (Doppelklick-Start, Terminal-Pfad ins Bundle) wird
+  ins macOS-ZIP gepackt. Nach der Notarisierung wird das Ticket per
+  `stapler` ans Bundle geheftet — die Gatekeeper-Prüfung beim Nutzer
+  läuft offline und funktioniert direkt ab Veröffentlichung.
 
 ### macOS-Signierung und Notarisierung
 
-Das macOS-Binary wird automatisch signiert und notarisiert, wenn folgende
+Das macOS-Bundle wird automatisch signiert und notarisiert, wenn folgende
 **Repository-Secrets** (Settings → Secrets and variables → Actions) gesetzt
 sind — fehlen sie, wird mit Warnung unsigniert gebaut:
 

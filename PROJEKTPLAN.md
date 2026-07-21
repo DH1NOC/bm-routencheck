@@ -1,6 +1,6 @@
 # BM-Routencheck — Projektplan
 
-Stand: 2026-07-20
+Stand: 2026-07-21
 
 ## 1. Status
 
@@ -25,7 +25,14 @@ Meilensteine sind abgenommen (erste Ausbaustufe G0–G5, Workspace
 U0–U9); Konzept, Nutzerfestlegungen und Abnahmeprotokolle sind in der
 Git-Historie von `GUI-UMBAU.md` nachlesbar (mit U9 aufgelöst). Der
 interaktive Gegentest über eine Beta und die Merge-Entscheidung stehen
-aus; die Technik beschreibt [DEVELOPER.md](DEVELOPER.md). Dieses
+aus; die Technik beschreibt [DEVELOPER.md](DEVELOPER.md). Seit 2026-07-21
+ist die GUI das Hauptprodukt (Schritte A1–A4 auf demselben Branch):
+eigenes Programmicon (Navi-Karten-Motiv, Master
+`packaging/icon/icon.svg`), die Releases liefern ein
+`BM-Routencheck.app` (macOS: signiert, notarisiert, Ticket angeheftet)
+und eine windowed `BM-Routencheck.exe` (Windows: AttachConsole-Shim für
+die Terminal-Ausgabe); Linux bleibt Terminal-Binary `bmtools`. Die
+Terminal-Bedienung bleibt auf allen Plattformen vollwertig erhalten. Dieses
 Dokument hält nur noch fest, was für die Weiterarbeit gebraucht wird:
 offene Punkte, verbindliche Festlegungen und die Eigenheiten der externen
 Datenquellen. Die Abnahmeprotokolle der erledigten Meilensteine (M0–M6,
@@ -65,7 +72,7 @@ Projektprinzipien:
 | Keyless | Nur Dienste ohne API-Key/Anmeldung; keine Credentials im Tool verarbeiten (bewusste Entscheidung, z. B. kein Komoot-Login) |
 | Kein Try&Error | Jede Erweiterung endet mit einem konkreten, abgenommenen Testlauf |
 | CLI durchgängig Deutsch | Kommandos `bm-bahn`/`bm-auto`/`bm-rad`, deutsche Flags; englische Originale bleiben als stille Aliasse gültig (Skript-Kompatibilität); argparse-Standardtexte via `ui.argparse_deutsch()` |
-| GUI | Single-Window Workspace (pywebview, Material-Anmutung, durchgängig Deutsch); auf dem Desktop öffnet der Aufruf ohne Routen-Argumente das Fenster, `--gui`/`--terminal` erzwingen; Terminal-Modus bleibt vollwertig (kein schleichender Rückbau von questionary/rich); Frontend-Assets (Leaflet, Material Symbols) lokal gebündelt, keine CDN-Zugriffe; PDF nur auf Knopfdruck bzw. `--pdf`, kein Automatik-Export (Festlegungen 2026-07-19; Plan-Historie: `GUI-UMBAU.md` in Git) |
+| GUI | Single-Window Workspace (pywebview, Material-Anmutung, durchgängig Deutsch); auf dem Desktop öffnet der Aufruf ohne Routen-Argumente das Fenster, `--gui`/`--terminal` erzwingen; Terminal-Modus bleibt vollwertig (kein schleichender Rückbau von questionary/rich); Frontend-Assets (Leaflet, Material Symbols) lokal gebündelt, keine CDN-Zugriffe; PDF nur auf Knopfdruck bzw. `--pdf`, kein Automatik-Export (Festlegungen 2026-07-19; Plan-Historie: `GUI-UMBAU.md` in Git); GUI-first-Auslieferung (2026-07-21): macOS nur `BM-Routencheck.app` im ZIP, Windows eine windowed Exe, App-Name „BM-Routencheck" |
 | Assistenten-Reihenfolge | Die Modus-Frage (DMR/FM/beide) ist in allen Tools die **letzte** Frage — nach kompletter Streckenwahl inkl. Geocoding-/Verbindungs-Rückfragen und Bestätigungen, nie mittendrin (Nutzerwunsch 2026-07-15) |
 | Schlanke Abhängigkeiten | Bewusst kein shapely/geopandas — segmentweise Haversine-Distanz reicht |
 | Konsistenz der Ausgaben | Karte, Bericht und CSV zeigen exakt dieselben Relais; Grenzbereichs-Relais sind vollwertige, markierte Einträge (graue Marker, Badge, CSV-Spalte `erreichbarkeit`) |
