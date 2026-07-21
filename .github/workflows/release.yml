@@ -146,6 +146,11 @@ jobs:
           # nichts). Preis: deutlich größeres tar.gz.
           if [ "$RUNNER_OS" = "Linux" ]; then
             pip install "pywebview[qt]"
+            # Werden ins Binary gebündelt (--add-binary im Build): Qt ≥ 6.5
+            # dlopen't libxcb-cursor0, und GTK-Desktops wie Mint/Cinnamon
+            # haben es nicht an Bord (Beta-Befund 2026-07-21, beta.5).
+            sudo apt-get -yq install libxcb-cursor0 libxkbcommon-x11-0 \
+              > /dev/null
           fi
 
       - name: Signatur-Zertifikat importieren (macOS)
@@ -211,9 +216,14 @@ jobs:
             Linux)
               # --hidden-import webview.platforms.qt: stellt sicher, dass
               # die Analyse das Qt-Backend sieht und die PyQt6-/qtpy-Hooks
-              # das WebEngine-Bundle einsammeln.
+              # das WebEngine-Bundle einsammeln. --add-binary: die beiden
+              # xcb-Helfer, die Qt zur Laufzeit dlopen't und die auf
+              # GTK-Desktops (Mint/Cinnamon) fehlen — klein und ohne
+              # GPU-/Treiberbezug, dürfen daher mitreisen.
               pyinstaller --onefile --name bmtools \
                 --hidden-import webview.platforms.qt \
+                --add-binary /usr/lib/x86_64-linux-gnu/libxcb-cursor.so.0:. \
+                --add-binary /usr/lib/x86_64-linux-gnu/libxkbcommon-x11.so.0:. \
                 "${GEMEINSAM[@]}" packaging/entry.py ;;
           esac
 
@@ -241,14 +251,15 @@ jobs:
             # timeout es beendet (Exit 124) — nur das gilt als bestanden.
             # --no-sandbox: Ubuntu-24.04-Runner blocken die User-Namespaces
             # der Chromium-Sandbox von QtWebEngine.
-            # GPU- und XCB-Bibliotheken des Desktops: PyInstaller bündelt
-            # sie bewusst nie (müssen zum Host passen); auf jedem
-            # Desktop-Linux vorhanden, dem headless Runner fehlen sie
-            # (libEGL, dann libxcb-cursor0 — Qt ≥ 6.5 braucht es fürs
-            # xcb-Plugin; gleich der komplette Qt6-xcb-Satz).
+            # Nur die GPU-/X-Basisbibliotheken, die jeder Desktop hat —
+            # bewusst OHNE libxcb-cursor0/libxkbcommon-x11-0: Die sind ins
+            # Binary gebündelt, und der Test simuliert damit einen
+            # GTK-Desktop wie Mint, dem sie fehlen (Beta-Befund
+            # 2026-07-21, beta.5).
+            sudo apt-get -yq remove libxcb-cursor0 libxkbcommon-x11-0 \
+              > /dev/null 2>&1 || true
             sudo apt-get -yq install xvfb libegl1 libopengl0 \
-              libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 \
-              libxcb-icccm4 libxcb-keysyms1 libxcb-randr0 \
+              libxkbcommon0 libxcb-icccm4 libxcb-keysyms1 libxcb-randr0 \
               libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
               libxcb-xkb1 > /dev/null
             set +e
@@ -324,7 +335,39 @@ jobs:
           case "$PLATTFORM" in
             windows-*) cp "dist/BM-Routencheck.exe" \
                          "out/release/BM-Routencheck-$LABEL-$PLATTFORM.exe" ;;
-            linux-*)   tar -C dist -czf "out/release/bmtools-$LABEL-$PLATTFORM.tar.gz" bmtools ;;
+            linux-*)
+              # Binary + Icon + .desktop-Vorlage: Ein nacktes ELF-Binary
+              # hat im Dateimanager nie ein Icon — das kommt unter Linux
+              # aus einer .desktop-Datei (Beta-Befund 2026-07-21).
+              mkdir -p tarinhalt
+              cp dist/bmtools tarinhalt/
+              cp bmtools/gui/static/icon.png tarinhalt/icon.png
+              printf '%s\n' \
+                "[Desktop Entry]" \
+                "Type=Application" \
+                "Name=BM-Routencheck" \
+                "Comment=Welche DMR- und FM-Relais erreichst du entlang der Route?" \
+                "Exec=/PFAD/ANPASSEN/bmtools" \
+                "Icon=/PFAD/ANPASSEN/icon.png" \
+                "Terminal=false" \
+                "Categories=Utility;Network;HamRadio;" \
+                > tarinhalt/BM-Routencheck.desktop
+              printf '%s\n' \
+                "BM-Routencheck (Linux)" \
+                "" \
+                "Start: ./bmtools — per Doppelklick im Dateimanager oder im" \
+                "Terminal. Ohne Argumente öffnet sich das Programmfenster;" \
+                "alle Terminal-Kommandos funktionieren wie gewohnt" \
+                "(./bmtools bahn --help)." \
+                "" \
+                "Programmstarter mit Icon (optional): In der Datei" \
+                "BM-Routencheck.desktop die beiden /PFAD/ANPASSEN/-Einträge" \
+                "auf den Entpack-Ort ändern und die Datei nach" \
+                "~/.local/share/applications/ kopieren — dann erscheint" \
+                "BM-Routencheck mit Icon im Startmenü." \
+                > tarinhalt/LIESMICH.txt
+              tar -C tarinhalt -czf "out/release/bmtools-$LABEL-$PLATTFORM.tar.gz" \
+                bmtools icon.png BM-Routencheck.desktop LIESMICH.txt ;;
             macos-*)
               # ZIP mit dem .app-Bundle + Hinweis-Datei (Nutzerfestlegung
               # 2026-07-17: kein Installer, kein DMG; 2026-07-21: nur das

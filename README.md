@@ -89,7 +89,10 @@ tar -xzf bmtools-*-linux-x64.tar.gz
 Ohne Argumente öffnet sich auf einem Desktop das Programmfenster — das
 Binary bringt sein GUI-Backend (Qt) mit, es müssen keine Systempakete
 installiert werden. Im Terminal-Alltag funktionieren alle Kommandos wie
-gewohnt (`./bmtools bahn --help`).
+gewohnt (`./bmtools bahn --help`). Für einen Startmenü-Eintrag mit
+Programm-Icon liegt eine `BM-Routencheck.desktop`-Vorlage bei (Pfade
+anpassen, nach `~/.local/share/applications/` kopieren — siehe
+LIESMICH.txt im Archiv).
 
 ## Bedienung
 

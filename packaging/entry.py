@@ -74,6 +74,12 @@ def _schreibbares_arbeitsverzeichnis() -> None:
         os.chdir(Path.home())
 
 
+if sys.platform.startswith("linux"):
+    # Im Linux-Binary ist nur das Qt-Backend gebündelt — pywebview nicht
+    # erst GTK probieren lassen: Das druckte bei jedem GUI-Start einen
+    # ModuleNotFoundError-Traceback ins Terminal (Beta-Befund 2026-07-21).
+    os.environ.setdefault("PYWEBVIEW_GUI", "qt")
+
 if __name__ == "__main__":
     # Muss vor dem App-Start stehen: Windows/macOS starten multiprocessing-
     # Kindprozesse (Sichtfeld-Rendering, mapview.py) per Neuaufruf des
