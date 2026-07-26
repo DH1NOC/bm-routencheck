@@ -272,6 +272,25 @@ holt der Fenster-Start seinen Ordner aus `fenster_ausgabeordner()`
 gemeldete Pfad ist damit der, den der Nutzer suchen kann, und der
 Ausgabeordner geht absolut an den Dateimanager.
 
+**Die Entscheidung fällt an genau einer Stelle**, und das ist teuer
+erkauft: Der erste Anlauf setzte den festen Ordner je `out_dir`-Stelle
+einzeln und übersah dabei den Bahn-Modus. Der baut sein `out_dir`
+nämlich nicht in der GUI, sondern erst tief in `rail/cli._pipeline` —
+`gui/lauf._bahn` reicht nur an `rail_cli._run`/`_run_link` weiter. Nur
+Auto und Rad (`_strasse`) waren repariert, Bahn schrieb weiter relativ
+(Befund 2026-07-26, Windows: Ausgabe im `out/` neben der Exe im
+Download-Ordner).
+
+Seitdem gilt: `_namespace()` in `gui/lauf.py` legt den festen Ordner in
+`args.ausgabe_basis` — **einmal**, und beide Wege bekommen denselben
+Namespace. Alle `out_dir`-Stellen fragen `ausgabe_basis(args)`
+(`bmtools/ausgabe.py`), das per `getattr` auf `./out` zurückfällt, wenn
+das Feld fehlt. `test_nur_ausgabe_py_kennt_den_out_ordner` hält fest,
+dass `Path("out")` nirgendwo sonst im Paket steht;
+`test_bahn_im_fenster_schreibt_in_den_festen_ordner` fährt den
+Bahn-Weg komplett durch bis `run_pipeline`. Ein reiner Quelltext-Test
+hätte den Fehler nicht gefunden — `gui/lauf.py` sah ja richtig aus.
+
 **Öffnen** (`routelib/oeffnen.py`). Der Ordner-Knopf tat unter Linux gar
 nichts, und zwar völlig lautlos: `check=False`, stderr nach
 `/dev/null`, und der `webbrowser`-Ausweg hing an `except OSError`, das

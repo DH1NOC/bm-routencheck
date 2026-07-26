@@ -20,6 +20,7 @@ import questionary
 from rich.console import Console
 
 from bmtools import gui, ui
+from bmtools.ausgabe import ausgabe_basis
 from bmtools.routelib.melden import Melder, TerminalMelder
 from bmtools.routelib.model import Route, Waypoint
 from bmtools.routelib.pipeline import run_pipeline, slug
@@ -283,7 +284,7 @@ def main(profile: str, *, gui_start: bool = True) -> int:
         # Modus am Ende, nie mittendrin)
         if interactive:
             args.modus = _q(ui.modus_frage(args.modus))
-        out_dir = args.out or Path("out") / slug(zone)
+        out_dir = args.out or ausgabe_basis(args) / slug(zone)
         return run_pipeline(
             route, melder=melder, out_dir=out_dir,
             corridor_km=args.corridor, no_terrain=args.no_terrain,

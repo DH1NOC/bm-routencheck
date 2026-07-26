@@ -19,6 +19,7 @@ from questionary import Choice
 from rich.console import Console
 
 from bmtools import gui, ui
+from bmtools.ausgabe import ausgabe_basis
 from bmtools.routelib.melden import Melder, TerminalMelder
 from bmtools.routelib.model import Route, Station
 from bmtools.routelib.pipeline import run_pipeline, slug
@@ -196,7 +197,8 @@ def _pipeline(route: Route, args: argparse.Namespace, melder: Melder,
     if modus_fragen:
         args.modus = _q(ui.modus_frage(args.modus))
     names = [s.name for s in route.stations]
-    out_dir = args.out or Path("out") / f"{slug(names[0])}-{slug(names[-1])}"
+    out_dir = (args.out or ausgabe_basis(args)
+               / f"{slug(names[0])}-{slug(names[-1])}")
     zone = f"{names[0].removesuffix(' Hbf')}-{names[-1].removesuffix(' Hbf')}"
     return run_pipeline(
         route, melder=melder, out_dir=out_dir, corridor_km=args.corridor,
