@@ -181,9 +181,15 @@ def _legend_inhalt(modus_label: str, marker_note: str,
 
 def _legend(modus_label: str, marker_note: str,
             sichtfelder: bool = False) -> str:
+    # max-width in Pixeln, NICHT in rem: branca setzt auf der
+    # folium-Seite html{font-size:10px}, ein aus stil.css übernommenes
+    # 24rem wären hier 240 statt 384 px und quetschten die Legende auf
+    # halbe Breite (Befund 2026-07-26 beim Erneuern der README-Bilder).
+    # 500 px lässt die Summen-Legende einzeilig (sie misst 482 px) und
+    # bricht nur den längeren Hinweis der Einzelansicht um.
     return f"""
 <div id="{LEGENDE_ID}" style="position:fixed; bottom:16px; left:16px;
-     z-index:9999; max-width:24rem;
+     z-index:9999; max-width:500px;
      background:#fff; color:#111; padding:8px 12px; border-radius:6px;
      box-shadow:0 1px 4px #0006; font:13px/1.8 sans-serif;">
 {_legend_inhalt(modus_label, marker_note, sichtfelder)}
