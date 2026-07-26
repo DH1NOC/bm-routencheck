@@ -186,9 +186,14 @@ Wo die Ausgaben landen, hängt davon ab, wie du das Programm startest:
   Arbeitsverzeichnisses, änderbar mit `--ausgabe`.
 
 Beim Fenster-Start bestimmt sonst der Starter das Arbeitsverzeichnis und
-nicht das Programm; die Ergebnisse landeten dann je nach System irgendwo
-(bis Version 0.2.0 z. B. unter `~/out/`). Der feste Ordner nimmt diese
-Unsicherheit heraus.
+nicht das Programm; bis Version 0.2.0 landeten die Ergebnisse dadurch je
+nach System an wechselnden Stellen — unter Linux im Home-Verzeichnis,
+unter Windows neben der Programmdatei, also etwa im Download-Ordner. Der
+feste Ordner nimmt diese Unsicherheit heraus.
+
+Lässt sich der Ordner einmal nicht öffnen (fehlende Dateimanager-
+Zuordnung), nennt die Statusleiste den Grund und legt den vollständigen
+Pfad in die Zwischenablage.
 
 | Datei | Inhalt |
 |---|---|
