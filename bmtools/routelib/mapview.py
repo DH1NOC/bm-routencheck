@@ -165,11 +165,15 @@ def _coverage_raster(results: list[RepeaterResult], route: Route,
     marginal = np.zeros((h, w), dtype=bool)    # Grenzbereich (Beugung)
     fertig = 0
 
-    def einrechnen(los: np.ndarray, marg_bits: np.ndarray) -> None:
-        nonlocal fertig, count, marginal
-        count += los
-        marginal |= np.unpackbits(
-            marg_bits, count=h * w).reshape(h, w).astype(bool)
+    def einrechnen(los: np.ndarray, marg_bits: np.ndarray,
+                   bbox: viewshed_raster.Bbox | None) -> None:
+        nonlocal fertig
+        if bbox is not None:
+            y0, y1, x0, x1 = bbox
+            ch, cw = y1 - y0, x1 - x0
+            count[y0:y1, x0:x1] += los
+            marginal[y0:y1, x0:x1] |= np.unpackbits(
+                marg_bits, count=ch * cw).reshape(ch, cw).astype(bool)
         fertig += 1
         if viewshed_progress:
             viewshed_progress(fertig, len(tasks))
