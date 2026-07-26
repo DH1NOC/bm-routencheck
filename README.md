@@ -128,8 +128,8 @@ Nach dem Lauf zeigt das Fenster:
   Legende;
 - die **Relais-Tabelle**, live filterbar und sortierbar; DMR-Zeilen
   klappen die Talkgroup-Details auf;
-- die Aktionen **CSV-Export**, **PDF-Export** (`bericht.pdf`), **Bericht
-  im Browser öffnen** und **Ausgabeordner öffnen**.
+- die Knöpfe **PDF** (`bericht.pdf`), **CSV**, **Bericht** (öffnet Bericht
+  und Karte im Browser) und **Ordner** (Ausgabeordner im Dateimanager).
 
 `--terminal` erzwingt das Terminal, `--gui` das Fenster (hinter dem
 Toolnamen, z. B. `bmtools bahn --gui`); ohne Desktop (SSH, Server)
@@ -326,7 +326,7 @@ bm-auto --von "Winkelhaider Str. 4a, Feucht" --nach "Bendorf" --oeffnen
 | `--pdf` | Zusätzlich `bericht.pdf` erzeugen (Deckblatt mit Übersichtskarte, Relais-Tabelle mit Talkgroups) |
 | `--oeffnen` | Bericht und Karte nach dem Lauf im Browser öffnen (interaktiv automatisch aktiv) |
 | `--gui` / `--terminal` | Programmfenster bzw. Terminal erzwingen — Standard: ohne Routen-Argumente öffnet sich auf dem Desktop das Fenster |
-| `--ausgabe ORDNER` | Ausgabeverzeichnis (Default: `out/<start>-<ziel>`) |
+| `--ausgabe ORDNER` | Ausgabeverzeichnis. Default im Terminal: `out/<start>-<ziel>` unterhalb des aktuellen Verzeichnisses. Das Programmfenster schreibt stattdessen immer nach `Dokumente/bm-routencheck-ergebnisse/` (siehe [Die Ergebnis-Dateien](#die-ergebnis-dateien)) |
 
 Alle genutzten Dienste sind ohne Anmeldung nutzbar — keine API-Keys, keine
 Konfigurationsdatei.
