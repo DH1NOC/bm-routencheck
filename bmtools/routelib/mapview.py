@@ -85,13 +85,38 @@ OVERLAY_NAME = "Relais-Sichtfelder (rechnerisch)"
 FELD_STUFEN_KM = (10.0, 20.0)
 
 
-def _feld_stufen_label() -> list[str]:
-    """Beschriftung der Abstandsstufen, dunkelste (nah) zuerst."""
+def _hex(farbe: np.ndarray) -> str:
+    r, g, b = (int(k) for k in farbe[:3])
+    return f"#{r:02X}{g:02X}{b:02X}"
+
+
+def _feld_legende() -> dict[str, Any]:
+    """Legende der Einzelrelais-Ansicht: Abstandsstufen von nah (dunkel)
+    nach fern (hell), dazu der Grenzbereich und der Ehrlichkeits-Hinweis.
+
+    Wortlaut und Farben stehen hier — GUI-Karte und folium-Karte lesen
+    beide von hier, damit sie nie auseinanderlaufen.
+    """
     grenzen = FELD_STUFEN_KM
-    label = [f"Sicht 0–{grenzen[0]:g} km"]
-    label += [f"Sicht {a:g}–{b:g} km" for a, b in pairwise(grenzen)]
-    label.append(f"Sicht über {grenzen[-1]:g} km")
-    return label
+    texte = [f"Sicht 0–{grenzen[0]:g} km"]
+    texte += [f"Sicht {a:g}–{b:g} km" for a, b in pairwise(grenzen)]
+    texte.append(f"Sicht über {grenzen[-1]:g} km")
+    # Sicht-Stufen der Rampe von dunkel (nah) nach hell (fern); Stufe 0
+    # ist transparent, Stufe 1 der Grenzbereich. strict=True hält die
+    # Zusicherung fest, dass FELD_STUFEN_KM genau so viele Stufen
+    # verlangt, wie HEATMAP_RAMP für Sicht hergibt.
+    farben = [_hex(HEATMAP_RAMP[i]) for i in range(len(HEATMAP_RAMP) - 1, 1, -1)]
+    return {
+        "stufen": [{"farbe": f, "text": t}
+                   for f, t in zip(farben, texte, strict=True)],
+        "grenz": {"farbe": _hex(HEATMAP_RAMP[1]),
+                  "text": "Grenzbereich (Beugung möglich)"},
+        # Der Kern der Ehrlichkeit: die Stufen sind Geometrie. Das Tool
+        # kennt weder Sendeleistung noch Antennendiagramm.
+        "hinweis": "Abstufung = Abstand zum Relais, keine Feldstärke "
+                   "(ERP und Antennendiagramm sind unbekannt)",
+        "zurueck": "alle Relais anzeigen",
+    }
 
 
 @dataclass(frozen=True)
@@ -593,7 +618,10 @@ def karten_daten(results: list[RepeaterResult], route: Route,
                                 "label": label}
                   for status, (farbe, dash, label) in STATUS_STYLE.items()},
         "marker": [{"lat": _pos(r.device)[0], "lng": _pos(r.device)[1],
-                    "farbe": farbe, "tooltip": tooltip, "popup": popup}
+                    "farbe": farbe, "tooltip": tooltip, "popup": popup,
+                    # Rufzeichen einzeln: die Einzelfeld-Legende benennt
+                    # das Relais, der Tooltip trägt noch Abstand und Modus
+                    "rufzeichen": r.device.callsign}
                    for r, farbe, tooltip, popup in _marker_infos(results)],
         "segmente": None,
         "route": None,
@@ -601,7 +629,7 @@ def karten_daten(results: list[RepeaterResult], route: Route,
         # Einzelfelder, indexgleich mit "marker" — None, wo kein
         # Sichtfeld vorliegt (leeres Feld, oder Lauf ohne Geländemodell)
         "relais_felder": None,
-        "feld_stufen": _feld_stufen_label(),
+        "feld_legende": _feld_legende(),
         "legende": None,
     }
     if overlay is not None:

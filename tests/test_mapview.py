@@ -331,8 +331,15 @@ def test_kartendaten_reichen_einzelfelder_durch(sichtfeld_szenario,
     felder = daten["relais_felder"]
     assert len(felder) == len(daten["marker"]) == len(results)
     assert all(f["uri"].startswith("data:image/png") for f in felder)
-    assert daten["feld_stufen"] == ["Sicht 0–10 km", "Sicht 10–20 km",
-                                    "Sicht über 20 km"]
+    # Abstandsstufen von nah (dunkel) nach fern (hell), plus der
+    # Hinweis, dass die Stufen Geometrie und keine Feldstärke sind
+    legende = daten["feld_legende"]
+    assert [s["text"] for s in legende["stufen"]] == [
+        "Sicht 0–10 km", "Sicht 10–20 km", "Sicht über 20 km"]
+    assert [s["farbe"] for s in legende["stufen"]] == [
+        "#03395C", "#0072B2", "#56B4E9"]
+    assert legende["grenz"]["farbe"] == "#A6D6EB"
+    assert "keine Feldstärke" in legende["hinweis"]
     # Das Summen-Overlay bleibt unverändert — mapimage/PDF lesen es
     assert daten["overlay"]["uri"] == overlay.uri
     assert daten["overlay"]["bounds"] == overlay.bounds

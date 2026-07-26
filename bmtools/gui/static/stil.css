@@ -789,6 +789,32 @@ select {
   /* Rampe = mapview.HEATMAP_RAMP */
   background: linear-gradient(90deg, #A6D6EB, #56B4E9, #0072B2, #03395C);
 }
+/* Einzelne Stufe der Einzelrelais-Legende (Farbe kommt aus
+   mapview._feld_legende, hier nur die Form). Rahmen, weil die hellsten
+   Stufen sonst im weißen Legendenkasten verschwimmen. */
+.legende-stufe {
+  display: inline-block;
+  width: 30px;
+  height: 10px;
+  vertical-align: middle;
+  border: 1px solid rgba(0, 0, 0, .25);
+}
+.legende-zurueck {
+  display: block;
+  margin-top: 6px;
+  padding: 3px 8px;
+  border: 1px solid #b6bdc4;
+  border-radius: 4px;
+  background: #f2f4f6;
+  color: #111;
+  font: inherit;
+  cursor: pointer;
+}
+.legende-zurueck:hover { background: #e4e8ec; }
+.legende-zurueck:focus-visible {
+  outline: 2px solid var(--fokus);
+  outline-offset: 1px;
+}
 
 /* ================================================= Statusleiste */
 .statusleiste {
