@@ -16,6 +16,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from bmtools.ausgabe import ausgabe_basis, fenster_ausgabeordner
 from bmtools.rail.bahn_link import BahnLinkError
 from bmtools.road import RouteInputError
 
@@ -39,7 +40,13 @@ def _namespace(daten: dict[str, Any]) -> argparse.Namespace:
         # Kein Automatik-PDF: Die GUI exportiert auf Knopfdruck über
         # Bridge.export_pdf (aus den gespeicherten Ergebnisdaten)
         pdf=False,
-        out=None, straight_line=False)
+        out=None, straight_line=False,
+        # Fenster-Start schreibt in den festen Ordner, nicht
+        # relativ zum Arbeitsverzeichnis (s. bmtools.ausgabe).
+        # Hier gesetzt, weil BEIDE Wege — Bahn über
+        # rail/cli._pipeline, Auto/Rad über _strasse — diesen
+        # Namespace bekommen.
+        ausgabe_basis=fenster_ausgabeordner())
 
 
 def _via_liste(daten: dict[str, Any]) -> list[str]:
@@ -180,7 +187,7 @@ class Lauf:
                     f"{road_cli._short_name(waypoints[-1].name)}")
 
         m.text(f"  {', '.join(route.legs)}")
-        out_dir = Path("out") / slug(zone)
+        out_dir = ausgabe_basis(args) / slug(zone)
         return run_pipeline(
             route, melder=m, out_dir=out_dir, corridor_km=args.corridor,
             no_terrain=args.no_terrain, open_browser=False, zone=zone,

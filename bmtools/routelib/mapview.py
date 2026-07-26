@@ -10,11 +10,14 @@ from __future__ import annotations
 import base64
 import html
 import io
+import json
 import math
 import os
 from bisect import bisect_right
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from dataclasses import dataclass
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -74,6 +77,68 @@ KARTEN_EBENEN: list[dict[str, Any]] = [
 
 OVERLAY_NAME = "Relais-Sichtfelder (rechnerisch)"
 
+# Abstandsstufen des Einzelrelais-Sichtfelds (km). Bei genau einem
+# Relais trägt die Summen-Rampe keine Information mehr — dort zählt sie
+# abdeckende Relais —, deshalb stuft die Einzelansicht nach Abstand:
+# dunkel = nah. Das ist reine Geometrie; ERP und Antennendiagramm sind
+# dem Tool unbekannt, die Stufen sind KEINE Feldstärke. Die Legende sagt
+# das ausdrücklich (FELD_STUFEN_LABEL).
+FELD_STUFEN_KM = (10.0, 20.0)
+
+
+def _hex(farbe: np.ndarray) -> str:
+    r, g, b = (int(k) for k in farbe[:3])
+    return f"#{r:02X}{g:02X}{b:02X}"
+
+
+def _feld_legende() -> dict[str, Any]:
+    """Legende der Einzelrelais-Ansicht: Abstandsstufen von nah (dunkel)
+    nach fern (hell), dazu der Grenzbereich und der Ehrlichkeits-Hinweis.
+
+    Wortlaut und Farben stehen hier — GUI-Karte und folium-Karte lesen
+    beide von hier, damit sie nie auseinanderlaufen.
+    """
+    grenzen = FELD_STUFEN_KM
+    texte = [f"Sicht 0–{grenzen[0]:g} km"]
+    texte += [f"Sicht {a:g}–{b:g} km" for a, b in pairwise(grenzen)]
+    texte.append(f"Sicht über {grenzen[-1]:g} km")
+    # Sicht-Stufen der Rampe von dunkel (nah) nach hell (fern); Stufe 0
+    # ist transparent, Stufe 1 der Grenzbereich. strict=True hält die
+    # Zusicherung fest, dass FELD_STUFEN_KM genau so viele Stufen
+    # verlangt, wie HEATMAP_RAMP für Sicht hergibt.
+    farben = [_hex(HEATMAP_RAMP[i]) for i in range(len(HEATMAP_RAMP) - 1, 1, -1)]
+    return {
+        "stufen": [{"farbe": f, "text": t}
+                   for f, t in zip(farben, texte, strict=True)],
+        "grenz": {"farbe": _hex(HEATMAP_RAMP[1]),
+                  "text": "Grenzbereich (Beugung möglich)"},
+        # Der Kern der Ehrlichkeit: die Stufen sind Geometrie. Das Tool
+        # kennt weder Sendeleistung noch Antennendiagramm.
+        "hinweis": "Abstufung = Abstand zum Relais, keine Feldstärke "
+                   "(ERP und Antennendiagramm sind unbekannt)",
+        "zurueck": "alle Relais anzeigen",
+    }
+
+
+@dataclass(frozen=True)
+class RelaisFeld:
+    """Sichtfeld eines einzelnen Relais als eigenes Karten-Overlay."""
+    uri: str
+    bounds: list[list[float]]
+
+
+@dataclass(frozen=True)
+class Sichtfelder:
+    """Gerenderte Sichtfelder eines Laufs.
+
+    uri/bounds sind die aggregierte Summenkarte (alle Relais), felder
+    die Einzelfelder — indexgleich mit der results-Liste und damit mit
+    den Markern; None, wo ein Relais kein Sichtfeld im Raster hat.
+    """
+    uri: str
+    bounds: list[list[float]]
+    felder: list[RelaisFeld | None]
+
 # Semantische Marker-Farben -> folium-Icon-Farbe (die GUI stylt die
 # semantischen Namen selbst, projektweit dieselbe Bedeutung)
 _FARBE_FOLIUM = {"dmr": "blue", "fm": "orange", "grenz": "gray"}
@@ -86,19 +151,42 @@ def _legend_line(color: str, dash: str | None) -> str:
             f'stroke-width="4"{dash_attr}/></svg>')
 
 
-def _legend(modus_label: str, marker_note: str) -> str:
+# Kennung des Legendenkastens — das Einzelfeld-Skript schreibt ihn um
+LEGENDE_ID = "bm-legende"
+
+
+def _legend_inhalt(modus_label: str, marker_note: str,
+                   sichtfelder: bool) -> str:
+    """Inhalt des Legendenkastens (ohne Rahmen) — Wortlaut identisch mit
+    der GUI-Legende in app.js, die dieselben Angaben aus karten_daten
+    zusammensetzt."""
+    sichtfeld_zeilen = ""
+    if sichtfelder:
+        sichtfeld_zeilen = (
+            '<span style="display:inline-block;width:30px;height:10px;'
+            'vertical-align:middle;background:linear-gradient(90deg,'
+            '#A6D6EB,#56B4E9,#0072B2,#03395C)"></span> '
+            "Relais-Sichtfeld (hellste Stufe: nur Beugung, sonst dunkler "
+            "= mehr Relais)<br>"
+            "<em>Relais anklicken zeigt nur dessen Sichtfeld.</em><br>")
+    return (
+        f"<b>Geschätzte {modus_label}-Abdeckung</b><br>"
+        f"{_legend_line(*STATUS_STYLE[LOS][:2])} Sicht (durchgezogen)<br>"
+        f"{_legend_line(*STATUS_STYLE[MARGINAL][:2])} Grenzbereich "
+        f"(gestrichelt)<br>"
+        f"{_legend_line(*STATUS_STYLE[SHADOW][:2])} Schatten (gepunktet)<br>"
+        f"{sichtfeld_zeilen}"
+        f"Marker: {marker_note}")
+
+
+def _legend(modus_label: str, marker_note: str,
+            sichtfelder: bool = False) -> str:
     return f"""
-<div style="position:fixed; bottom:16px; left:16px; z-index:9999;
+<div id="{LEGENDE_ID}" style="position:fixed; bottom:16px; left:16px;
+     z-index:9999; max-width:24rem;
      background:#fff; color:#111; padding:8px 12px; border-radius:6px;
      box-shadow:0 1px 4px #0006; font:13px/1.8 sans-serif;">
-<b>Geschätzte {modus_label}-Abdeckung</b><br>
-{_legend_line(*STATUS_STYLE[LOS][:2])} Sicht (durchgezogen)<br>
-{_legend_line(*STATUS_STYLE[MARGINAL][:2])} Grenzbereich (gestrichelt)<br>
-{_legend_line(*STATUS_STYLE[SHADOW][:2])} Schatten (gepunktet)<br>
-<span style="display:inline-block;width:30px;height:10px;vertical-align:middle;
-background:linear-gradient(90deg,#A6D6EB,#56B4E9,#0072B2,#03395C)"></span>
-Relais-Sichtfeld (hellste Stufe: nur Beugung, sonst dunkler = mehr Relais)<br>
-Marker: {marker_note}
+{_legend_inhalt(modus_label, marker_note, sichtfelder)}
 </div>
 """
 
@@ -110,15 +198,115 @@ def _pos(d: RepeaterLike) -> tuple[float, float]:
     return d.lat, d.lng
 
 
+def _png_uri(index: np.ndarray) -> str:
+    """Rampenindex-Array als PNG-Daten-URI.
+
+    PNG selbst kodieren: branca normalisiert numpy-Arrays kanalweise auf
+    255 und würde die Farbe verfälschen (Blau -> Cyan).
+    """
+    buf = io.BytesIO()
+    Image.fromarray(HEATMAP_RAMP[index], "RGBA").save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
+def _inv_merc_y(y: float) -> float:
+    """Umkehrung von viewshed_raster.merc_y — Mercator-Y zu Breitengrad."""
+    return 2.0 * (math.degrees(math.atan(math.exp(y))) - 45.0)
+
+
+class _Rastergitter:
+    """Pixelgitter des Sichtfeld-Rasters mit seiner Geo-Zuordnung.
+
+    Zeilen liegen linear in Mercator-Y (so spannt Leaflet ImageOverlays
+    auf), Spalten linear im Längengrad.
+    """
+
+    def __init__(self, w: int, h: int, lat_min: float, lon_min: float,
+                 lat_max: float, lon_max: float) -> None:
+        self.w, self.h = w, h
+        self.lon_min, self.lon_max = lon_min, lon_max
+        self.y_min = viewshed_raster.merc_y(lat_min)
+        self.y_max = viewshed_raster.merc_y(lat_max)
+
+    def bounds(self, y0: int, y1: int, x0: int, x1: int) -> list[list[float]]:
+        """Geo-Bounds der Pixel y0..y1-1 / x0..x1-1.
+
+        Kantenbasiert (Anteil /w bzw. /h, nicht /(w-1)): Leaflet zieht
+        die Bildkanten auf die Bounds, nicht die Pixelmitten. So deckt
+        ein Zuschnitt auf dem Schirm exakt dieselbe Fläche ab wie die
+        entsprechenden Pixel der Summenkarte — die beiden Ansichten
+        springen beim Umschalten nicht gegeneinander.
+        """
+        span_lon = self.lon_max - self.lon_min
+        span_y = self.y_max - self.y_min
+        return [[_inv_merc_y(self.y_max - y1 / self.h * span_y),
+                 self.lon_min + x0 / self.w * span_lon],
+                [_inv_merc_y(self.y_max - y0 / self.h * span_y),
+                 self.lon_min + x1 / self.w * span_lon]]
+
+    def pixelmitten(self, y0: int, y1: int, x0: int, x1: int,
+                    ) -> tuple[np.ndarray, np.ndarray]:
+        """(lat, lon) der Pixelmitten eines Zuschnitts als Zeilen-/
+        Spaltenvektor — zum Broadcasten auf die Zuschnittfläche."""
+        span_lon = self.lon_max - self.lon_min
+        span_y = self.y_max - self.y_min
+        lon = self.lon_min + (np.arange(x0, x1) + 0.5) / self.w * span_lon
+        merc = self.y_max - (np.arange(y0, y1) + 0.5) / self.h * span_y
+        lat = 2.0 * (np.degrees(np.arctan(np.exp(merc))) - 45.0)
+        return lat[:, None], lon[None, :]
+
+
+def _abstand_km(lat: np.ndarray, lon: np.ndarray,
+                lat0: float, lon0: float) -> np.ndarray:
+    """Haversine-Abstand jedes Punktes zum Relais (km) — vektorisiert.
+
+    Bewusst keine Näherung über einen festen km/Pixel-Faktor: die Zeilen
+    des Rasters liegen in Mercator-Y, auf einem Raster über die ganze
+    Republik unterscheiden sich Nord- und Südrand deutlich in km/Pixel.
+    """
+    p0 = math.radians(lat0)
+    p1 = np.radians(lat)
+    dphi = p1 - p0
+    dlmb = np.radians(lon - lon0)
+    a = (np.sin(dphi / 2.0) ** 2
+         + math.cos(p0) * np.cos(p1) * np.sin(dlmb / 2.0) ** 2)
+    return 2.0 * 6371.0 * np.arcsin(np.sqrt(a))
+
+
+def _relais_feld(los: np.ndarray, marg_bits: np.ndarray,
+                 bbox: viewshed_raster.Bbox, gitter: _Rastergitter,
+                 lat0: float, lon0: float) -> RelaisFeld:
+    """Einzelfeld eines Relais als PNG-Overlay, nach Abstand gestuft.
+
+    Rampenindex: 1 = Grenzbereich (hellste Stufe), 2..4 = Sicht von
+    fern nach nah — dieselbe HEATMAP_RAMP wie die Summenkarte, damit
+    »dunkler = besser« in beiden Ansichten gilt und die geprüften
+    Farbfehlsichtigkeits-Abstände unverändert weiter gelten.
+    """
+    y0, y1, x0, x1 = bbox
+    ch, cw = y1 - y0, x1 - x0
+    marg = np.unpackbits(marg_bits, count=ch * cw).reshape(ch, cw).astype(bool)
+    lat, lon = gitter.pixelmitten(y0, y1, x0, x1)
+    stufe = np.digitize(_abstand_km(lat, lon, lat0, lon0), FELD_STUFEN_KM)
+    # Sicht schlägt Grenzbereich (die MaxFilter-Dilatation kann beide
+    # Ebenen überlappen lassen) — wie in der Summenkarte, wo count > 0
+    # den Grenzbereich überstimmt.
+    index = np.where(los.astype(bool), 4 - stufe, marg.astype(np.uint8))
+    return RelaisFeld(uri=_png_uri(index),
+                      bounds=gitter.bounds(y0, y1, x0, x1))
+
+
 def _coverage_raster(results: list[RepeaterResult], route: Route,
                      terrain: TerrainModel,
                      tile_progress: Callable[[int, int], None] | None = None,
                      viewshed_progress: Callable[[int, int], None] | None = None,
-                     ) -> tuple[str, list[list[float]]]:
-    """Viewsheds aller Korridor-Relais in ein RGBA-Raster aggregieren.
+                     ) -> Sichtfelder:
+    """Viewsheds aller Korridor-Relais rastern.
 
-    Ein Blauton, Deckkraft nach Zahl der abdeckenden Relais (sequenzielle
-    Ein-Farb-Rampe, farbfehlsichtigkeits-sicher).
+    Liefert die Summenkarte — ein Blauton, Deckkraft nach Zahl der
+    abdeckenden Relais (sequenzielle Ein-Farb-Rampe, farbfehlsichtig-
+    keits-sicher) — und dazu jedes Einzelfeld als eigenes, nach Abstand
+    gestuftes Overlay für die Einzelrelais-Ansicht.
 
     tile_progress/viewshed_progress melden (fertig, gesamt) für den
     Kachel-Prefetch bzw. je fertig gerechnetem Relais-Sichtfeld.
@@ -161,15 +349,26 @@ def _coverage_raster(results: list[RepeaterResult], route: Route,
     terrain.prefetch(np.concatenate(pre_lats), np.concatenate(pre_lons),
                      tile_progress)
 
+    gitter = _Rastergitter(w, h, lat_min, lon_min, lat_max, lon_max)
     count = np.zeros((h, w), dtype=np.uint8)   # Relais mit freier Sicht
     marginal = np.zeros((h, w), dtype=bool)    # Grenzbereich (Beugung)
+    felder: list[RelaisFeld | None] = [None] * len(tasks)
     fertig = 0
 
-    def einrechnen(los: np.ndarray, marg_bits: np.ndarray) -> None:
-        nonlocal fertig, count, marginal
-        count += los
-        marginal |= np.unpackbits(
-            marg_bits, count=h * w).reshape(h, w).astype(bool)
+    def einrechnen(nr: int, ergebnis: viewshed_raster.RenderResult) -> None:
+        """Ein fertiges Sichtfeld in die Summenkarte addieren und als
+        Einzelfeld ablegen. nr ist der results-Index — die Einzelfelder
+        müssen indexgleich mit den Markern bleiben."""
+        nonlocal fertig
+        los, marg_bits, bbox = ergebnis
+        if bbox is not None:
+            y0, y1, x0, x1 = bbox
+            ch, cw = y1 - y0, x1 - x0
+            count[y0:y1, x0:x1] += los
+            marginal[y0:y1, x0:x1] |= np.unpackbits(
+                marg_bits, count=ch * cw).reshape(ch, cw).astype(bool)
+            felder[nr] = _relais_feld(los, marg_bits, bbox, gitter,
+                                      tasks[nr][0], tasks[nr][1])
         fertig += 1
         if viewshed_progress:
             viewshed_progress(fertig, len(tasks))
@@ -182,24 +381,23 @@ def _coverage_raster(results: list[RepeaterResult], route: Route,
                 max_workers=workers,
                 initializer=viewshed_raster.init_worker) as pool:
             # submit/as_completed statt pool.map: Fortschritt je fertigem
-            # Sichtfeld; die Aggregation ist reihenfolge-unabhängig
-            for f in as_completed([pool.submit(viewshed_raster.render_relay, t)
-                                   for t in tasks]):
-                einrechnen(*f.result())
+            # Sichtfeld; die Aggregation ist reihenfolge-unabhängig. Das
+            # Future trägt seinen results-Index mit, damit die Einzelfelder
+            # trotz beliebiger Fertigstellungsreihenfolge richtig landen.
+            nummern = {pool.submit(viewshed_raster.render_relay, t): nr
+                       for nr, t in enumerate(tasks)}
+            for f in as_completed(nummern):
+                einrechnen(nummern[f], f.result())
     else:
-        for t in tasks:
-            einrechnen(*viewshed_raster.render_relay(t, terrain))
+        for nr, t in enumerate(tasks):
+            einrechnen(nr, viewshed_raster.render_relay(t, terrain))
 
     # Rampenindex: 0 = nichts, 1 = nur Grenzbereich, 2..4 = 1/2/>=3 Relais
     index = np.where(count > 0, 1 + np.clip(count, 0, 3),
                      marginal.astype(np.uint8))
-    rgba = HEATMAP_RAMP[index]
-    # PNG selbst kodieren: branca normalisiert numpy-Arrays kanalweise auf
-    # 255 und würde die Farbe verfälschen (Blau -> Cyan)
-    buf = io.BytesIO()
-    Image.fromarray(rgba, "RGBA").save(buf, format="PNG")
-    uri = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
-    return uri, [[lat_min, lon_min], [lat_max, lon_max]]
+    return Sichtfelder(uri=_png_uri(index),
+                       bounds=[[lat_min, lon_min], [lat_max, lon_max]],
+                       felder=felder)
 
 
 def _coverage_segments(
@@ -355,11 +553,12 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
               waypoint_icon: str = "flag", *,
               tile_progress: Callable[[int, int], None] | None = None,
               viewshed_progress: Callable[[int, int], None] | None = None,
-              ) -> tuple[str, list[list[float]]] | None:
-    """Folium-Karte schreiben; liefert das gerenderte Sichtfeld-Overlay
-    (Daten-URI, Bounds) zurück — die GUI-Kartendaten (karten_daten)
-    verwenden es weiter, statt die Viewsheds doppelt zu rechnen."""
-    overlay: tuple[str, list[list[float]]] | None = None
+              ) -> Sichtfelder | None:
+    """Folium-Karte schreiben; liefert die gerenderten Sichtfelder
+    (Summenkarte und Einzelfelder) zurück — die GUI-Kartendaten
+    (karten_daten) verwenden sie weiter, statt die Viewsheds doppelt zu
+    rechnen."""
+    overlay: Sichtfelder | None = None
     lats = [p[0] for p in route.points]
     lons = [p[1] for p in route.points]
     # tile.openstreetmap.de statt tile.openstreetmap.org: Die OSMF-Server
@@ -375,25 +574,35 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
                      show=False).add_to(m)
     m.fit_bounds([(min(lats), min(lons)), (max(lats), max(lons))])
 
+    feld_ebene = None
     if terrain is not None and results:
         overlay = _coverage_raster(results, route, terrain,
                                    tile_progress, viewshed_progress)
-        folium.raster_layers.ImageOverlay(
-            image=overlay[0], bounds=overlay[1], opacity=0.8,
+        feld_ebene = folium.raster_layers.ImageOverlay(
+            image=overlay.uri, bounds=overlay.bounds, opacity=0.8,
             name=OVERLAY_NAME,
-        ).add_to(m)
+        )
+        feld_ebene.add_to(m)
     # Vor den Markern einhängen, sonst listet das Control jeden Marker
     folium.LayerControl().add_to(m)
 
+    summe_html = ""
     if coverage is not None and coverage.samples:
         listed = {r.device.callsign for r in results}
         for status, pts, tooltip in _segment_infos(route, coverage, listed):
             color, dash, _ = STATUS_STYLE[status]
             folium.PolyLine(pts, color=color, weight=5, opacity=0.95,
                             dash_array=dash, tooltip=tooltip).add_to(m)
+        modus_label, marker_note = _legende_infos(results)
+        # Die Sichtfeld-Zeilen nur zeigen, wenn es Sichtfelder gibt: ohne
+        # Geländemodell (Horizont-Fallback) versprach die Legende bisher
+        # eine Rampe, die auf der Karte gar nicht vorkam
+        summe_html = _legend_inhalt(modus_label, marker_note,
+                                    overlay is not None)
         # branca.Element bekommt .html erst zur Laufzeit angehängt
         m.get_root().html.add_child(  # type: ignore[attr-defined]
-            folium.Element(_legend(*_legende_infos(results))))
+            folium.Element(_legend(modus_label, marker_note,
+                                   overlay is not None)))
     else:
         folium.PolyLine(route.points, color="#c00", weight=3,
                         tooltip=route_label).add_to(m)
@@ -403,17 +612,143 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
             icon=folium.Icon(color="red", icon=waypoint_icon, prefix="fa"),
         ).add_to(m)
 
+    marker_namen: list[str] = []
     for r, farbe, tooltip, popup in _marker_infos(results):
-        folium.Marker(
+        mk = folium.Marker(
             _pos(r.device),
             tooltip=tooltip,
             popup=folium.Popup(popup, max_width=340),
             icon=folium.Icon(color=_FARBE_FOLIUM[farbe], icon="tower-cell",
                              prefix="fa"),
-        ).add_to(m)
+        )
+        mk.add_to(m)
+        marker_namen.append(mk.get_name())
+
+    if overlay is not None and feld_ebene is not None and marker_namen:
+        # Ans Skript-Element, nicht ans HTML: der Code greift auf die von
+        # folium erzeugten JS-Variablen zu und muss nach ihnen laufen
+        m.get_root().script.add_child(  # type: ignore[attr-defined]
+            folium.Element(_einzelfeld_skript(
+                m.get_name(), feld_ebene.get_name(), marker_namen, overlay,
+                [r.device.callsign for r in results], summe_html)))
 
     m.save(str(path))
     return overlay
+
+
+def _einzelfeld_skript(karte_name: str, ebene_name: str,
+                       marker_namen: list[str], overlay: Sichtfelder,
+                       rufzeichen: list[str], summe_html: str) -> str:
+    """JS für die Einzelrelais-Ansicht der verschickbaren karte.html.
+
+    Spiegelt die GUI-Bedienung (app.js): Marker-Klick zeigt nur dessen
+    Sichtfeld, Zweitklick/Escape/Knopf führen zur Summenkarte zurück,
+    getauscht wird Bild und Ausdehnung DERSELBEN Ebene, damit der Haken
+    im Layer-Control gültig bleibt.
+
+    Bewusst als eigenes Skript statt als HTML-Element: es referenziert
+    die von folium erzeugten JS-Variablen (get_name()).
+
+    Die Ausführung hängt an DOMContentLoaded, und das ist keine
+    Vorsichtsmaßnahme, sondern nötig: folium erzeugt sein eigenes JS
+    erst beim Rendern und hängt es damit HINTER die vorher manuell
+    angehängten Skript-Kinder. Dieser Code steht im fertigen Dokument
+    also VOR den Variablen, die er benutzt — sofort ausgeführt fände er
+    map, ImageOverlay und Marker allesamt undefiniert.
+    """
+    daten = json.dumps({
+        "felder": [None if f is None else {"uri": f.uri, "bounds": f.bounds}
+                   for f in overlay.felder],
+        "summe": {"uri": overlay.uri, "bounds": overlay.bounds},
+        "legende": _feld_legende(),
+        "rufzeichen": rufzeichen,
+        "summeHtml": summe_html,
+    }, ensure_ascii=False)
+    marker_liste = ", ".join(marker_namen)
+    return f"""
+document.addEventListener("DOMContentLoaded", function () {{
+  var D = {daten};
+  var karte = {karte_name}, ebene = {ebene_name};
+  var marker = [{marker_liste}];
+  var kasten = document.getElementById("{LEGENDE_ID}");
+  var feldRelais = null;
+  // Popup-Zustand von Leaflet melden lassen statt im DOM nachsehen: beim
+  // Schließen bleibt .leaflet-popup noch ~400 ms zum Ausblenden stehen
+  var popupOffen = false;
+  karte.on("popupopen", function () {{ popupOffen = true; }});
+  karte.on("popupclose", function () {{ popupOffen = false; }});
+
+  function hatFeld(i) {{
+    return Boolean(D.felder[i] && karte.hasLayer(ebene));
+  }}
+  function zeigeFeld() {{
+    var f = feldRelais === null ? D.summe : D.felder[feldRelais];
+    if (!f) return;
+    ebene.setUrl(f.uri);
+    ebene.setBounds(L.latLngBounds(f.bounds));
+  }}
+  function fleck(farbe) {{
+    return '<span style="display:inline-block;width:30px;height:10px;' +
+           'vertical-align:middle;border:1px solid rgba(0,0,0,.25);' +
+           'background:' + farbe + '"></span> ';
+  }}
+  function zeigeLegende() {{
+    if (!kasten) return;
+    if (feldRelais === null) {{ kasten.innerHTML = D.summeHtml; return; }}
+    var h = "";
+    D.legende.stufen.forEach(function (s) {{
+      h += fleck(s.farbe) + s.text + "<br>";
+    }});
+    h += fleck(D.legende.grenz.farbe) + D.legende.grenz.text + "<br>";
+    h += "<small>" + D.legende.hinweis + "</small>";
+    // Rufzeichen über textContent: es stammt aus der BM-/FM-Quelle
+    var titel = document.createElement("b");
+    titel.textContent = "Sichtfeld " + (D.rufzeichen[feldRelais] || "");
+    kasten.replaceChildren(titel, document.createElement("br"));
+    kasten.insertAdjacentHTML("beforeend", h);
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = D.legende.zurueck;
+    b.style.cssText = "display:block;margin-top:6px;padding:3px 8px;" +
+      "border:1px solid #b6bdc4;border-radius:4px;background:#f2f4f6;" +
+      "color:#111;font:inherit;cursor:pointer";
+    b.addEventListener("click", alleZeigen);
+    kasten.appendChild(b);
+  }}
+  function alleZeigen() {{
+    if (feldRelais === null) return;
+    feldRelais = null;
+    zeigeFeld();
+    zeigeLegende();
+  }}
+  marker.forEach(function (m, i) {{
+    m.on("click", function () {{
+      if (!hatFeld(i)) return;
+      feldRelais = feldRelais === i ? null : i;
+      zeigeFeld();
+      zeigeLegende();
+    }});
+  }});
+  // Nimmt der Betrachter die Sichtfeld-Ebene ab, fällt auch die Legende
+  // zurück — sonst benennt sie ein Feld, das nicht mehr zu sehen ist
+  karte.on("overlayremove", alleZeigen);
+  // Gestaffelt: ein offenes Marker-Popup bekommt Escape zuerst, erst
+  // der nächste Druck verlässt die Einzelansicht. Das Popup geht beim
+  // Marker-Klick auf, also auf dem üblichen Weg IN die Einzelansicht —
+  // ohne Staffelung schlösse ein Escape beides in einem Rutsch.
+  // Geschlossen wird hier selbst statt über Leaflets Escape-Handler:
+  // der hängt am Kartencontainer und greift nur mit dessen Fokus,
+  // bloßes Aussteigen könnte Escape dauerhaft wirkungslos machen.
+  document.addEventListener("keydown", function (ev) {{
+    if (ev.key !== "Escape") return;
+    if (popupOffen) {{
+      karte.closePopup();
+      return;
+    }}
+    alleZeigen();
+  }});
+}});
+"""
 
 
 def _runde_punkte(punkte: list[Point]) -> list[list[float]]:
@@ -424,7 +759,7 @@ def _runde_punkte(punkte: list[Point]) -> list[list[float]]:
 
 def karten_daten(results: list[RepeaterResult], route: Route,
                  coverage: CoverageEstimate | None = None,
-                 overlay: tuple[str, list[list[float]]] | None = None,
+                 overlay: Sichtfelder | None = None,
                  *, route_label: str = "Strecke",
                  waypoint_icon: str = "flag") -> dict[str, Any]:
     """Kartendaten für die native Leaflet-Ansicht der GUI (U4) als
@@ -443,16 +778,27 @@ def karten_daten(results: list[RepeaterResult], route: Route,
                                 "label": label}
                   for status, (farbe, dash, label) in STATUS_STYLE.items()},
         "marker": [{"lat": _pos(r.device)[0], "lng": _pos(r.device)[1],
-                    "farbe": farbe, "tooltip": tooltip, "popup": popup}
+                    "farbe": farbe, "tooltip": tooltip, "popup": popup,
+                    # Rufzeichen einzeln: die Einzelfeld-Legende benennt
+                    # das Relais, der Tooltip trägt noch Abstand und Modus
+                    "rufzeichen": r.device.callsign}
                    for r, farbe, tooltip, popup in _marker_infos(results)],
         "segmente": None,
         "route": None,
         "overlay": None,
+        # Einzelfelder, indexgleich mit "marker" — None, wo kein
+        # Sichtfeld vorliegt (leeres Feld, oder Lauf ohne Geländemodell)
+        "relais_felder": None,
+        "feld_legende": None,
         "legende": None,
     }
     if overlay is not None:
-        daten["overlay"] = {"uri": overlay[0], "bounds": overlay[1],
+        daten["overlay"] = {"uri": overlay.uri, "bounds": overlay.bounds,
                             "name": OVERLAY_NAME}
+        daten["relais_felder"] = [
+            None if f is None else {"uri": f.uri, "bounds": f.bounds}
+            for f in overlay.felder]
+        daten["feld_legende"] = _feld_legende()
     if coverage is not None and coverage.samples:
         listed = {r.device.callsign for r in results}
         daten["segmente"] = [

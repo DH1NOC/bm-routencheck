@@ -318,14 +318,64 @@ function konsole(praefix, text, klasse) {
   if (amEnde) k.scrollTop = k.scrollHeight;
 }
 
-$("#lauf-bericht").addEventListener("click", () =>
-  window.pywebview.api.oeffne_ergebnis());
-$("#lauf-ordner").addEventListener("click", () =>
-  window.pywebview.api.oeffne_ordner());
+/* Öffnen von Ordner/Bericht kann am System scheitern (fehlende
+   Dateimanager-Zuordnung, Sandbox, kaputtes xdg-open). Dann NICHT still
+   sein — bis 2026-07-26 passierte in dem Fall gar nichts, und der
+   Nutzer stand ohne Hinweis da. Stattdessen: Grund nennen und den
+   absoluten Pfad in die Zwischenablage legen, damit er trotzdem an
+   seine Dateien kommt. */
+async function inZwischenablage(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (e) {
+    // Ältere WebViews kennen die Clipboard-API nicht oder verweigern
+    // sie außerhalb eines sicheren Kontexts — dann der alte Weg.
+    const feld = document.createElement("textarea");
+    feld.value = text;
+    feld.setAttribute("readonly", "");
+    feld.style.position = "fixed";
+    feld.style.opacity = "0";
+    document.body.appendChild(feld);
+    feld.select();
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch (e2) {
+      ok = false;
+    }
+    feld.remove();
+    return ok;
+  }
+}
+
+async function meldeOeffnen(r, was) {
+  if (!r || r.ok) return;
+  let text = was + " ließ sich nicht öffnen";
+  if (r.fehler) text += " — " + r.fehler;
+  if (r.pfad) {
+    const kopiert = await inZwischenablage(r.pfad);
+    text += ". Pfad: " + r.pfad;
+    if (kopiert) text += " (in die Zwischenablage kopiert)";
+  }
+  statusLinks(text);
+}
+
+$("#lauf-bericht").addEventListener("click", async () =>
+  meldeOeffnen(await window.pywebview.api.oeffne_ergebnis(), "Bericht"));
+$("#lauf-ordner").addEventListener("click", async () =>
+  meldeOeffnen(await window.pywebview.api.oeffne_ordner(), "Ordner"));
 
 /* -------------------------------------------- Ergebnis-Karte (U4) */
 
 let karte = null;  // Leaflet-Map des angezeigten Ergebnisses
+let kartenDaten = null;    // letztes karten_daten-Payload (mapview)
+let sichtfeldEbene = null; // vom Layer-Control verwaltete Overlay-Ebene
+let feldRelais = null;     // Index des einzeln gezeigten Relais (oder null)
+/* Popup-Zustand von Leaflet melden lassen statt im DOM nachsehen: beim
+   Schließen bleibt .leaflet-popup noch ~400 ms zum Ausblenden stehen,
+   eine DOM-Abfrage sähe es also fälschlich weiter als offen. */
+let popupOffen = false;
 
 const STATIONS_ICONS = { train: "i-train", car: "i-directions_car",
                          bicycle: "i-pedal_bike" };
@@ -364,7 +414,13 @@ function baueKarte(k) {
     karte.remove();
     karte = null;
   }
+  kartenDaten = k;
+  sichtfeldEbene = null;
+  feldRelais = null;
+  popupOffen = false;
   karte = L.map($("#karte"));
+  karte.on("popupopen", () => (popupOffen = true));
+  karte.on("popupclose", () => (popupOffen = false));
 
   const basis = {};
   k.ebenen.forEach((e, i) => {
@@ -378,8 +434,9 @@ function baueKarte(k) {
   });
   const overlays = {};
   if (k.overlay) {
-    overlays[k.overlay.name] = L.imageOverlay(
+    sichtfeldEbene = L.imageOverlay(
       k.overlay.uri, k.overlay.bounds, { opacity: 0.8 }).addTo(karte);
+    overlays[k.overlay.name] = sichtfeldEbene;
   }
   L.control.layers(basis, overlays).addTo(karte);
 
@@ -419,8 +476,19 @@ function baueKarte(k) {
     markerRefs.push(m);
   });
 
+  // Nimmt der Nutzer die Sichtfeld-Ebene im Layer-Control ab, während
+  // ein Einzelrelais gezeigt wird, fällt auch die Legende zurück — sonst
+  // benennt sie ein Sichtfeld, das gar nicht mehr zu sehen ist.
+  karte.on("overlayremove", () => {
+    if (feldRelais !== null) {
+      feldRelais = null;
+      zeigeSichtfeld();
+      zeigeLegende();
+    }
+  });
+
   karte.fitBounds(k.bounds, { padding: [24, 24] });
-  zeigeLegende(k);
+  zeigeLegende();
 
   // Nur die Stationsnamen — das Routen-Label steht im Tooltip
   // (die Top-Bar ist eng, U5-Eigenbefund: »Bah…«)
@@ -437,10 +505,52 @@ function legendeLinie(farbe, dash) {
          (dash ? ' stroke-dasharray="' + dash + '"' : "") + "/></svg> ";
 }
 
-function zeigeLegende(k) {
+function legendeFleck(farbe) {
+  return '<span class="legende-stufe" style="background:' + farbe +
+         '"></span> ';
+}
+
+/* ------------------------------- Einzelrelais-Sichtfeld (Abdeckung) */
+
+/* Ein Relais hat nur dann eine Einzelansicht, wenn Sichtfelder
+   gerechnet wurden (Geländemodell) UND die Overlay-Ebene im
+   Layer-Control angehakt ist — eine bewusste Abwahl übersteuert der
+   Marker-Klick nicht. */
+function hatSichtfeld(index) {
+  const felder = kartenDaten && kartenDaten.relais_felder;
+  return Boolean(sichtfeldEbene && felder && felder[index] &&
+                 karte && karte.hasLayer(sichtfeldEbene));
+}
+
+/* Bild und Ausdehnung derselben Ebene tauschen, statt Ebenen zu
+   wechseln: so bleibt der Haken im Layer-Control gültig und das
+   Abhaken versteckt weiter genau das, was gerade zu sehen ist. */
+function zeigeSichtfeld() {
+  if (!sichtfeldEbene || !kartenDaten) return;
+  const felder = kartenDaten.relais_felder || [];
+  const feld = feldRelais === null ? kartenDaten.overlay : felder[feldRelais];
+  if (!feld) return;
+  sichtfeldEbene.setUrl(feld.uri);
+  sichtfeldEbene.setBounds(L.latLngBounds(feld.bounds));
+}
+
+function alleRelaisZeigen() {
+  if (feldRelais === null) return;
+  feldRelais = null;
+  zeigeSichtfeld();
+  zeigeLegende();
+}
+
+function zeigeLegende() {
+  const k = kartenDaten;
   const el = $("#karten-legende");
-  if (!k.legende) {
+  if (!k || !k.legende) {
     el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  if (feldRelais !== null) {
+    zeigeFeldLegende(el, k);
     return;
   }
   const l = k.legende;
@@ -453,10 +563,37 @@ function zeigeLegende(k) {
     inhalt += '<span class="legende-rampe"></span> Relais-Sichtfeld ' +
               "(hellste Stufe: nur Beugung, sonst dunkler = mehr " +
               "Relais)<br>";
+    inhalt += "<em>Relais anklicken zeigt nur dessen Sichtfeld.</em><br>";
   }
   inhalt += "Marker: " + l.marker_note;
   el.innerHTML = inhalt;
-  el.hidden = false;
+}
+
+/* Legende der Einzelansicht: Abstandsstufen von nah (dunkel) nach fern
+   (hell). Wortlaut und Farben kommen aus mapview._feld_legende(), damit
+   GUI-Karte und karte.html dasselbe sagen. */
+function zeigeFeldLegende(el, k) {
+  const f = k.feld_legende;
+  const marker = k.marker[feldRelais] || {};
+  let inhalt = "";
+  f.stufen.forEach((s) => {
+    inhalt += legendeFleck(s.farbe) + s.text + "<br>";
+  });
+  inhalt += legendeFleck(f.grenz.farbe) + f.grenz.text + "<br>";
+  inhalt += "<small>" + f.hinweis + "</small>";
+  // Rufzeichen über textContent: es kommt aus der BM-/FM-Quelle und ist
+  // anders als die Popups (html.escape in mapview) nicht maskiert
+  const titel = document.createElement("b");
+  titel.textContent = "Sichtfeld " + (marker.rufzeichen || "");
+  el.replaceChildren(titel, document.createElement("br"));
+  el.insertAdjacentHTML("beforeend", inhalt);
+  // Knopf als echtes Element (Handler statt inline-onclick)
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "legende-zurueck";
+  b.textContent = f.zurueck;
+  b.addEventListener("click", alleRelaisZeigen);
+  el.appendChild(b);
 }
 
 /* Links auf der Karte (Attribution) dürfen das App-Fenster nicht
@@ -466,10 +603,10 @@ $("#karte").addEventListener("click", (ev) => {
   if (a) ev.preventDefault();
 });
 
-$("#ergebnis-bericht").addEventListener("click", () =>
-  window.pywebview.api.oeffne_ergebnis());
-$("#ergebnis-ordner").addEventListener("click", () =>
-  window.pywebview.api.oeffne_ordner());
+$("#ergebnis-bericht").addEventListener("click", async () =>
+  meldeOeffnen(await window.pywebview.api.oeffne_ergebnis(), "Bericht"));
+$("#ergebnis-ordner").addEventListener("click", async () =>
+  meldeOeffnen(await window.pywebview.api.oeffne_ordner(), "Ordner"));
 $("#ergebnis-csv").addEventListener("click", async () => {
   const r = await window.pywebview.api.export_csv();
   if (r && r.pfad) statusLinks("CSV gespeichert: " + r.pfad);
@@ -682,7 +819,8 @@ function talkgroupZeile(z) {
 }
 
 /* Tabelle↔Karte: Zeile wählt Marker (zentrieren + hervorheben),
-   Marker wählt Zeile (hinscrollen + hervorheben). */
+   Marker wählt Zeile (hinscrollen + hervorheben) — und beide Wege
+   schalten das Sichtfeld auf dieses eine Relais um. */
 function waehleRelais(index, quelle) {
   if (aktivesRelais !== null && markerRefs[aktivesRelais]) {
     const alt = markerRefs[aktivesRelais];
@@ -703,7 +841,34 @@ function waehleRelais(index, quelle) {
       '#relais-zeilen tr[data-index="' + index + '"]');
     if (tr) tr.scrollIntoView({ block: "nearest" });
   }
+  // Sichtfeld umschalten; Zweitklick auf dasselbe Relais (oder Escape,
+  // oder der Legenden-Knopf) führt zur Summenkarte zurück
+  if (hatSichtfeld(index)) {
+    feldRelais = feldRelais === index ? null : index;
+    zeigeSichtfeld();
+    zeigeLegende();
+  }
 }
+
+/* Escape verlässt die Einzelansicht — gestaffelt: Dialog und Menü
+   beanspruchen Escape für sich, danach ein offenes Marker-Popup, erst
+   dann die Einzelansicht. Das Popup geht beim Marker-Klick automatisch
+   auf, also auf dem üblichen Weg IN die Einzelansicht; ohne Staffelung
+   schlösse ein Escape Popup und Einzelansicht in einem Rutsch.
+
+   Das Popup wird hier SELBST geschlossen und nicht Leaflet überlassen:
+   dessen Escape-Handler hängt am Kartencontainer und greift nur, wenn
+   der den Fokus hat. Bloßes Aussteigen (return) könnte Escape sonst
+   dauerhaft wirkungslos machen. */
+document.addEventListener("keydown", (ev) => {
+  if (ev.key !== "Escape" || feldRelais === null) return;
+  if (!$("#dialog-hintergrund").hidden || !$("#menue").hidden) return;
+  if (popupOffen && karte) {
+    karte.closePopup();
+    return;
+  }
+  alleRelaisZeigen();
+});
 
 $("#relais-suche").addEventListener("input", tabelleRendern);
 
@@ -791,9 +956,9 @@ $("#menue-cache-leeren").addEventListener("click", () => {
   cacheLeerenDialog();
 });
 
-$("#menue-ordner").addEventListener("click", () => {
+$("#menue-ordner").addEventListener("click", async () => {
   $("#menue").hidden = true;
-  window.pywebview.api.oeffne_ordner();
+  meldeOeffnen(await window.pywebview.api.oeffne_ordner(), "Ordner");
 });
 
 /* ---------------------------------------------------- Statusleiste */

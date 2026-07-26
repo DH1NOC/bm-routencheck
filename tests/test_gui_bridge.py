@@ -159,11 +159,12 @@ def test_waehle_gpx_ohne_fenster_ist_none():
 
 def test_oeffne_ordner_nur_mit_ergebnis(monkeypatch, tmp_path):
     geoeffnet: list[object] = []
-    monkeypatch.setattr("bmtools.routelib.oeffnen.system_oeffnen",
-                        geoeffnet.append)
+    monkeypatch.setattr("bmtools.routelib.oeffnen.system_oeffnen_still",
+                        lambda z: geoeffnet.append(z))
     monkeypatch.setattr("bmtools.gui.bridge.Lauf", _FakeLauf)
     b = Bridge()
-    b.oeffne_ordner()  # kein Lauf -> kein Aufruf
+    assert b.oeffne_ordner() == {"ok": False, "pfad": "",
+                                 "fehler": "Kein Ergebnis"}
     assert geoeffnet == []
 
     class _FakeMelder:
@@ -172,8 +173,33 @@ def test_oeffne_ordner_nur_mit_ergebnis(monkeypatch, tmp_path):
     b.start_lauf("auto", {"von": "A", "nach": "B"})
     assert isinstance(b._lauf, _FakeLauf)
     b._lauf.melder = _FakeMelder()
-    b.oeffne_ordner()
+    assert b.oeffne_ordner() == {"ok": True, "pfad": str(tmp_path),
+                                 "fehler": None}
     assert geoeffnet == [tmp_path]
+
+
+def test_oeffne_ordner_meldet_fehlschlag_mit_pfad(monkeypatch, tmp_path):
+    """Scheitert der Dateimanager, muss die Oberfläche etwas anzeigen
+    können — bis 2026-07-26 passierte gar nichts (Mint 22.3). Der Pfad
+    geht in jedem Fall zurück, damit der Nutzer trotzdem hinfindet."""
+    from bmtools.routelib.oeffnen import OeffnenFehler
+    monkeypatch.setattr(
+        "bmtools.routelib.oeffnen.system_oeffnen_still",
+        lambda z: OeffnenFehler(z, ["xdg-open: Code 4", "nemo: Code 1"]))
+    monkeypatch.setattr("bmtools.gui.bridge.Lauf", _FakeLauf)
+    b = Bridge()
+
+    class _FakeMelder:
+        ergebnis_ordner = tmp_path
+
+    b.start_lauf("auto", {"von": "A", "nach": "B"})
+    assert b._lauf is not None
+    b._lauf.melder = _FakeMelder()  # type: ignore[assignment]
+    r = b.oeffne_ordner()
+
+    assert r["ok"] is False
+    assert r["pfad"] == str(tmp_path)
+    assert "xdg-open: Code 4" in r["fehler"]
 
 
 def test_lade_ergebnis_liefert_strukturierte_daten(monkeypatch):
@@ -241,8 +267,8 @@ def test_oeffne_ergebnis_beide_im_browser(monkeypatch, tmp_path):
     # Wie --oeffnen im Terminal: Bericht UND Karte (Nutzerwunsch
     # 2026-07-19), Bericht zuerst; fehlende Dateien überspringen
     geoeffnet: list[object] = []
-    monkeypatch.setattr("bmtools.routelib.oeffnen.system_oeffnen",
-                        geoeffnet.append)
+    monkeypatch.setattr("bmtools.routelib.oeffnen.system_oeffnen_still",
+                        lambda z: geoeffnet.append(z))
     monkeypatch.setattr("bmtools.gui.bridge.Lauf", _FakeLauf)
     b = Bridge()
     b.oeffne_ergebnis()  # kein Lauf -> kein Aufruf
@@ -255,6 +281,7 @@ def test_oeffne_ergebnis_beide_im_browser(monkeypatch, tmp_path):
 
     class _FakeMelder:
         def __init__(self):
+            self.ergebnis_ordner = tmp_path
             self.ergebnis_dateien = {"bericht": bericht, "karte": karte,
                                      "fehlt": tmp_path / "fehlt.html"}
 
@@ -298,8 +325,8 @@ def test_export_pdf_schreibt_und_oeffnet(monkeypatch, tmp_path):
     monkeypatch.setattr("bmtools.routelib.report_pdf.write_pdf",
                         lambda daten, pfad, **kw:
                         geschrieben.append((daten, pfad)))
-    monkeypatch.setattr("bmtools.routelib.oeffnen.system_oeffnen",
-                        geoeffnet.append)
+    monkeypatch.setattr("bmtools.routelib.oeffnen.system_oeffnen_still",
+                        lambda z: geoeffnet.append(z))
     b = Bridge()
     assert b.export_pdf() is None  # kein Lauf
 

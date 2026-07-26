@@ -198,6 +198,129 @@ Die Erreichbarkeit wird pro Streckenpunkt über echte Höhenprofile mit
 die Karten-Sichtfelder entstehen als Radialstrahl-Viewsheds in einem
 Prozesspool (`routelib/viewshed_raster.py`).
 
+### Einzelrelais-Sichtfelder
+
+`render_relay()` liefert jedes Sichtfeld auf seine belegte Pixel-Bbox
+zugeschnitten zurück (das volle Raster wären bei `HEATMAP_MAX_PX` 3,2 MB
+je Relais durch die Prozesspool-Pipe). `_coverage_raster()` addiert die
+Zuschnitte in die Summenkarte **und** legt jeden einzeln als eigenes
+PNG-Overlay ab — indexgleich mit `results` und damit mit den Markern.
+Der Aufwand ist reine Kodierung, gerechnet wurde ohnehin je Relais.
+
+Drei Stellen, an denen es leicht subtil falsch wird:
+
+- **Zuschnitt erst nach `MaxFilter(3)`.** Der Filter weitet die
+  gezeichneten Sichtläufe um ein Pixel; vorher zugeschnitten fehlte der
+  Rand.
+- **Bounds kantenbasiert** (`/w`, `/h` — nicht `/(w-1)`). Leaflet zieht
+  die *Bildkanten* auf die Bounds, nicht die Pixelmitten. Nur so deckt
+  ein Zuschnitt exakt dieselbe Fläche ab wie die zugehörigen Pixel der
+  Summenkarte, sonst springen die Ansichten beim Umschalten
+  gegeneinander.
+- **Abstände per Haversine über die inverse Mercator-Zeile**, nicht über
+  einen festen km/Pixel-Faktor: die Rasterzeilen liegen in Mercator-Y,
+  auf einem Raster über die ganze Republik unterscheiden sich Nord- und
+  Südrand deutlich in km/Pixel.
+
+Abgesichert ist das durch `test_einzelfelder_ergeben_zusammen_die_summenkarte`:
+die Einzelfelder werden über ihre Geo-Bounds zurück ins globale Raster
+einsortiert und müssen die Summenkarte reproduzieren — prüft Zuschnitt,
+Bounds-Rückrechnung und Rampenstufen in einem Zug. Bewusst nur binär
+(Sicht / Grenzbereich / nichts), weil ein Pixel genau auf einer
+Abstandsgrenze beim Rückrechnen in die Nachbarstufe kippen darf.
+
+Die Abstufung ist **Abstand, nicht Feldstärke** (`FELD_STUFEN_KM`) — ERP
+und Antennendiagramm sind unbekannt. Die Legende sagt das ausdrücklich;
+Wortlaut und Farben stehen einmal in `_feld_legende()`, GUI-Karte und
+`karte.html` lesen beide von dort.
+
+**Escape ist gestaffelt.** Der Marker-Klick öffnet zugleich das Popup —
+also genau auf dem üblichen Weg in die Einzelansicht. Ein einzelnes
+`Esc` schließt deshalb erst das Popup, erst das nächste kehrt zur
+Summenkarte zurück; ohne Staffelung verschwände beides auf einmal. Zwei
+Feinheiten, die dabei zählen: das Popup wird **selbst** geschlossen
+(Leaflets eigener `Esc`-Handler hängt am Kartencontainer und greift nur
+mit dessen Fokus — bloßes Aussteigen könnte `Esc` dauerhaft wirkungslos
+machen), und der Popup-Zustand kommt aus `popupopen`/`popupclose`, nicht
+aus dem DOM: `.leaflet-popup` bleibt nach dem Schließen noch rund 400 ms
+zum Ausblenden stehen.
+
+**Fallstrick bei `karte.html`:** folium erzeugt sein eigenes JavaScript
+erst beim Rendern und hängt es *hinter* die vorher manuell an
+`get_root().script` angefügten Kinder. Das Einzelfeld-Skript steht im
+fertigen Dokument also **vor** den Variablen, die es benutzt (gemessen:
+Skript bei Zeichen 4196, Marker-Definitionen ab 91012). Es hängt deshalb
+an `DOMContentLoaded` — sofort ausgeführt fände es `map`, `ImageOverlay`
+und alle Marker als `undefined` vor. `test_karte_html_verdrahtet_die_einzelfelder`
+prüft beides: dass jede referenzierte JS-Variable auch definiert ist,
+und dass verzögert wird.
+
+## Ausgabeort und Öffnen im System
+
+Zwei Fehler beim Linux-Beta-Test am 2026-07-26 (Mint 22.3) hatten
+dieselbe Wurzel: Pfade, die vom Arbeitsverzeichnis abhingen.
+
+**Ausgabeort** (`bmtools/ausgabe.py`). `out_dir = Path("out") / …` ist
+relativ zum CWD — und beim Doppelklick bestimmt den der Starter. Beim
+Tester war es `$HOME`, die Ergebnisse lagen in `~/out/…`, gesucht wurden
+sie im selbst angelegten Programmordner. Der Wächter in
+`packaging/entry.py` griff nicht: Er wich nur aus, wenn das CWD *nicht
+beschreibbar* war, und ein Home-Verzeichnis ist beschreibbar. Seitdem
+holt der Fenster-Start seinen Ordner aus `fenster_ausgabeordner()`
+(`Dokumente/bm-routencheck-ergebnisse`), der Terminal-Start bleibt bei
+`./out`. `run_pipeline` macht `out_dir` außerdem sofort absolut — der
+gemeldete Pfad ist damit der, den der Nutzer suchen kann, und der
+Ausgabeordner geht absolut an den Dateimanager.
+
+**Die Entscheidung fällt an genau einer Stelle**, und das ist teuer
+erkauft: Der erste Anlauf setzte den festen Ordner je `out_dir`-Stelle
+einzeln und übersah dabei den Bahn-Modus. Der baut sein `out_dir`
+nämlich nicht in der GUI, sondern erst tief in `rail/cli._pipeline` —
+`gui/lauf._bahn` reicht nur an `rail_cli._run`/`_run_link` weiter. Nur
+Auto und Rad (`_strasse`) waren repariert, Bahn schrieb weiter relativ
+(Befund 2026-07-26, Windows: Ausgabe im `out/` neben der Exe im
+Download-Ordner).
+
+Seitdem gilt: `_namespace()` in `gui/lauf.py` legt den festen Ordner in
+`args.ausgabe_basis` — **einmal**, und beide Wege bekommen denselben
+Namespace. Alle `out_dir`-Stellen fragen `ausgabe_basis(args)`
+(`bmtools/ausgabe.py`), das per `getattr` auf `./out` zurückfällt, wenn
+das Feld fehlt. `test_nur_ausgabe_py_kennt_den_out_ordner` hält fest,
+dass `Path("out")` nirgendwo sonst im Paket steht;
+`test_bahn_im_fenster_schreibt_in_den_festen_ordner` fährt den
+Bahn-Weg komplett durch bis `run_pipeline`. Ein reiner Quelltext-Test
+hätte den Fehler nicht gefunden — `gui/lauf.py` sah ja richtig aus.
+
+**Öffnen** (`routelib/oeffnen.py`). Der Ordner-Knopf tat unter Linux gar
+nichts, und zwar völlig lautlos: `check=False`, stderr nach
+`/dev/null`, und der `webbrowser`-Ausweg hing an `except OSError`, das
+nur ein *fehlendes* `xdg-open` fängt — bei einem Exit-Code ≠ 0, also im
+tatsächlichen Fall, lief er nie an. (Für ein Verzeichnis wäre er
+ohnehin falsch: das gibt eine Browser-Dateiliste, keinen
+Dateimanager.) Drei Änderungen, jede auch für sich begründet:
+
+1. **Absoluter Pfad.** Ein relativer wird vom Zielprogramm gegen dessen
+   eigenes CWD aufgelöst. Auf Cinnamon läuft Nemo schon (es zeichnet den
+   Desktop), der neue Aufruf reicht das Argument per DBus an die
+   laufende Instanz weiter — und die sitzt woanders.
+2. **Ausweichkette** `xdg-open` → `gio open` → `nemo`/`nautilus`/
+   `dolphin`/`thunar`/`pcmanfm`, mit Prüfung des Exit-Codes. Nicht
+   installierte Öffner werden per `shutil.which` übersprungen.
+3. **Umgebung säubern** (`kind_umgebung()`). Das Linux-Binary ist
+   `--onefile` mit gebündeltem Qt; PyInstaller zeigt `LD_LIBRARY_PATH`
+   dann auf sein Entpackverzeichnis und sichert das Original in
+   `LD_LIBRARY_PATH_ORIG`. Ein von uns gestarteter Dateimanager erbt das
+   und zieht unsere gebündelten Qt-/glib-Bibliotheken statt der
+   System-Version — er stirbt lautlos. Der Originalwert gehört also
+   zurück ins Kind.
+
+Scheitert alles, gibt es einen `OeffnenFehler` mit allen versuchten
+Kommandos samt Code. Die Oberfläche zeigt ihn in der Statusleiste und
+legt den absoluten Pfad in die Zwischenablage. Das ist die eigentliche
+Lehre aus dem Befund: Ein Knopf, der lautlos nichts tut, lässt sich aus
+der Ferne nicht diagnostizieren — der Betreuer konnte den Fehler auf
+seinem eigenen Mint nicht nachstellen.
+
 ## Disk-Cache
 
 Alle Caches liegen unter dem platformdirs-Cache-Verzeichnis des Nutzers

@@ -20,6 +20,12 @@ _terrain: TerrainModel | None = None
 # Aufgabe: (lat, lng, agl_m, w, h, lat_min, lon_min, lat_max, lon_max)
 RenderTask = tuple[float, float, float, int, int, float, float, float, float]
 
+# Ergebnis: (los, marginal_bits, bbox) — auf die belegte Pixel-Bbox
+# (y0, y1, x0, x1) des globalen Rasters zugeschnitten, bbox=None bei
+# leerem Sichtfeld.
+Bbox = tuple[int, int, int, int]
+RenderResult = tuple[np.ndarray, np.ndarray, "Bbox | None"]
+
 
 def init_worker() -> None:
     global _terrain
@@ -31,12 +37,20 @@ def merc_y(lat: float) -> float:
 
 
 def render_relay(task: RenderTask, terrain: TerrainModel | None = None,
-                 ) -> tuple[np.ndarray, np.ndarray]:
+                 ) -> RenderResult:
     """Sicht- und Grenzbereichs-Layer eines Relais ins Rasterbild zeichnen.
 
     Zeilen des Rasters liegen in Mercator-Y (Leaflet spannt ImageOverlays
-    linear in Mercator auf). Returns (los, marginal_bits): uint8-Layer
-    (0/1) und np.packbits-komprimierte Grenzbereichs-Maske, beide (h, w).
+    linear in Mercator auf).
+
+    Returns (los, marginal_bits, bbox): uint8-Layer (0/1) und
+    np.packbits-komprimierte Grenzbereichs-Maske, beide auf die belegte
+    Pixel-Bbox (y0, y1, x0, x1) des globalen (h, w)-Rasters
+    zugeschnitten; bbox=None, wenn das Sichtfeld leer ist.
+
+    Der Zuschnitt hält die Rückgabe klein: ein Sichtfeld belegt nur den
+    Umkreis seines Horizonts, das volle Raster wären bei
+    HEATMAP_MAX_PX 3,2 MB je Relais durch die Prozesspool-Pipe.
     """
     lat, lng, agl, w, h, lat_min, lon_min, lat_max, lon_max = task
     t = terrain if terrain is not None else _terrain
@@ -65,8 +79,21 @@ def render_relay(task: RenderTask, terrain: TerrainModel | None = None,
                     lats[ray, start], lons[ray, start])
                 p2 = to_px(lats[ray, stop - 1], lons[ray, stop - 1])
                 draw.line([p1, p2], fill=1, width=2)
+    # Erst filtern, dann zuschneiden: MaxFilter(3) verbreitert die
+    # gezeichneten Läufe um ein Pixel — ein vorheriger Zuschnitt würde
+    # den Rand des Sichtfelds abschneiden.
     los = np.asarray(layers[2].filter(ImageFilter.MaxFilter(3)),
                      dtype=np.uint8)
     marg = np.asarray(layers[1].filter(ImageFilter.MaxFilter(3)),
                       dtype=bool)
-    return los, np.packbits(marg)
+    zeilen = np.flatnonzero(los.any(axis=1) | marg.any(axis=1))
+    spalten = np.flatnonzero(los.any(axis=0) | marg.any(axis=0))
+    if not len(zeilen):
+        # Leeres Sichtfeld (Relais außerhalb des Rasters, komplett
+        # verschattet) — die Aufrufer überspringen es
+        return (np.zeros((0, 0), dtype=np.uint8),
+                np.zeros(0, dtype=np.uint8), None)
+    y0, y1 = int(zeilen[0]), int(zeilen[-1]) + 1
+    x0, x1 = int(spalten[0]), int(spalten[-1]) + 1
+    return (los[y0:y1, x0:x1], np.packbits(marg[y0:y1, x0:x1]),
+            (y0, y1, x0, x1))

@@ -122,7 +122,10 @@ Nach dem Lauf zeigt das Fenster:
 
 - die **interaktive Karte** (Route nach Erreichbarkeit gezeichnet,
   Sichtfeld-Overlay, Relais-Marker) — Klick auf einen Marker springt zur
-  Tabellenzeile und umgekehrt;
+  Tabellenzeile und umgekehrt und blendet zugleich **nur das Sichtfeld
+  dieses einen Relais** ein, nach Abstand abgestuft; zurück zur
+  Gesamtansicht führen ein zweiter Klick, `Esc` oder der Knopf in der
+  Legende;
 - die **Relais-Tabelle**, live filterbar und sortierbar; DMR-Zeilen
   klappen die Talkgroup-Details auf;
 - die Aktionen **CSV-Export**, **PDF-Export** (`bericht.pdf`), **Bericht
@@ -173,11 +176,24 @@ Bei der Installation aus dem Quellcode heißen die Tools zusätzlich
 
 ## Die Ergebnis-Dateien
 
-Jeder Lauf legt seine Ausgaben in `out/<start>-<ziel>/` ab (änderbar mit
-`--ausgabe`). Im Terminal liegt `out/` im aktuellen Arbeitsverzeichnis;
-beim Start per Doppelklick (Finder/Explorer) wechselt die App in den
-Ordner `Dokumente/BM-Routencheck` und legt `out/` dort an. Der Knopf
-**Ausgabeordner öffnen** im Programmfenster führt immer direkt hin.
+Wo die Ausgaben landen, hängt davon ab, wie du das Programm startest:
+
+- **Programmfenster** (Doppelklick, Programmstarter, App-Symbol) —
+  immer in `Dokumente/bm-routencheck-ergebnisse/<start>-<ziel>/`, auf
+  allen drei Systemen. Der vollständige Pfad steht nach dem Lauf in der
+  Log-Konsole, und der Knopf **Ordner** führt direkt hin.
+- **Terminal** — in `out/<start>-<ziel>/` unterhalb deines aktuellen
+  Arbeitsverzeichnisses, änderbar mit `--ausgabe`.
+
+Beim Fenster-Start bestimmt sonst der Starter das Arbeitsverzeichnis und
+nicht das Programm; bis Version 0.2.0 landeten die Ergebnisse dadurch je
+nach System an wechselnden Stellen — unter Linux im Home-Verzeichnis,
+unter Windows neben der Programmdatei, also etwa im Download-Ordner. Der
+feste Ordner nimmt diese Unsicherheit heraus.
+
+Lässt sich der Ordner einmal nicht öffnen (fehlende Dateimanager-
+Zuordnung), nennt die Statusleiste den Grund und legt den vollständigen
+Pfad in die Zwischenablage.
 
 | Datei | Inhalt |
 |---|---|
@@ -201,6 +217,14 @@ Erreichbarkeit gezeichnet (durchgezogen = Sicht, gestrichelt =
 Grenzbereich, gepunktet = Schatten), die blauen Flächen sind die
 berechneten Sichtfelder der erreichbaren Relais — je dunkler, desto mehr
 Relais.*
+
+Ein Klick auf einen Relais-Marker blendet **nur dessen Sichtfeld** ein —
+in der Oberfläche wie in der verschickbaren `karte.html`. Die Abstufung
+zeigt dort den **Abstand zum Relais** (0–10 / 10–20 / über 20 km, dunkel
+= nah), nicht die Feldstärke: Sendeleistung und Antennendiagramm sind
+dem Tool nicht bekannt, gerechnet wird allein die Geometrie. Zurück zur
+Gesamtansicht führen ein zweiter Klick auf dasselbe Relais, `Esc` oder
+der Knopf in der Legende.
 
 <img alt="Deckblatt des PDF-Berichts: Kennzahlen und Übersichtskarte" src="docs/bericht-pdf.png" width="430">
 
