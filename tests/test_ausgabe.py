@@ -63,8 +63,9 @@ def test_gui_lauf_nutzt_den_festen_ordner(monkeypatch, tmp_path):
 def test_terminal_bleibt_bei_out():
     """Terminal-Start behält bewusst ./out — dort hat der Nutzer sein
     Arbeitsverzeichnis selbst gewählt."""
+    import importlib
     for modul in ("bmtools.rail.cli", "bmtools.road.cli"):
-        import importlib
-        quelle = Path(importlib.import_module(modul).__file__
-                      ).read_text(encoding="utf-8")
+        datei = importlib.import_module(modul).__file__
+        assert datei is not None
+        quelle = Path(datei).read_text(encoding="utf-8")
         assert 'Path("out")' in quelle, f"{modul} soll bei ./out bleiben"

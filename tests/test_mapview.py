@@ -18,6 +18,7 @@ from bmtools.routelib import terrain as terrain_mod
 from bmtools.routelib.coverage import horizon_km
 from bmtools.routelib.mapview import karten_daten, write_map
 from bmtools.routelib.model import Route, Station
+from bmtools.routelib.viewshed_raster import merc_y
 from tests.conftest import make_device, make_fm_repeater, make_fm_result, make_result
 
 
@@ -110,8 +111,7 @@ def feld_pixelbereich(gitter, bounds: list[list[float]],
     span_y = gitter.y_max - gitter.y_min
 
     def zeile(lat: float) -> int:
-        merc = mapview_mod.viewshed_raster.merc_y(lat)
-        return round((gitter.y_max - merc) / span_y * gitter.h)
+        return round((gitter.y_max - merc_y(lat)) / span_y * gitter.h)
 
     return (zeile(lat_nord), zeile(lat_sued),
             round((lon_west - gitter.lon_min) / span_lon * gitter.w),
@@ -374,6 +374,7 @@ def test_kartendaten_reichen_einzelfelder_durch(sichtfeld_szenario,
     terrain, route, results = sichtfeld_szenario
     overlay = write_map(results, route, tmp_path / "karte.html",
                         terrain=terrain)
+    assert overlay is not None
     daten = karten_daten(results, route, overlay=overlay)
 
     json.dumps(daten)  # muss ohne Sonderbehandlung serialisierbar sein
@@ -420,8 +421,9 @@ def test_karte_html_verdrahtet_die_einzelfelder(sichtfeld_szenario,
     definiert |= set(re.findall(r"var (\w+) = L\.map\(", quelle))
     referenziert = set(re.findall(r"var karte = (\w+), ebene = (\w+);",
                                   quelle)[0])
-    referenziert |= set(re.search(r"var marker = \[([^\]]*)\]",
-                                  quelle).group(1).replace(" ", "").split(","))
+    marker_zeile = re.search(r"var marker = \[([^\]]*)\]", quelle)
+    assert marker_zeile is not None, "Marker-Liste fehlt im Skript"
+    referenziert |= set(marker_zeile.group(1).replace(" ", "").split(","))
     fehlend = referenziert - definiert
     assert not fehlend, f"Skript referenziert undefinierte Variablen: {fehlend}"
     assert len(referenziert) == len(results) + 2  # Marker + Karte + Ebene

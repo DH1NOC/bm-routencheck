@@ -193,7 +193,8 @@ def test_oeffne_ordner_meldet_fehlschlag_mit_pfad(monkeypatch, tmp_path):
         ergebnis_ordner = tmp_path
 
     b.start_lauf("auto", {"von": "A", "nach": "B"})
-    b._lauf.melder = _FakeMelder()
+    assert b._lauf is not None
+    b._lauf.melder = _FakeMelder()  # type: ignore[assignment]
     r = b.oeffne_ordner()
 
     assert r["ok"] is False

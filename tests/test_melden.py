@@ -189,7 +189,12 @@ def test_pipeline_meldet_den_absoluten_pfad(monkeypatch, tmp_path):
     # Genau dieser Pfad landet auch am Ordner-Knopf der Oberfläche.
     gemeldet: list[Path] = []
     original = m.ergebnis
-    m.ergebnis = lambda o, b, k: (gemeldet.append(o), original(o, b, k))[1]
+
+    def spion(out_dir: Path, bericht: Path, karte: Path) -> None:
+        gemeldet.append(out_dir)
+        original(out_dir, bericht, karte)
+
+    m.ergebnis = spion
 
     code = pipeline.run_pipeline(
         route, melder=m, out_dir=Path("out") / "strecke", corridor_km=None,

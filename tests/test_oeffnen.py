@@ -40,7 +40,8 @@ class Lauf:
 @pytest.fixture
 def alle_oeffner_da(monkeypatch):
     """shutil.which findet jedes Programm der Ausweichkette."""
-    monkeypatch.setattr(oeffnen.shutil, "which", lambda name: "/usr/bin/" + name)
+    monkeypatch.setattr("bmtools.routelib.oeffnen.shutil.which",
+                        lambda name: "/usr/bin/" + name)
 
 
 def test_windows_nutzt_startfile(monkeypatch, tmp_path):
@@ -126,8 +127,9 @@ def test_still_liefert_fehler_statt_zu_werfen(monkeypatch, tmp_path,
 
 def test_fehlender_oeffner_wird_uebersprungen(monkeypatch, tmp_path):
     """Nur nemo ist installiert — die übrigen gar nicht erst aufrufen."""
-    monkeypatch.setattr(oeffnen.shutil, "which",
-                        lambda name: "/usr/bin/nemo" if name == "nemo" else None)
+    monkeypatch.setattr(
+        "bmtools.routelib.oeffnen.shutil.which",
+        lambda name: "/usr/bin/nemo" if name == "nemo" else None)
     lauf = Lauf({})
     monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setattr(subprocess, "run", lauf)
@@ -136,7 +138,8 @@ def test_fehlender_oeffner_wird_uebersprungen(monkeypatch, tmp_path):
 
 
 def test_kein_oeffner_installiert(monkeypatch, tmp_path):
-    monkeypatch.setattr(oeffnen.shutil, "which", lambda name: None)
+    monkeypatch.setattr("bmtools.routelib.oeffnen.shutil.which",
+                        lambda name: None)
     monkeypatch.setattr(sys, "platform", "linux")
     with pytest.raises(oeffnen.OeffnenFehler) as fehler:
         oeffnen.system_oeffnen(tmp_path)
