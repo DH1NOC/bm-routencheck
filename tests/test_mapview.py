@@ -4,6 +4,7 @@ import base64
 import hashlib
 import io
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -13,6 +14,7 @@ from PIL import Image
 from bmtools.bm_api.models import TalkgroupSub
 from bmtools.routelib import mapview as mapview_mod
 from bmtools.routelib import terrain as terrain_mod
+from bmtools.routelib.coverage import horizon_km
 from bmtools.routelib.mapview import karten_daten, write_map
 from bmtools.routelib.model import Route, Station
 from tests.conftest import make_device, make_fm_repeater, make_fm_result, make_result
@@ -77,6 +79,36 @@ def overlay_pixel(uri: str) -> np.ndarray:
     """RGBA-Array eines Overlay-Daten-URI."""
     roh = base64.b64decode(uri.partition("base64,")[2])
     return np.asarray(Image.open(io.BytesIO(roh)).convert("RGBA"))
+
+
+def rampen_index(uri: str) -> np.ndarray:
+    """Overlay zurück auf seine HEATMAP_RAMP-Stufen abbilden."""
+    pixel = overlay_pixel(uri)
+    index = np.zeros(pixel.shape[:2], dtype=np.uint8)
+    for stufe, farbe in enumerate(mapview_mod.HEATMAP_RAMP):
+        if stufe:  # Stufe 0 ist die transparente Vorbelegung
+            index[np.all(pixel == farbe, axis=-1)] = stufe
+    return index
+
+
+def feld_pixelbereich(gitter, bounds: list[list[float]],
+                      ) -> tuple[int, int, int, int]:
+    """Bounds eines Einzelfelds zurück in Pixelindizes des Rasters.
+
+    Umkehrung von _Rastergitter.bounds — schlägt die Rückrechnung fehl,
+    liegt das Overlay auf der Karte falsch.
+    """
+    (lat_sued, lon_west), (lat_nord, lon_ost) = bounds
+    span_lon = gitter.lon_max - gitter.lon_min
+    span_y = gitter.y_max - gitter.y_min
+
+    def zeile(lat: float) -> int:
+        merc = mapview_mod.viewshed_raster.merc_y(lat)
+        return round((gitter.y_max - merc) / span_y * gitter.h)
+
+    return (zeile(lat_nord), zeile(lat_sued),
+            round((lon_west - gitter.lon_min) / span_lon * gitter.w),
+            round((lon_ost - gitter.lon_min) / span_lon * gitter.w))
 
 
 @pytest.fixture
@@ -198,5 +230,123 @@ def test_summenkarte_bleibt_unveraendert(sichtfeld_szenario, tmp_path: Path):
     overlay = write_map(results, route, tmp_path / "karte.html",
                         terrain=terrain)
     assert overlay is not None
-    pixel = overlay_pixel(overlay[0])
+    pixel = overlay_pixel(overlay.uri)
     assert hashlib.sha256(pixel.tobytes()).hexdigest() == SUMMENKARTE_SHA256
+
+
+def test_einzelfelder_ergeben_zusammen_die_summenkarte(
+        sichtfeld_szenario, tmp_path: Path):
+    """Die Summenkarte IST die Vereinigung der Einzelfelder.
+
+    Prüft in einem Zug Zuschnitt, Bounds-Rückrechnung und Rampenstufen:
+    jedes Einzelfeld wird über seine Geo-Bounds zurück ins globale
+    Raster einsortiert; die Vereinigung muss die Sicht- und Grenz-
+    bereichsflächen der Summenkarte exakt reproduzieren.
+
+    Bewusst nur BINÄR (Sicht vs. Grenzbereich vs. nichts), nicht
+    stufenweise: die Einzelfelder stufen nach Abstand, die Summenkarte
+    nach Relaiszahl — und ein Pixel genau auf einer Abstandsgrenze darf
+    beim Rückrechnen in die Nachbarstufe kippen. Diese Zusicherung also
+    bitte nicht »verschärfen«, sie würde flackern.
+    """
+    terrain, route, results = sichtfeld_szenario
+    overlay = write_map(results, route, tmp_path / "karte.html",
+                        terrain=terrain)
+    assert overlay is not None
+    summe = rampen_index(overlay.uri)
+    h, w = summe.shape
+    (lat_min, lon_min), (lat_max, lon_max) = overlay.bounds
+    gitter = mapview_mod._Rastergitter(w, h, lat_min, lon_min,
+                                       lat_max, lon_max)
+
+    assert len(overlay.felder) == len(results)
+    assert all(f is not None for f in overlay.felder)
+
+    sicht = np.zeros((h, w), dtype=bool)
+    grenz = np.zeros((h, w), dtype=bool)
+    for feld in overlay.felder:
+        assert feld is not None
+        stufen = rampen_index(feld.uri)
+        y0, y1, x0, x1 = feld_pixelbereich(gitter, feld.bounds)
+        # Deckt die Bounds-Rückrechnung genau das Bild ab? Weicht sie ab,
+        # sitzt das Overlay auf der Karte verschoben.
+        assert stufen.shape == (y1 - y0, x1 - x0)
+        sicht[y0:y1, x0:x1] |= stufen >= 2
+        grenz[y0:y1, x0:x1] |= stufen == 1
+
+    # Summenkarte: Stufe >= 2 heißt >= 1 Relais mit Sicht, Stufe 1 heißt
+    # ausschließlich Grenzbereich (Sicht überstimmt ihn dort)
+    assert np.array_equal(sicht, summe >= 2)
+    assert np.array_equal(grenz & ~sicht, summe == 1)
+
+
+def test_einzelfeld_stuft_nach_abstand(sichtfeld_szenario, tmp_path: Path):
+    """Dunkelste Stufe liegt nah am Relais, hellere weiter draußen —
+    und kein Sicht-Pixel liegt jenseits des Radiohorizonts."""
+    terrain, route, results = sichtfeld_szenario
+    overlay = write_map(results, route, tmp_path / "karte.html",
+                        terrain=terrain)
+    assert overlay is not None
+    feld = overlay.felder[0]
+    assert feld is not None
+    stufen = rampen_index(feld.uri)
+    (lat_sued, lon_west), (lat_nord, lon_ost) = feld.bounds
+    h, w = stufen.shape
+    gitter = mapview_mod._Rastergitter(w, h, lat_sued, lon_west,
+                                       lat_nord, lon_ost)
+    lat, lon = gitter.pixelmitten(0, h, 0, w)
+    gerät = results[0].device
+    abstand = mapview_mod._abstand_km(lat, lon, gerät.lat, gerät.lng)
+
+    # Toleranz: viewshed_raster zeichnet die Sichtläufe mit width=2 und
+    # weitet sie danach mit MaxFilter(3) — zusammen bis zu ~3 Pixel über
+    # die gerechnete Sichtgrenze hinaus. Grob genug, um die Dilatation
+    # zu schlucken, eng genug, um eine systematisch falsche
+    # Abstandsrechnung (verwechselte Achse, fehlender cos(lat)) zu fangen.
+    rand = 3 * mapview_mod.HEATMAP_PX_KM
+
+    for stufe, (unten, oben) in {4: (0.0, 10.0), 3: (10.0, 20.0),
+                                 2: (20.0, math.inf)}.items():
+        treffer = abstand[stufen == stufe]
+        assert len(treffer), f"Stufe {stufe} kommt im Sichtfeld nicht vor"
+        assert treffer.min() >= unten - rand
+        assert treffer.max() <= oben + rand
+
+    # Kein Sicht-Pixel jenseits des Radiohorizonts: fängt eine
+    # systematisch verrutschte Abstandsrechnung ab
+    assert abstand[stufen >= 2].max() <= horizon_km(gerät.agl) + rand
+
+
+def test_kartendaten_reichen_einzelfelder_durch(sichtfeld_szenario,
+                                                tmp_path: Path):
+    """Die Einzelfelder liegen indexgleich mit den Markern im Payload —
+    die GUI verbindet Marker, Tabellenzeile und Sichtfeld über diesen
+    gemeinsamen Index."""
+    terrain, route, results = sichtfeld_szenario
+    overlay = write_map(results, route, tmp_path / "karte.html",
+                        terrain=terrain)
+    daten = karten_daten(results, route, overlay=overlay)
+
+    json.dumps(daten)  # muss ohne Sonderbehandlung serialisierbar sein
+    felder = daten["relais_felder"]
+    assert len(felder) == len(daten["marker"]) == len(results)
+    assert all(f["uri"].startswith("data:image/png") for f in felder)
+    assert daten["feld_stufen"] == ["Sicht 0–10 km", "Sicht 10–20 km",
+                                    "Sicht über 20 km"]
+    # Das Summen-Overlay bleibt unverändert — mapimage/PDF lesen es
+    assert daten["overlay"]["uri"] == overlay.uri
+    assert daten["overlay"]["bounds"] == overlay.bounds
+
+
+def test_ohne_gelaende_keine_einzelfelder(tmp_path: Path):
+    """Horizontmodell-Fallback (Netzabbruch): keine Sichtfelder, weder
+    aggregiert noch einzeln — die Oberfläche muss das aushalten."""
+    points = [(50.0, 8.0), (50.1, 8.1)]
+    route = Route(points=points, stations=[Station("Start", *points[0])])
+    results = [make_result(make_device())]
+    overlay = write_map(results, route, tmp_path / "karte.html", terrain=None)
+    assert overlay is None
+
+    daten = karten_daten(results, route, overlay=None)
+    assert daten["overlay"] is None
+    assert daten["relais_felder"] is None

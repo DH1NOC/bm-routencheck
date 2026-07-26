@@ -15,6 +15,8 @@ import os
 from bisect import bisect_right
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from dataclasses import dataclass
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -74,6 +76,43 @@ KARTEN_EBENEN: list[dict[str, Any]] = [
 
 OVERLAY_NAME = "Relais-Sichtfelder (rechnerisch)"
 
+# Abstandsstufen des Einzelrelais-Sichtfelds (km). Bei genau einem
+# Relais trägt die Summen-Rampe keine Information mehr — dort zählt sie
+# abdeckende Relais —, deshalb stuft die Einzelansicht nach Abstand:
+# dunkel = nah. Das ist reine Geometrie; ERP und Antennendiagramm sind
+# dem Tool unbekannt, die Stufen sind KEINE Feldstärke. Die Legende sagt
+# das ausdrücklich (FELD_STUFEN_LABEL).
+FELD_STUFEN_KM = (10.0, 20.0)
+
+
+def _feld_stufen_label() -> list[str]:
+    """Beschriftung der Abstandsstufen, dunkelste (nah) zuerst."""
+    grenzen = FELD_STUFEN_KM
+    label = [f"Sicht 0–{grenzen[0]:g} km"]
+    label += [f"Sicht {a:g}–{b:g} km" for a, b in pairwise(grenzen)]
+    label.append(f"Sicht über {grenzen[-1]:g} km")
+    return label
+
+
+@dataclass(frozen=True)
+class RelaisFeld:
+    """Sichtfeld eines einzelnen Relais als eigenes Karten-Overlay."""
+    uri: str
+    bounds: list[list[float]]
+
+
+@dataclass(frozen=True)
+class Sichtfelder:
+    """Gerenderte Sichtfelder eines Laufs.
+
+    uri/bounds sind die aggregierte Summenkarte (alle Relais), felder
+    die Einzelfelder — indexgleich mit der results-Liste und damit mit
+    den Markern; None, wo ein Relais kein Sichtfeld im Raster hat.
+    """
+    uri: str
+    bounds: list[list[float]]
+    felder: list[RelaisFeld | None]
+
 # Semantische Marker-Farben -> folium-Icon-Farbe (die GUI stylt die
 # semantischen Namen selbst, projektweit dieselbe Bedeutung)
 _FARBE_FOLIUM = {"dmr": "blue", "fm": "orange", "grenz": "gray"}
@@ -110,15 +149,115 @@ def _pos(d: RepeaterLike) -> tuple[float, float]:
     return d.lat, d.lng
 
 
+def _png_uri(index: np.ndarray) -> str:
+    """Rampenindex-Array als PNG-Daten-URI.
+
+    PNG selbst kodieren: branca normalisiert numpy-Arrays kanalweise auf
+    255 und würde die Farbe verfälschen (Blau -> Cyan).
+    """
+    buf = io.BytesIO()
+    Image.fromarray(HEATMAP_RAMP[index], "RGBA").save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
+def _inv_merc_y(y: float) -> float:
+    """Umkehrung von viewshed_raster.merc_y — Mercator-Y zu Breitengrad."""
+    return 2.0 * (math.degrees(math.atan(math.exp(y))) - 45.0)
+
+
+class _Rastergitter:
+    """Pixelgitter des Sichtfeld-Rasters mit seiner Geo-Zuordnung.
+
+    Zeilen liegen linear in Mercator-Y (so spannt Leaflet ImageOverlays
+    auf), Spalten linear im Längengrad.
+    """
+
+    def __init__(self, w: int, h: int, lat_min: float, lon_min: float,
+                 lat_max: float, lon_max: float) -> None:
+        self.w, self.h = w, h
+        self.lon_min, self.lon_max = lon_min, lon_max
+        self.y_min = viewshed_raster.merc_y(lat_min)
+        self.y_max = viewshed_raster.merc_y(lat_max)
+
+    def bounds(self, y0: int, y1: int, x0: int, x1: int) -> list[list[float]]:
+        """Geo-Bounds der Pixel y0..y1-1 / x0..x1-1.
+
+        Kantenbasiert (Anteil /w bzw. /h, nicht /(w-1)): Leaflet zieht
+        die Bildkanten auf die Bounds, nicht die Pixelmitten. So deckt
+        ein Zuschnitt auf dem Schirm exakt dieselbe Fläche ab wie die
+        entsprechenden Pixel der Summenkarte — die beiden Ansichten
+        springen beim Umschalten nicht gegeneinander.
+        """
+        span_lon = self.lon_max - self.lon_min
+        span_y = self.y_max - self.y_min
+        return [[_inv_merc_y(self.y_max - y1 / self.h * span_y),
+                 self.lon_min + x0 / self.w * span_lon],
+                [_inv_merc_y(self.y_max - y0 / self.h * span_y),
+                 self.lon_min + x1 / self.w * span_lon]]
+
+    def pixelmitten(self, y0: int, y1: int, x0: int, x1: int,
+                    ) -> tuple[np.ndarray, np.ndarray]:
+        """(lat, lon) der Pixelmitten eines Zuschnitts als Zeilen-/
+        Spaltenvektor — zum Broadcasten auf die Zuschnittfläche."""
+        span_lon = self.lon_max - self.lon_min
+        span_y = self.y_max - self.y_min
+        lon = self.lon_min + (np.arange(x0, x1) + 0.5) / self.w * span_lon
+        merc = self.y_max - (np.arange(y0, y1) + 0.5) / self.h * span_y
+        lat = 2.0 * (np.degrees(np.arctan(np.exp(merc))) - 45.0)
+        return lat[:, None], lon[None, :]
+
+
+def _abstand_km(lat: np.ndarray, lon: np.ndarray,
+                lat0: float, lon0: float) -> np.ndarray:
+    """Haversine-Abstand jedes Punktes zum Relais (km) — vektorisiert.
+
+    Bewusst keine Näherung über einen festen km/Pixel-Faktor: die Zeilen
+    des Rasters liegen in Mercator-Y, auf einem Raster über die ganze
+    Republik unterscheiden sich Nord- und Südrand deutlich in km/Pixel.
+    """
+    p0 = math.radians(lat0)
+    p1 = np.radians(lat)
+    dphi = p1 - p0
+    dlmb = np.radians(lon - lon0)
+    a = (np.sin(dphi / 2.0) ** 2
+         + math.cos(p0) * np.cos(p1) * np.sin(dlmb / 2.0) ** 2)
+    return 2.0 * 6371.0 * np.arcsin(np.sqrt(a))
+
+
+def _relais_feld(los: np.ndarray, marg_bits: np.ndarray,
+                 bbox: viewshed_raster.Bbox, gitter: _Rastergitter,
+                 lat0: float, lon0: float) -> RelaisFeld:
+    """Einzelfeld eines Relais als PNG-Overlay, nach Abstand gestuft.
+
+    Rampenindex: 1 = Grenzbereich (hellste Stufe), 2..4 = Sicht von
+    fern nach nah — dieselbe HEATMAP_RAMP wie die Summenkarte, damit
+    »dunkler = besser« in beiden Ansichten gilt und die geprüften
+    Farbfehlsichtigkeits-Abstände unverändert weiter gelten.
+    """
+    y0, y1, x0, x1 = bbox
+    ch, cw = y1 - y0, x1 - x0
+    marg = np.unpackbits(marg_bits, count=ch * cw).reshape(ch, cw).astype(bool)
+    lat, lon = gitter.pixelmitten(y0, y1, x0, x1)
+    stufe = np.digitize(_abstand_km(lat, lon, lat0, lon0), FELD_STUFEN_KM)
+    # Sicht schlägt Grenzbereich (die MaxFilter-Dilatation kann beide
+    # Ebenen überlappen lassen) — wie in der Summenkarte, wo count > 0
+    # den Grenzbereich überstimmt.
+    index = np.where(los.astype(bool), 4 - stufe, marg.astype(np.uint8))
+    return RelaisFeld(uri=_png_uri(index),
+                      bounds=gitter.bounds(y0, y1, x0, x1))
+
+
 def _coverage_raster(results: list[RepeaterResult], route: Route,
                      terrain: TerrainModel,
                      tile_progress: Callable[[int, int], None] | None = None,
                      viewshed_progress: Callable[[int, int], None] | None = None,
-                     ) -> tuple[str, list[list[float]]]:
-    """Viewsheds aller Korridor-Relais in ein RGBA-Raster aggregieren.
+                     ) -> Sichtfelder:
+    """Viewsheds aller Korridor-Relais rastern.
 
-    Ein Blauton, Deckkraft nach Zahl der abdeckenden Relais (sequenzielle
-    Ein-Farb-Rampe, farbfehlsichtigkeits-sicher).
+    Liefert die Summenkarte — ein Blauton, Deckkraft nach Zahl der
+    abdeckenden Relais (sequenzielle Ein-Farb-Rampe, farbfehlsichtig-
+    keits-sicher) — und dazu jedes Einzelfeld als eigenes, nach Abstand
+    gestuftes Overlay für die Einzelrelais-Ansicht.
 
     tile_progress/viewshed_progress melden (fertig, gesamt) für den
     Kachel-Prefetch bzw. je fertig gerechnetem Relais-Sichtfeld.
@@ -161,19 +300,26 @@ def _coverage_raster(results: list[RepeaterResult], route: Route,
     terrain.prefetch(np.concatenate(pre_lats), np.concatenate(pre_lons),
                      tile_progress)
 
+    gitter = _Rastergitter(w, h, lat_min, lon_min, lat_max, lon_max)
     count = np.zeros((h, w), dtype=np.uint8)   # Relais mit freier Sicht
     marginal = np.zeros((h, w), dtype=bool)    # Grenzbereich (Beugung)
+    felder: list[RelaisFeld | None] = [None] * len(tasks)
     fertig = 0
 
-    def einrechnen(los: np.ndarray, marg_bits: np.ndarray,
-                   bbox: viewshed_raster.Bbox | None) -> None:
+    def einrechnen(nr: int, ergebnis: viewshed_raster.RenderResult) -> None:
+        """Ein fertiges Sichtfeld in die Summenkarte addieren und als
+        Einzelfeld ablegen. nr ist der results-Index — die Einzelfelder
+        müssen indexgleich mit den Markern bleiben."""
         nonlocal fertig
+        los, marg_bits, bbox = ergebnis
         if bbox is not None:
             y0, y1, x0, x1 = bbox
             ch, cw = y1 - y0, x1 - x0
             count[y0:y1, x0:x1] += los
             marginal[y0:y1, x0:x1] |= np.unpackbits(
                 marg_bits, count=ch * cw).reshape(ch, cw).astype(bool)
+            felder[nr] = _relais_feld(los, marg_bits, bbox, gitter,
+                                      tasks[nr][0], tasks[nr][1])
         fertig += 1
         if viewshed_progress:
             viewshed_progress(fertig, len(tasks))
@@ -186,24 +332,23 @@ def _coverage_raster(results: list[RepeaterResult], route: Route,
                 max_workers=workers,
                 initializer=viewshed_raster.init_worker) as pool:
             # submit/as_completed statt pool.map: Fortschritt je fertigem
-            # Sichtfeld; die Aggregation ist reihenfolge-unabhängig
-            for f in as_completed([pool.submit(viewshed_raster.render_relay, t)
-                                   for t in tasks]):
-                einrechnen(*f.result())
+            # Sichtfeld; die Aggregation ist reihenfolge-unabhängig. Das
+            # Future trägt seinen results-Index mit, damit die Einzelfelder
+            # trotz beliebiger Fertigstellungsreihenfolge richtig landen.
+            nummern = {pool.submit(viewshed_raster.render_relay, t): nr
+                       for nr, t in enumerate(tasks)}
+            for f in as_completed(nummern):
+                einrechnen(nummern[f], f.result())
     else:
-        for t in tasks:
-            einrechnen(*viewshed_raster.render_relay(t, terrain))
+        for nr, t in enumerate(tasks):
+            einrechnen(nr, viewshed_raster.render_relay(t, terrain))
 
     # Rampenindex: 0 = nichts, 1 = nur Grenzbereich, 2..4 = 1/2/>=3 Relais
     index = np.where(count > 0, 1 + np.clip(count, 0, 3),
                      marginal.astype(np.uint8))
-    rgba = HEATMAP_RAMP[index]
-    # PNG selbst kodieren: branca normalisiert numpy-Arrays kanalweise auf
-    # 255 und würde die Farbe verfälschen (Blau -> Cyan)
-    buf = io.BytesIO()
-    Image.fromarray(rgba, "RGBA").save(buf, format="PNG")
-    uri = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
-    return uri, [[lat_min, lon_min], [lat_max, lon_max]]
+    return Sichtfelder(uri=_png_uri(index),
+                       bounds=[[lat_min, lon_min], [lat_max, lon_max]],
+                       felder=felder)
 
 
 def _coverage_segments(
@@ -359,11 +504,12 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
               waypoint_icon: str = "flag", *,
               tile_progress: Callable[[int, int], None] | None = None,
               viewshed_progress: Callable[[int, int], None] | None = None,
-              ) -> tuple[str, list[list[float]]] | None:
-    """Folium-Karte schreiben; liefert das gerenderte Sichtfeld-Overlay
-    (Daten-URI, Bounds) zurück — die GUI-Kartendaten (karten_daten)
-    verwenden es weiter, statt die Viewsheds doppelt zu rechnen."""
-    overlay: tuple[str, list[list[float]]] | None = None
+              ) -> Sichtfelder | None:
+    """Folium-Karte schreiben; liefert die gerenderten Sichtfelder
+    (Summenkarte und Einzelfelder) zurück — die GUI-Kartendaten
+    (karten_daten) verwenden sie weiter, statt die Viewsheds doppelt zu
+    rechnen."""
+    overlay: Sichtfelder | None = None
     lats = [p[0] for p in route.points]
     lons = [p[1] for p in route.points]
     # tile.openstreetmap.de statt tile.openstreetmap.org: Die OSMF-Server
@@ -383,7 +529,7 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
         overlay = _coverage_raster(results, route, terrain,
                                    tile_progress, viewshed_progress)
         folium.raster_layers.ImageOverlay(
-            image=overlay[0], bounds=overlay[1], opacity=0.8,
+            image=overlay.uri, bounds=overlay.bounds, opacity=0.8,
             name=OVERLAY_NAME,
         ).add_to(m)
     # Vor den Markern einhängen, sonst listet das Control jeden Marker
@@ -428,7 +574,7 @@ def _runde_punkte(punkte: list[Point]) -> list[list[float]]:
 
 def karten_daten(results: list[RepeaterResult], route: Route,
                  coverage: CoverageEstimate | None = None,
-                 overlay: tuple[str, list[list[float]]] | None = None,
+                 overlay: Sichtfelder | None = None,
                  *, route_label: str = "Strecke",
                  waypoint_icon: str = "flag") -> dict[str, Any]:
     """Kartendaten für die native Leaflet-Ansicht der GUI (U4) als
@@ -452,11 +598,18 @@ def karten_daten(results: list[RepeaterResult], route: Route,
         "segmente": None,
         "route": None,
         "overlay": None,
+        # Einzelfelder, indexgleich mit "marker" — None, wo kein
+        # Sichtfeld vorliegt (leeres Feld, oder Lauf ohne Geländemodell)
+        "relais_felder": None,
+        "feld_stufen": _feld_stufen_label(),
         "legende": None,
     }
     if overlay is not None:
-        daten["overlay"] = {"uri": overlay[0], "bounds": overlay[1],
+        daten["overlay"] = {"uri": overlay.uri, "bounds": overlay.bounds,
                             "name": OVERLAY_NAME}
+        daten["relais_felder"] = [
+            None if f is None else {"uri": f.uri, "bounds": f.bounds}
+            for f in overlay.felder]
     if coverage is not None and coverage.samples:
         listed = {r.device.callsign for r in results}
         daten["segmente"] = [
