@@ -122,7 +122,10 @@ Nach dem Lauf zeigt das Fenster:
 
 - die **interaktive Karte** (Route nach Erreichbarkeit gezeichnet,
   Sichtfeld-Overlay, Relais-Marker) — Klick auf einen Marker springt zur
-  Tabellenzeile und umgekehrt;
+  Tabellenzeile und umgekehrt und blendet zugleich **nur das Sichtfeld
+  dieses einen Relais** ein, nach Abstand abgestuft; zurück zur
+  Gesamtansicht führen ein zweiter Klick, `Esc` oder der Knopf in der
+  Legende;
 - die **Relais-Tabelle**, live filterbar und sortierbar; DMR-Zeilen
   klappen die Talkgroup-Details auf;
 - die Aktionen **CSV-Export**, **PDF-Export** (`bericht.pdf`), **Bericht
@@ -201,6 +204,14 @@ Erreichbarkeit gezeichnet (durchgezogen = Sicht, gestrichelt =
 Grenzbereich, gepunktet = Schatten), die blauen Flächen sind die
 berechneten Sichtfelder der erreichbaren Relais — je dunkler, desto mehr
 Relais.*
+
+Ein Klick auf einen Relais-Marker blendet **nur dessen Sichtfeld** ein —
+in der Oberfläche wie in der verschickbaren `karte.html`. Die Abstufung
+zeigt dort den **Abstand zum Relais** (0–10 / 10–20 / über 20 km, dunkel
+= nah), nicht die Feldstärke: Sendeleistung und Antennendiagramm sind
+dem Tool nicht bekannt, gerechnet wird allein die Geometrie. Zurück zur
+Gesamtansicht führen ein zweiter Klick auf dasselbe Relais, `Esc` oder
+der Knopf in der Legende.
 
 <img alt="Deckblatt des PDF-Berichts: Kennzahlen und Übersichtskarte" src="docs/bericht-pdf.png" width="430">
 

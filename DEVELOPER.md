@@ -198,6 +198,52 @@ Die Erreichbarkeit wird pro Streckenpunkt über echte Höhenprofile mit
 die Karten-Sichtfelder entstehen als Radialstrahl-Viewsheds in einem
 Prozesspool (`routelib/viewshed_raster.py`).
 
+### Einzelrelais-Sichtfelder
+
+`render_relay()` liefert jedes Sichtfeld auf seine belegte Pixel-Bbox
+zugeschnitten zurück (das volle Raster wären bei `HEATMAP_MAX_PX` 3,2 MB
+je Relais durch die Prozesspool-Pipe). `_coverage_raster()` addiert die
+Zuschnitte in die Summenkarte **und** legt jeden einzeln als eigenes
+PNG-Overlay ab — indexgleich mit `results` und damit mit den Markern.
+Der Aufwand ist reine Kodierung, gerechnet wurde ohnehin je Relais.
+
+Drei Stellen, an denen es leicht subtil falsch wird:
+
+- **Zuschnitt erst nach `MaxFilter(3)`.** Der Filter weitet die
+  gezeichneten Sichtläufe um ein Pixel; vorher zugeschnitten fehlte der
+  Rand.
+- **Bounds kantenbasiert** (`/w`, `/h` — nicht `/(w-1)`). Leaflet zieht
+  die *Bildkanten* auf die Bounds, nicht die Pixelmitten. Nur so deckt
+  ein Zuschnitt exakt dieselbe Fläche ab wie die zugehörigen Pixel der
+  Summenkarte, sonst springen die Ansichten beim Umschalten
+  gegeneinander.
+- **Abstände per Haversine über die inverse Mercator-Zeile**, nicht über
+  einen festen km/Pixel-Faktor: die Rasterzeilen liegen in Mercator-Y,
+  auf einem Raster über die ganze Republik unterscheiden sich Nord- und
+  Südrand deutlich in km/Pixel.
+
+Abgesichert ist das durch `test_einzelfelder_ergeben_zusammen_die_summenkarte`:
+die Einzelfelder werden über ihre Geo-Bounds zurück ins globale Raster
+einsortiert und müssen die Summenkarte reproduzieren — prüft Zuschnitt,
+Bounds-Rückrechnung und Rampenstufen in einem Zug. Bewusst nur binär
+(Sicht / Grenzbereich / nichts), weil ein Pixel genau auf einer
+Abstandsgrenze beim Rückrechnen in die Nachbarstufe kippen darf.
+
+Die Abstufung ist **Abstand, nicht Feldstärke** (`FELD_STUFEN_KM`) — ERP
+und Antennendiagramm sind unbekannt. Die Legende sagt das ausdrücklich;
+Wortlaut und Farben stehen einmal in `_feld_legende()`, GUI-Karte und
+`karte.html` lesen beide von dort.
+
+**Fallstrick bei `karte.html`:** folium erzeugt sein eigenes JavaScript
+erst beim Rendern und hängt es *hinter* die vorher manuell an
+`get_root().script` angefügten Kinder. Das Einzelfeld-Skript steht im
+fertigen Dokument also **vor** den Variablen, die es benutzt (gemessen:
+Skript bei Zeichen 4196, Marker-Definitionen ab 91012). Es hängt deshalb
+an `DOMContentLoaded` — sofort ausgeführt fände es `map`, `ImageOverlay`
+und alle Marker als `undefined` vor. `test_karte_html_verdrahtet_die_einzelfelder`
+prüft beides: dass jede referenzierte JS-Variable auch definiert ist,
+und dass verzögert wird.
+
 ## Disk-Cache
 
 Alle Caches liegen unter dem platformdirs-Cache-Verzeichnis des Nutzers
