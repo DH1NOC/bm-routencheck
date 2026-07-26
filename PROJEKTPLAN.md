@@ -1,6 +1,6 @@
 # BM-Routencheck — Projektplan
 
-Stand: 2026-07-21
+Stand: 2026-07-26
 
 ## 1. Status
 
@@ -31,6 +31,32 @@ Beta-Releases v0.2.0-beta.1 bis beta.6 interaktiv gegengetestet
 Fortschrittsbalken mit ETA, Cache-leeren-Funktion, Trennung von README
 und DEVELOPER.md).
 
+Featureversion **0.3.0** (2026-07-26, Branch
+`feature/einzelrelais-sichtfeld`, über v0.3.0-beta.1/beta.2
+gegengetestet) bringt drei Dinge:
+
+- **Einzelrelais-Sichtfeld:** Klick auf Marker oder Tabellenzeile
+  blendet nur die Abdeckung dieses einen Relais ein, nach Abstand
+  abgestuft — in der Oberfläche wie in der verschickbaren
+  `karte.html`, mit derselben Bedienung. `render_relay` liefert die
+  Sichtfelder dafür zugeschnitten statt als volles Raster, was den
+  Prozesspool nebenbei deutlich entlastet.
+- **Fester Ausgabeordner** beim Fenster-Start
+  (`Dokumente/bm-routencheck-ergebnisse/`), Terminal behält `./out`;
+  gemeldete Pfade sind absolut. Behebt zwei Linux-Beta-Befunde
+  (2026-07-26) und einen Windows-Befund am selben Tag — der Bahn-Modus
+  baut sein `out_dir` erst in `rail/cli._pipeline` und blieb beim
+  ersten Anlauf unrepariert.
+- **Öffnen scheitert hörbar:** absoluter Pfad, Ausweichkette über
+  mehrere Dateimanager, bereinigte Kind-Umgebung — und statt Schweigen
+  eine Meldung samt Fehlercode.
+
+Nachbereitung erledigt (2026-07-26): Beta-Releases samt Tags gelöscht,
+`feature/einzelrelais-sichtfeld` lokal und auf origin entfernt,
+Build-Artefakte der Betas abgeräumt (dabei auch die liegengebliebenen
+aus dem `gui-umbau`-Zyklus). Auf origin stehen nur noch `main` und die
+vier Release-Tags.
+
 Dieses Dokument hält nur noch fest, was für die Weiterarbeit gebraucht
 wird: offene Punkte, verbindliche Festlegungen und die Eigenheiten der
 externen Datenquellen. Die Abnahmeprotokolle der erledigten Meilensteine
@@ -55,6 +81,15 @@ GUI-Umbau G0–G5 und U0–U9 samt Konzept und Nutzerfestlegungen in der von
 - [ ] Google-Link mit per Maus verschobener Route (Drag-Via) an einem echten
       Link verifizieren — Heuristik ist implementiert und unit-getestet,
       ein echter Beispiel-Link steht noch aus.
+- [ ] **Ordner-Knopf unter Linux, Ursache noch nicht bewiesen:** Der
+      Fehlschlag ist behoben (absoluter Pfad, Ausweichkette, bereinigte
+      Umgebung — alle drei auch einzeln begründet), welche der drei
+      Ursachen tatsächlich griff, ist aber offen. Entschieden wird das
+      mit zwei Zeilen auf einer Mint-Kiste: `cd ~ && xdg-open out/x`
+      gegen `xdg-open ~/out/x`. Scheitert nur der relative Aufruf, war
+      es der Pfad; klappen beide, war es die PyInstaller-Umgebung.
+      Nicht dringend — falls es beim Tester weiter klemmt, nennt die
+      Statusleiste jetzt Kommando und Exit-Code.
 
 ### Ideen (unverbindlich, kein Auftrag)
 
