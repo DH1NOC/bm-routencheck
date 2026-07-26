@@ -3,6 +3,7 @@ Pipeline-Integrationslauf mit gefakten API-Clients (kein Netz)."""
 from __future__ import annotations
 
 import io
+from pathlib import Path
 
 import questionary
 from rich.console import Console
@@ -167,6 +168,37 @@ def test_pipeline_laeuft_komplett_ueber_den_melder(monkeypatch, tmp_path):
     assert "Fertig." in out
     for datei in ("relais.csv", "bericht.html", "karte.html", "chirp.csv"):
         assert (tmp_path / "out" / datei).exists()
+
+
+def test_pipeline_meldet_den_absoluten_pfad(monkeypatch, tmp_path):
+    """»Ausgaben in out/xyz/« half niemandem, der nicht weiß, was sein
+    Arbeitsverzeichnis ist (Beta-Befund 2026-07-26): Ein Tester fand
+    seine Ergebnisse nicht wieder. Gemeldet wird deshalb absolut — auch
+    wenn der Aufrufer relativ übergibt."""
+    monkeypatch.setattr(pipeline, "BrandmeisterClient", _FakeBM)
+    monkeypatch.setattr(pipeline, "DL3ELClient", _FakeFM)
+    monkeypatch.chdir(tmp_path)
+    route = Route(
+        points=[(50.00 + i * 0.01, 8.20 + i * 0.01) for i in range(25)],
+        stations=[Waypoint("Startstadt", 50.00, 8.20),
+                  Waypoint("Zielstadt", 50.24, 8.44)],
+        legs=["RE 99 Startstadt → Zielstadt"])
+    m, _ = _melder()
+    # Direkt den gemeldeten Pfad prüfen statt den gerenderten Text: rich
+    # bricht lange Pfade im Panel um, die Textsuche wäre unzuverlässig.
+    # Genau dieser Pfad landet auch am Ordner-Knopf der Oberfläche.
+    gemeldet: list[Path] = []
+    original = m.ergebnis
+    m.ergebnis = lambda o, b, k: (gemeldet.append(o), original(o, b, k))[1]
+
+    code = pipeline.run_pipeline(
+        route, melder=m, out_dir=Path("out") / "strecke", corridor_km=None,
+        no_terrain=True, open_browser=False, zone="Start-Ziel",
+        modus="beide")
+
+    assert code == 0
+    assert gemeldet == [(tmp_path / "out" / "strecke").resolve()]
+    assert gemeldet[0].is_absolute()
 
 
 def test_pipeline_pdf_flag_erzeugt_bericht_pdf(monkeypatch, tmp_path):

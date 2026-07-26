@@ -26,7 +26,7 @@ from .coverage import estimate_coverage
 from .mapview import karten_daten, write_map
 from .melden import Melder, TerminalMelder
 from .model import RepeaterLike, Route
-from .oeffnen import system_oeffnen
+from .oeffnen import system_oeffnen_still
 from .report import (
     FUNK_LABEL,
     RepeaterResult,
@@ -88,6 +88,11 @@ def run_pipeline(route: Route, *, console: Console | None = None,
     stdout) — das bisherige Verhalten. Die GUI übergibt ihren eigenen."""
     m: Melder = melder if melder is not None else TerminalMelder(console)
     out_dir.mkdir(parents=True, exist_ok=True)
+    # Ab hier absolut: Der gemeldete Pfad ist das, was der Nutzer sucht
+    # (»Ergebnisse in out/xyz/« half niemandem, der nicht weiß, was sein
+    # Arbeitsverzeichnis ist — Beta-Befund 2026-07-26), und der
+    # Ausgabeordner geht so absolut an den Dateimanager (s. oeffnen.py).
+    out_dir = out_dir.resolve()
 
     # Grobe Schritte für den Gesamt-Balken der GUI (Melder.schritt,
     # Terminal: No-op). Übersprungene Schritte (keine DMR-Treffer)
@@ -332,12 +337,20 @@ def run_pipeline(route: Route, *, console: Console | None = None,
     m.ergebnis(out_dir, html_path, map_path)
     m.erfolg(lines)
 
-    if open_browser:
+    # Öffnen ist Komfort — scheitert es, sagen wir das und machen weiter;
+    # die Dateien liegen ja auf der Platte (und der Pfad steht oben).
+    def oeffnen(ziel: Path) -> None:
         # Nicht webbrowser.open(): siehe oeffnen.py (Windows-Beta-Befund)
-        system_oeffnen(html_path)
-        system_oeffnen(map_path)
+        fehler = system_oeffnen_still(ziel)
+        if fehler is not None:
+            m.text(f"[yellow]{ziel} ließ sich nicht öffnen "
+                   f"({'; '.join(fehler.versuche)}).[/yellow]")
+
+    if open_browser:
+        oeffnen(html_path)
+        oeffnen(map_path)
     # Beta-Wunsch 2026-07-17: Ausgabeordner (Codeplug-CSVs!) direkt im
     # Dateimanager öffnen können. Ctrl-C/ESC zählt als Nein.
     if interactive and m.ja_nein("Ausgabeordner im Dateimanager öffnen?"):
-        system_oeffnen(out_dir)
+        oeffnen(out_dir)
     return 0

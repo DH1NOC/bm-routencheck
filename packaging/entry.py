@@ -54,22 +54,22 @@ if sys.platform == "win32":
 def _schreibbares_arbeitsverzeichnis() -> None:
     """App-Start ohne beschreibbares CWD abfangen (Beta-Befund 2026-07-21).
 
-    Ergebnisse (out/…) entstehen relativ zum Arbeitsverzeichnis. Beim
-    Doppelklick-Start ist das CWD aber nicht wählbar und oft nicht
-    beschreibbar — macOS/Finder startet Apps mit CWD "/" (read-only-
-    Systemvolume, OSError 30), unter Windows kann die Exe in einem
-    geschützten Ordner liegen. Dann in Dokumente/BM-Routencheck wechseln;
-    im Terminal gestartet bleibt das gewohnte ./out unberührt.
+    macOS/Finder startet Apps mit CWD "/" (read-only-Systemvolume,
+    OSError 30), unter Windows kann die Exe in einem geschützten Ordner
+    liegen — dann scheitert jeder relative Schreibzugriff.
+
+    Die Ergebnisse selbst hängen seit 2026-07-26 nicht mehr am
+    Arbeitsverzeichnis (bmtools/ausgabe.py); dieser Wächter ist nur noch
+    das Netz für alles Übrige. Er weicht bewusst in denselben Ordner aus,
+    damit nicht zwei Ablagen nebeneinander entstehen.
     """
     if os.access(os.getcwd(), os.W_OK):
         return
     from pathlib import Path
 
-    import platformdirs
-    ziel = Path(platformdirs.user_documents_dir()) / "BM-Routencheck"
     try:
-        ziel.mkdir(parents=True, exist_ok=True)
-        os.chdir(ziel)
+        from bmtools.ausgabe import fenster_ausgabeordner
+        os.chdir(fenster_ausgabeordner())
     except OSError:
         os.chdir(Path.home())
 

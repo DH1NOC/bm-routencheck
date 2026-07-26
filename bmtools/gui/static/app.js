@@ -318,10 +318,53 @@ function konsole(praefix, text, klasse) {
   if (amEnde) k.scrollTop = k.scrollHeight;
 }
 
-$("#lauf-bericht").addEventListener("click", () =>
-  window.pywebview.api.oeffne_ergebnis());
-$("#lauf-ordner").addEventListener("click", () =>
-  window.pywebview.api.oeffne_ordner());
+/* Öffnen von Ordner/Bericht kann am System scheitern (fehlende
+   Dateimanager-Zuordnung, Sandbox, kaputtes xdg-open). Dann NICHT still
+   sein — bis 2026-07-26 passierte in dem Fall gar nichts, und der
+   Nutzer stand ohne Hinweis da. Stattdessen: Grund nennen und den
+   absoluten Pfad in die Zwischenablage legen, damit er trotzdem an
+   seine Dateien kommt. */
+async function inZwischenablage(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (e) {
+    // Ältere WebViews kennen die Clipboard-API nicht oder verweigern
+    // sie außerhalb eines sicheren Kontexts — dann der alte Weg.
+    const feld = document.createElement("textarea");
+    feld.value = text;
+    feld.setAttribute("readonly", "");
+    feld.style.position = "fixed";
+    feld.style.opacity = "0";
+    document.body.appendChild(feld);
+    feld.select();
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch (e2) {
+      ok = false;
+    }
+    feld.remove();
+    return ok;
+  }
+}
+
+async function meldeOeffnen(r, was) {
+  if (!r || r.ok) return;
+  let text = was + " ließ sich nicht öffnen";
+  if (r.fehler) text += " — " + r.fehler;
+  if (r.pfad) {
+    const kopiert = await inZwischenablage(r.pfad);
+    text += ". Pfad: " + r.pfad;
+    if (kopiert) text += " (in die Zwischenablage kopiert)";
+  }
+  statusLinks(text);
+}
+
+$("#lauf-bericht").addEventListener("click", async () =>
+  meldeOeffnen(await window.pywebview.api.oeffne_ergebnis(), "Bericht"));
+$("#lauf-ordner").addEventListener("click", async () =>
+  meldeOeffnen(await window.pywebview.api.oeffne_ordner(), "Ordner"));
 
 /* -------------------------------------------- Ergebnis-Karte (U4) */
 
@@ -560,10 +603,10 @@ $("#karte").addEventListener("click", (ev) => {
   if (a) ev.preventDefault();
 });
 
-$("#ergebnis-bericht").addEventListener("click", () =>
-  window.pywebview.api.oeffne_ergebnis());
-$("#ergebnis-ordner").addEventListener("click", () =>
-  window.pywebview.api.oeffne_ordner());
+$("#ergebnis-bericht").addEventListener("click", async () =>
+  meldeOeffnen(await window.pywebview.api.oeffne_ergebnis(), "Bericht"));
+$("#ergebnis-ordner").addEventListener("click", async () =>
+  meldeOeffnen(await window.pywebview.api.oeffne_ordner(), "Ordner"));
 $("#ergebnis-csv").addEventListener("click", async () => {
   const r = await window.pywebview.api.export_csv();
   if (r && r.pfad) statusLinks("CSV gespeichert: " + r.pfad);
@@ -913,9 +956,9 @@ $("#menue-cache-leeren").addEventListener("click", () => {
   cacheLeerenDialog();
 });
 
-$("#menue-ordner").addEventListener("click", () => {
+$("#menue-ordner").addEventListener("click", async () => {
   $("#menue").hidden = true;
-  window.pywebview.api.oeffne_ordner();
+  meldeOeffnen(await window.pywebview.api.oeffne_ordner(), "Ordner");
 });
 
 /* ---------------------------------------------------- Statusleiste */

@@ -255,6 +255,53 @@ und alle Marker als `undefined` vor. `test_karte_html_verdrahtet_die_einzelfelde
 prüft beides: dass jede referenzierte JS-Variable auch definiert ist,
 und dass verzögert wird.
 
+## Ausgabeort und Öffnen im System
+
+Zwei Fehler beim Linux-Beta-Test am 2026-07-26 (Mint 22.3) hatten
+dieselbe Wurzel: Pfade, die vom Arbeitsverzeichnis abhingen.
+
+**Ausgabeort** (`bmtools/ausgabe.py`). `out_dir = Path("out") / …` ist
+relativ zum CWD — und beim Doppelklick bestimmt den der Starter. Beim
+Tester war es `$HOME`, die Ergebnisse lagen in `~/out/…`, gesucht wurden
+sie im selbst angelegten Programmordner. Der Wächter in
+`packaging/entry.py` griff nicht: Er wich nur aus, wenn das CWD *nicht
+beschreibbar* war, und ein Home-Verzeichnis ist beschreibbar. Seitdem
+holt der Fenster-Start seinen Ordner aus `fenster_ausgabeordner()`
+(`Dokumente/bm-routencheck-ergebnisse`), der Terminal-Start bleibt bei
+`./out`. `run_pipeline` macht `out_dir` außerdem sofort absolut — der
+gemeldete Pfad ist damit der, den der Nutzer suchen kann, und der
+Ausgabeordner geht absolut an den Dateimanager.
+
+**Öffnen** (`routelib/oeffnen.py`). Der Ordner-Knopf tat unter Linux gar
+nichts, und zwar völlig lautlos: `check=False`, stderr nach
+`/dev/null`, und der `webbrowser`-Ausweg hing an `except OSError`, das
+nur ein *fehlendes* `xdg-open` fängt — bei einem Exit-Code ≠ 0, also im
+tatsächlichen Fall, lief er nie an. (Für ein Verzeichnis wäre er
+ohnehin falsch: das gibt eine Browser-Dateiliste, keinen
+Dateimanager.) Drei Änderungen, jede auch für sich begründet:
+
+1. **Absoluter Pfad.** Ein relativer wird vom Zielprogramm gegen dessen
+   eigenes CWD aufgelöst. Auf Cinnamon läuft Nemo schon (es zeichnet den
+   Desktop), der neue Aufruf reicht das Argument per DBus an die
+   laufende Instanz weiter — und die sitzt woanders.
+2. **Ausweichkette** `xdg-open` → `gio open` → `nemo`/`nautilus`/
+   `dolphin`/`thunar`/`pcmanfm`, mit Prüfung des Exit-Codes. Nicht
+   installierte Öffner werden per `shutil.which` übersprungen.
+3. **Umgebung säubern** (`kind_umgebung()`). Das Linux-Binary ist
+   `--onefile` mit gebündeltem Qt; PyInstaller zeigt `LD_LIBRARY_PATH`
+   dann auf sein Entpackverzeichnis und sichert das Original in
+   `LD_LIBRARY_PATH_ORIG`. Ein von uns gestarteter Dateimanager erbt das
+   und zieht unsere gebündelten Qt-/glib-Bibliotheken statt der
+   System-Version — er stirbt lautlos. Der Originalwert gehört also
+   zurück ins Kind.
+
+Scheitert alles, gibt es einen `OeffnenFehler` mit allen versuchten
+Kommandos samt Code. Die Oberfläche zeigt ihn in der Statusleiste und
+legt den absoluten Pfad in die Zwischenablage. Das ist die eigentliche
+Lehre aus dem Befund: Ein Knopf, der lautlos nichts tut, lässt sich aus
+der Ferne nicht diagnostizieren — der Betreuer konnte den Fehler auf
+seinem eigenen Mint nicht nachstellen.
+
 ## Disk-Cache
 
 Alle Caches liegen unter dem platformdirs-Cache-Verzeichnis des Nutzers

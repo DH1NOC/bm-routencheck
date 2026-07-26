@@ -175,13 +175,24 @@ class Bridge:
         if self._lauf is not None:
             self._lauf.abbrechen()
 
-    def oeffne_ordner(self) -> None:
+    def oeffne_ordner(self) -> dict[str, Any]:
         """Ausgabeordner des letzten erfolgreichen Laufs im Dateimanager
-        öffnen — der Pfad kommt aus dem Melder, nicht aus JS."""
-        if (self._lauf is not None
-                and self._lauf.melder.ergebnis_ordner is not None):
-            from bmtools.routelib.oeffnen import system_oeffnen
-            system_oeffnen(self._lauf.melder.ergebnis_ordner)
+        öffnen — der Pfad kommt aus dem Melder, nicht aus JS.
+
+        Liefert immer den absoluten Pfad zurück, auch bei Fehlschlag: Die
+        Oberfläche zeigt ihn dann an und legt ihn in die Zwischenablage,
+        damit der Nutzer trotzdem an seine Dateien kommt. Vorher passierte
+        bei einem Fehlschlag gar nichts (Beta-Befund 2026-07-26,
+        Mint 22.3).
+        """
+        ordner = (self._lauf.melder.ergebnis_ordner
+                  if self._lauf is not None else None)
+        if ordner is None:
+            return {"ok": False, "pfad": "", "fehler": "Kein Ergebnis"}
+        from bmtools.routelib.oeffnen import system_oeffnen_still
+        fehler = system_oeffnen_still(ordner)
+        return {"ok": fehler is None, "pfad": str(ordner),
+                "fehler": None if fehler is None else fehler.kurz}
 
     def lade_ergebnis(self) -> dict[str, Any] | None:
         """Strukturierte Ergebnisdaten des letzten Laufs (GUI-UMBAU §5):
@@ -204,8 +215,10 @@ class Bridge:
         from bmtools.routelib.report_pdf import write_pdf
         pfad = melder.ergebnis_ordner / "bericht.pdf"
         write_pdf(melder.lauf_daten, pfad)
-        from bmtools.routelib.oeffnen import system_oeffnen
-        system_oeffnen(pfad)
+        from bmtools.routelib.oeffnen import system_oeffnen_still
+        # Erzeugt ist erzeugt — scheitert nur das Öffnen, bleibt der Pfad
+        # die nützliche Auskunft
+        system_oeffnen_still(pfad)
         return {"pfad": str(pfad)}
 
     def export_csv(self) -> dict[str, str] | None:
@@ -227,17 +240,21 @@ class Bridge:
         shutil.copyfile(ordner / "relais.csv", ziel)
         return {"pfad": str(ziel)}
 
-    def oeffne_ergebnis(self) -> None:
+    def oeffne_ergebnis(self) -> dict[str, Any]:
         """Bericht UND Karte im Standardbrowser öffnen — wie --oeffnen
         im Terminal (Nutzerwunsch 2026-07-19: beide, nicht nur die
         aktive Ansicht); dort gilt das Farbschema des Systems."""
         if self._lauf is None:
-            return
-        from bmtools.routelib.oeffnen import system_oeffnen
+            return {"ok": False, "pfad": "", "fehler": "Kein Ergebnis"}
+        from bmtools.routelib.oeffnen import system_oeffnen_still
+        fehler = None
         for ansicht in ("bericht", "karte"):
             datei = self._lauf.melder.ergebnis_dateien.get(ansicht)
             if datei is not None and datei.is_file():
-                system_oeffnen(datei)
+                fehler = system_oeffnen_still(datei) or fehler
+        ordner = self._lauf.melder.ergebnis_ordner
+        return {"ok": fehler is None, "pfad": str(ordner or ""),
+                "fehler": None if fehler is None else fehler.kurz}
 
     def cache_info(self) -> dict[str, Any]:
         """Belegter Disk-Cache für die Rückfrage vor dem Leeren."""

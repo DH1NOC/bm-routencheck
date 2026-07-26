@@ -16,6 +16,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from bmtools.ausgabe import fenster_ausgabeordner
 from bmtools.rail.bahn_link import BahnLinkError
 from bmtools.road import RouteInputError
 
@@ -180,7 +181,9 @@ class Lauf:
                     f"{road_cli._short_name(waypoints[-1].name)}")
 
         m.text(f"  {', '.join(route.legs)}")
-        out_dir = Path("out") / slug(zone)
+        # Fester Ordner statt relativem out/: beim Fenster-Start
+        # bestimmt der Starter das Arbeitsverzeichnis (s. bmtools.ausgabe)
+        out_dir = fenster_ausgabeordner() / slug(zone)
         return run_pipeline(
             route, melder=m, out_dir=out_dir, corridor_km=args.corridor,
             no_terrain=args.no_terrain, open_browser=False, zone=zone,

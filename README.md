@@ -176,11 +176,19 @@ Bei der Installation aus dem Quellcode heißen die Tools zusätzlich
 
 ## Die Ergebnis-Dateien
 
-Jeder Lauf legt seine Ausgaben in `out/<start>-<ziel>/` ab (änderbar mit
-`--ausgabe`). Im Terminal liegt `out/` im aktuellen Arbeitsverzeichnis;
-beim Start per Doppelklick (Finder/Explorer) wechselt die App in den
-Ordner `Dokumente/BM-Routencheck` und legt `out/` dort an. Der Knopf
-**Ausgabeordner öffnen** im Programmfenster führt immer direkt hin.
+Wo die Ausgaben landen, hängt davon ab, wie du das Programm startest:
+
+- **Programmfenster** (Doppelklick, Programmstarter, App-Symbol) —
+  immer in `Dokumente/bm-routencheck-ergebnisse/<start>-<ziel>/`, auf
+  allen drei Systemen. Der vollständige Pfad steht nach dem Lauf in der
+  Log-Konsole, und der Knopf **Ordner** führt direkt hin.
+- **Terminal** — in `out/<start>-<ziel>/` unterhalb deines aktuellen
+  Arbeitsverzeichnisses, änderbar mit `--ausgabe`.
+
+Beim Fenster-Start bestimmt sonst der Starter das Arbeitsverzeichnis und
+nicht das Programm; die Ergebnisse landeten dann je nach System irgendwo
+(bis Version 0.2.0 z. B. unter `~/out/`). Der feste Ordner nimmt diese
+Unsicherheit heraus.
 
 | Datei | Inhalt |
 |---|---|
