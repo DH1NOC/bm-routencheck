@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import html
 import io
+import json
 import math
 import os
 from bisect import bisect_right
@@ -150,19 +151,42 @@ def _legend_line(color: str, dash: str | None) -> str:
             f'stroke-width="4"{dash_attr}/></svg>')
 
 
-def _legend(modus_label: str, marker_note: str) -> str:
+# Kennung des Legendenkastens — das Einzelfeld-Skript schreibt ihn um
+LEGENDE_ID = "bm-legende"
+
+
+def _legend_inhalt(modus_label: str, marker_note: str,
+                   sichtfelder: bool) -> str:
+    """Inhalt des Legendenkastens (ohne Rahmen) — Wortlaut identisch mit
+    der GUI-Legende in app.js, die dieselben Angaben aus karten_daten
+    zusammensetzt."""
+    sichtfeld_zeilen = ""
+    if sichtfelder:
+        sichtfeld_zeilen = (
+            '<span style="display:inline-block;width:30px;height:10px;'
+            'vertical-align:middle;background:linear-gradient(90deg,'
+            '#A6D6EB,#56B4E9,#0072B2,#03395C)"></span> '
+            "Relais-Sichtfeld (hellste Stufe: nur Beugung, sonst dunkler "
+            "= mehr Relais)<br>"
+            "<em>Relais anklicken zeigt nur dessen Sichtfeld.</em><br>")
+    return (
+        f"<b>Geschätzte {modus_label}-Abdeckung</b><br>"
+        f"{_legend_line(*STATUS_STYLE[LOS][:2])} Sicht (durchgezogen)<br>"
+        f"{_legend_line(*STATUS_STYLE[MARGINAL][:2])} Grenzbereich "
+        f"(gestrichelt)<br>"
+        f"{_legend_line(*STATUS_STYLE[SHADOW][:2])} Schatten (gepunktet)<br>"
+        f"{sichtfeld_zeilen}"
+        f"Marker: {marker_note}")
+
+
+def _legend(modus_label: str, marker_note: str,
+            sichtfelder: bool = False) -> str:
     return f"""
-<div style="position:fixed; bottom:16px; left:16px; z-index:9999;
+<div id="{LEGENDE_ID}" style="position:fixed; bottom:16px; left:16px;
+     z-index:9999; max-width:24rem;
      background:#fff; color:#111; padding:8px 12px; border-radius:6px;
      box-shadow:0 1px 4px #0006; font:13px/1.8 sans-serif;">
-<b>Geschätzte {modus_label}-Abdeckung</b><br>
-{_legend_line(*STATUS_STYLE[LOS][:2])} Sicht (durchgezogen)<br>
-{_legend_line(*STATUS_STYLE[MARGINAL][:2])} Grenzbereich (gestrichelt)<br>
-{_legend_line(*STATUS_STYLE[SHADOW][:2])} Schatten (gepunktet)<br>
-<span style="display:inline-block;width:30px;height:10px;vertical-align:middle;
-background:linear-gradient(90deg,#A6D6EB,#56B4E9,#0072B2,#03395C)"></span>
-Relais-Sichtfeld (hellste Stufe: nur Beugung, sonst dunkler = mehr Relais)<br>
-Marker: {marker_note}
+{_legend_inhalt(modus_label, marker_note, sichtfelder)}
 </div>
 """
 
@@ -550,25 +574,35 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
                      show=False).add_to(m)
     m.fit_bounds([(min(lats), min(lons)), (max(lats), max(lons))])
 
+    feld_ebene = None
     if terrain is not None and results:
         overlay = _coverage_raster(results, route, terrain,
                                    tile_progress, viewshed_progress)
-        folium.raster_layers.ImageOverlay(
+        feld_ebene = folium.raster_layers.ImageOverlay(
             image=overlay.uri, bounds=overlay.bounds, opacity=0.8,
             name=OVERLAY_NAME,
-        ).add_to(m)
+        )
+        feld_ebene.add_to(m)
     # Vor den Markern einhängen, sonst listet das Control jeden Marker
     folium.LayerControl().add_to(m)
 
+    summe_html = ""
     if coverage is not None and coverage.samples:
         listed = {r.device.callsign for r in results}
         for status, pts, tooltip in _segment_infos(route, coverage, listed):
             color, dash, _ = STATUS_STYLE[status]
             folium.PolyLine(pts, color=color, weight=5, opacity=0.95,
                             dash_array=dash, tooltip=tooltip).add_to(m)
+        modus_label, marker_note = _legende_infos(results)
+        # Die Sichtfeld-Zeilen nur zeigen, wenn es Sichtfelder gibt: ohne
+        # Geländemodell (Horizont-Fallback) versprach die Legende bisher
+        # eine Rampe, die auf der Karte gar nicht vorkam
+        summe_html = _legend_inhalt(modus_label, marker_note,
+                                    overlay is not None)
         # branca.Element bekommt .html erst zur Laufzeit angehängt
         m.get_root().html.add_child(  # type: ignore[attr-defined]
-            folium.Element(_legend(*_legende_infos(results))))
+            folium.Element(_legend(modus_label, marker_note,
+                                   overlay is not None)))
     else:
         folium.PolyLine(route.points, color="#c00", weight=3,
                         tooltip=route_label).add_to(m)
@@ -578,17 +612,126 @@ def write_map(results: list[RepeaterResult], route: Route, path: Path,
             icon=folium.Icon(color="red", icon=waypoint_icon, prefix="fa"),
         ).add_to(m)
 
+    marker_namen: list[str] = []
     for r, farbe, tooltip, popup in _marker_infos(results):
-        folium.Marker(
+        mk = folium.Marker(
             _pos(r.device),
             tooltip=tooltip,
             popup=folium.Popup(popup, max_width=340),
             icon=folium.Icon(color=_FARBE_FOLIUM[farbe], icon="tower-cell",
                              prefix="fa"),
-        ).add_to(m)
+        )
+        mk.add_to(m)
+        marker_namen.append(mk.get_name())
+
+    if overlay is not None and feld_ebene is not None and marker_namen:
+        # Ans Skript-Element, nicht ans HTML: der Code greift auf die von
+        # folium erzeugten JS-Variablen zu und muss nach ihnen laufen
+        m.get_root().script.add_child(  # type: ignore[attr-defined]
+            folium.Element(_einzelfeld_skript(
+                m.get_name(), feld_ebene.get_name(), marker_namen, overlay,
+                [r.device.callsign for r in results], summe_html)))
 
     m.save(str(path))
     return overlay
+
+
+def _einzelfeld_skript(karte_name: str, ebene_name: str,
+                       marker_namen: list[str], overlay: Sichtfelder,
+                       rufzeichen: list[str], summe_html: str) -> str:
+    """JS für die Einzelrelais-Ansicht der verschickbaren karte.html.
+
+    Spiegelt die GUI-Bedienung (app.js): Marker-Klick zeigt nur dessen
+    Sichtfeld, Zweitklick/Escape/Knopf führen zur Summenkarte zurück,
+    getauscht wird Bild und Ausdehnung DERSELBEN Ebene, damit der Haken
+    im Layer-Control gültig bleibt.
+
+    Bewusst als eigenes Skript statt als HTML-Element: es referenziert
+    die von folium erzeugten JS-Variablen (get_name()).
+
+    Die Ausführung hängt an DOMContentLoaded, und das ist keine
+    Vorsichtsmaßnahme, sondern nötig: folium erzeugt sein eigenes JS
+    erst beim Rendern und hängt es damit HINTER die vorher manuell
+    angehängten Skript-Kinder. Dieser Code steht im fertigen Dokument
+    also VOR den Variablen, die er benutzt — sofort ausgeführt fände er
+    map, ImageOverlay und Marker allesamt undefiniert.
+    """
+    daten = json.dumps({
+        "felder": [None if f is None else {"uri": f.uri, "bounds": f.bounds}
+                   for f in overlay.felder],
+        "summe": {"uri": overlay.uri, "bounds": overlay.bounds},
+        "legende": _feld_legende(),
+        "rufzeichen": rufzeichen,
+        "summeHtml": summe_html,
+    }, ensure_ascii=False)
+    marker_liste = ", ".join(marker_namen)
+    return f"""
+document.addEventListener("DOMContentLoaded", function () {{
+  var D = {daten};
+  var karte = {karte_name}, ebene = {ebene_name};
+  var marker = [{marker_liste}];
+  var kasten = document.getElementById("{LEGENDE_ID}");
+  var feldRelais = null;
+
+  function hatFeld(i) {{
+    return Boolean(D.felder[i] && karte.hasLayer(ebene));
+  }}
+  function zeigeFeld() {{
+    var f = feldRelais === null ? D.summe : D.felder[feldRelais];
+    if (!f) return;
+    ebene.setUrl(f.uri);
+    ebene.setBounds(L.latLngBounds(f.bounds));
+  }}
+  function fleck(farbe) {{
+    return '<span style="display:inline-block;width:30px;height:10px;' +
+           'vertical-align:middle;border:1px solid rgba(0,0,0,.25);' +
+           'background:' + farbe + '"></span> ';
+  }}
+  function zeigeLegende() {{
+    if (!kasten) return;
+    if (feldRelais === null) {{ kasten.innerHTML = D.summeHtml; return; }}
+    var h = "";
+    D.legende.stufen.forEach(function (s) {{
+      h += fleck(s.farbe) + s.text + "<br>";
+    }});
+    h += fleck(D.legende.grenz.farbe) + D.legende.grenz.text + "<br>";
+    h += "<small>" + D.legende.hinweis + "</small>";
+    // Rufzeichen über textContent: es stammt aus der BM-/FM-Quelle
+    var titel = document.createElement("b");
+    titel.textContent = "Sichtfeld " + (D.rufzeichen[feldRelais] || "");
+    kasten.replaceChildren(titel, document.createElement("br"));
+    kasten.insertAdjacentHTML("beforeend", h);
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = D.legende.zurueck;
+    b.style.cssText = "display:block;margin-top:6px;padding:3px 8px;" +
+      "border:1px solid #b6bdc4;border-radius:4px;background:#f2f4f6;" +
+      "color:#111;font:inherit;cursor:pointer";
+    b.addEventListener("click", alleZeigen);
+    kasten.appendChild(b);
+  }}
+  function alleZeigen() {{
+    if (feldRelais === null) return;
+    feldRelais = null;
+    zeigeFeld();
+    zeigeLegende();
+  }}
+  marker.forEach(function (m, i) {{
+    m.on("click", function () {{
+      if (!hatFeld(i)) return;
+      feldRelais = feldRelais === i ? null : i;
+      zeigeFeld();
+      zeigeLegende();
+    }});
+  }});
+  // Nimmt der Betrachter die Sichtfeld-Ebene ab, fällt auch die Legende
+  // zurück — sonst benennt sie ein Feld, das nicht mehr zu sehen ist
+  karte.on("overlayremove", alleZeigen);
+  document.addEventListener("keydown", function (ev) {{
+    if (ev.key === "Escape") alleZeigen();
+  }});
+}});
+"""
 
 
 def _runde_punkte(punkte: list[Point]) -> list[list[float]]:

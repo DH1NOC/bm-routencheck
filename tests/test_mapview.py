@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import math
+import re
 from pathlib import Path
 
 import numpy as np
@@ -343,6 +344,45 @@ def test_kartendaten_reichen_einzelfelder_durch(sichtfeld_szenario,
     # Das Summen-Overlay bleibt unverändert — mapimage/PDF lesen es
     assert daten["overlay"]["uri"] == overlay.uri
     assert daten["overlay"]["bounds"] == overlay.bounds
+
+
+def test_karte_html_verdrahtet_die_einzelfelder(sichtfeld_szenario,
+                                                tmp_path: Path):
+    """Die verschickbare karte.html bekommt dieselbe Einzelansicht.
+
+    Prüft vor allem die zwei Bruchstellen der folium-Verdrahtung: die
+    referenzierten JS-Variablen müssen wirklich existieren, und das
+    Skript muss auf DOMContentLoaded warten, weil folium sein eigenes JS
+    HINTER die manuell angehängten Skript-Kinder rendert.
+    """
+    terrain, route, results = sichtfeld_szenario
+    out = tmp_path / "karte.html"
+    overlay = write_map(results, route, out, terrain=terrain)
+    assert overlay is not None
+    quelle = out.read_text(encoding="utf-8")
+
+    skript = quelle.index('var D = {"felder"')
+    # Verzögert, weil das Skript baulich vor seinen Variablen steht
+    assert 'DOMContentLoaded", function' in quelle, (
+        "Einzelfeld-Skript läuft sofort — es stünde damit vor den "
+        "folium-Variablen, die es benutzt")
+    assert quelle.index('DOMContentLoaded", function') < skript
+    definiert = set(re.findall(r"var (\w+) = L\.(?:marker|imageOverlay)\(",
+                               quelle))
+    definiert |= set(re.findall(r"var (\w+) = L\.map\(", quelle))
+    referenziert = set(re.findall(r"var karte = (\w+), ebene = (\w+);",
+                                  quelle)[0])
+    referenziert |= set(re.search(r"var marker = \[([^\]]*)\]",
+                                  quelle).group(1).replace(" ", "").split(","))
+    fehlend = referenziert - definiert
+    assert not fehlend, f"Skript referenziert undefinierte Variablen: {fehlend}"
+    assert len(referenziert) == len(results) + 2  # Marker + Karte + Ebene
+
+    # Jedes Einzelfeld liegt in der Datei — sie bleibt eigenständig
+    for feld in overlay.felder:
+        assert feld is not None
+        assert feld.uri in quelle
+    assert "keine Feldstärke" in quelle
 
 
 def test_ohne_gelaende_keine_einzelfelder(tmp_path: Path):
