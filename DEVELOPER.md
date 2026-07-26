@@ -234,6 +234,17 @@ und Antennendiagramm sind unbekannt. Die Legende sagt das ausdrücklich;
 Wortlaut und Farben stehen einmal in `_feld_legende()`, GUI-Karte und
 `karte.html` lesen beide von dort.
 
+**Escape ist gestaffelt.** Der Marker-Klick öffnet zugleich das Popup —
+also genau auf dem üblichen Weg in die Einzelansicht. Ein einzelnes
+`Esc` schließt deshalb erst das Popup, erst das nächste kehrt zur
+Summenkarte zurück; ohne Staffelung verschwände beides auf einmal. Zwei
+Feinheiten, die dabei zählen: das Popup wird **selbst** geschlossen
+(Leaflets eigener `Esc`-Handler hängt am Kartencontainer und greift nur
+mit dessen Fokus — bloßes Aussteigen könnte `Esc` dauerhaft wirkungslos
+machen), und der Popup-Zustand kommt aus `popupopen`/`popupclose`, nicht
+aus dem DOM: `.leaflet-popup` bleibt nach dem Schließen noch rund 400 ms
+zum Ausblenden stehen.
+
 **Fallstrick bei `karte.html`:** folium erzeugt sein eigenes JavaScript
 erst beim Rendern und hängt es *hinter* die vorher manuell an
 `get_root().script` angefügten Kinder. Das Einzelfeld-Skript steht im

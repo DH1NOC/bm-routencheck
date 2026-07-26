@@ -672,6 +672,11 @@ document.addEventListener("DOMContentLoaded", function () {{
   var marker = [{marker_liste}];
   var kasten = document.getElementById("{LEGENDE_ID}");
   var feldRelais = null;
+  // Popup-Zustand von Leaflet melden lassen statt im DOM nachsehen: beim
+  // Schließen bleibt .leaflet-popup noch ~400 ms zum Ausblenden stehen
+  var popupOffen = false;
+  karte.on("popupopen", function () {{ popupOffen = true; }});
+  karte.on("popupclose", function () {{ popupOffen = false; }});
 
   function hatFeld(i) {{
     return Boolean(D.felder[i] && karte.hasLayer(ebene));
@@ -727,8 +732,20 @@ document.addEventListener("DOMContentLoaded", function () {{
   // Nimmt der Betrachter die Sichtfeld-Ebene ab, fällt auch die Legende
   // zurück — sonst benennt sie ein Feld, das nicht mehr zu sehen ist
   karte.on("overlayremove", alleZeigen);
+  // Gestaffelt: ein offenes Marker-Popup bekommt Escape zuerst, erst
+  // der nächste Druck verlässt die Einzelansicht. Das Popup geht beim
+  // Marker-Klick auf, also auf dem üblichen Weg IN die Einzelansicht —
+  // ohne Staffelung schlösse ein Escape beides in einem Rutsch.
+  // Geschlossen wird hier selbst statt über Leaflets Escape-Handler:
+  // der hängt am Kartencontainer und greift nur mit dessen Fokus,
+  // bloßes Aussteigen könnte Escape dauerhaft wirkungslos machen.
   document.addEventListener("keydown", function (ev) {{
-    if (ev.key === "Escape") alleZeigen();
+    if (ev.key !== "Escape") return;
+    if (popupOffen) {{
+      karte.closePopup();
+      return;
+    }}
+    alleZeigen();
   }});
 }});
 """
@@ -772,7 +789,7 @@ def karten_daten(results: list[RepeaterResult], route: Route,
         # Einzelfelder, indexgleich mit "marker" — None, wo kein
         # Sichtfeld vorliegt (leeres Feld, oder Lauf ohne Geländemodell)
         "relais_felder": None,
-        "feld_legende": _feld_legende(),
+        "feld_legende": None,
         "legende": None,
     }
     if overlay is not None:
@@ -781,6 +798,7 @@ def karten_daten(results: list[RepeaterResult], route: Route,
         daten["relais_felder"] = [
             None if f is None else {"uri": f.uri, "bounds": f.bounds}
             for f in overlay.felder]
+        daten["feld_legende"] = _feld_legende()
     if coverage is not None and coverage.samples:
         listed = {r.device.callsign for r in results}
         daten["segmente"] = [

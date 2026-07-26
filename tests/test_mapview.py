@@ -51,6 +51,12 @@ def serialisiere_pool(monkeypatch, terrain: terrain_mod.TerrainModel) -> None:
     Die echten Worker bauen über init_worker() ein eigenes TerrainModel
     und laden Höhenkacheln aus dem Netz — im Test unerwünscht. Geprüft
     werden soll die Aggregation, nicht das Forken.
+
+    as_completed liefert bewusst RÜCKWÄRTS: im echten Prozesspool ist
+    die Fertigstellungsreihenfolge beliebig, und die Einzelfelder müssen
+    trotzdem indexgleich mit results landen. Gäbe der Ersatz die
+    Reihenfolge der Einreichung zurück, bliebe genau dieser Fehler
+    unentdeckt.
     """
     class Ergebnis:
         def __init__(self, wert):
@@ -73,7 +79,7 @@ def serialisiere_pool(monkeypatch, terrain: terrain_mod.TerrainModel) -> None:
             return Ergebnis(fn(*args, terrain))
 
     monkeypatch.setattr(mapview_mod, "ProcessPoolExecutor", SerielleAusfuehrung)
-    monkeypatch.setattr(mapview_mod, "as_completed", lambda fs: fs)
+    monkeypatch.setattr(mapview_mod, "as_completed", lambda fs: reversed(list(fs)))
 
 
 def overlay_pixel(uri: str) -> np.ndarray:
@@ -281,6 +287,48 @@ def test_einzelfelder_ergeben_zusammen_die_summenkarte(
     assert np.array_equal(grenz & ~sicht, summe == 1)
 
 
+def test_einzelfeld_gehoert_zum_richtigen_relais(sichtfeld_szenario,
+                                                 tmp_path: Path):
+    """relais_felder[i] muss das Feld von results[i] sein.
+
+    Darauf ruht das ganze Merkmal — die Oberfläche verbindet Marker,
+    Tabellenzeile und Sichtfeld allein über diesen Index. Der
+    Rekompositions-Test kann das NICHT zeigen: die Vereinigung aller
+    Felder bleibt dieselbe, auch wenn die Zuordnung durchgeschüttelt
+    ist. Zusammen mit der rückwärtigen Fertigstellungsreihenfolge in
+    serialisiere_pool fängt dieser Test eine verrutschte
+    Future-zu-Index-Zuordnung.
+
+    Geprüft wird über den Schwerpunkt der nächsten Abstandsstufe
+    (0–10 km): der liegt naturgemäß beim Relais. Die bloßen Bounds
+    reichen nicht — bei ~24 km Horizont und ~10 km Relaisabstand
+    enthalten sie auch die Nachbarn.
+    """
+    terrain, route, results = sichtfeld_szenario
+    overlay = write_map(results, route, tmp_path / "karte.html",
+                        terrain=terrain)
+    assert overlay is not None
+    for nr, (r, feld) in enumerate(zip(results, overlay.felder, strict=True)):
+        assert feld is not None
+        stufen = rampen_index(feld.uri)
+        h, w = stufen.shape
+        (lat_sued, lon_west), (lat_nord, lon_ost) = feld.bounds
+        gitter = mapview_mod._Rastergitter(w, h, lat_sued, lon_west,
+                                           lat_nord, lon_ost)
+        lat, lon = gitter.pixelmitten(0, h, 0, w)
+        nah = stufen == 4  # dunkelste Stufe: 0–10 km ums Relais
+        assert nah.any(), f"{r.device.callsign}: keine nahe Sichtstufe"
+        schwerpunkt = (float(np.broadcast_to(lat, nah.shape)[nah].mean()),
+                       float(np.broadcast_to(lon, nah.shape)[nah].mean()))
+        abstaende = [float(mapview_mod._abstand_km(
+            np.array([schwerpunkt[0]]), np.array([schwerpunkt[1]]),
+            o.device.lat, o.device.lng)[0]) for o in results]
+        naechstes = abstaende.index(min(abstaende))
+        assert naechstes == nr, (
+            f"Feld {nr} liegt bei {results[naechstes].device.callsign}, "
+            f"gehört laut Index aber zu {r.device.callsign}")
+
+
 def test_einzelfeld_stuft_nach_abstand(sichtfeld_szenario, tmp_path: Path):
     """Dunkelste Stufe liegt nah am Relais, hellere weiter draußen —
     und kein Sicht-Pixel liegt jenseits des Radiohorizonts."""
@@ -397,3 +445,4 @@ def test_ohne_gelaende_keine_einzelfelder(tmp_path: Path):
     daten = karten_daten(results, route, overlay=None)
     assert daten["overlay"] is None
     assert daten["relais_felder"] is None
+    assert daten["feld_legende"] is None

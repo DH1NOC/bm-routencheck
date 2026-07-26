@@ -329,6 +329,10 @@ let karte = null;  // Leaflet-Map des angezeigten Ergebnisses
 let kartenDaten = null;    // letztes karten_daten-Payload (mapview)
 let sichtfeldEbene = null; // vom Layer-Control verwaltete Overlay-Ebene
 let feldRelais = null;     // Index des einzeln gezeigten Relais (oder null)
+/* Popup-Zustand von Leaflet melden lassen statt im DOM nachsehen: beim
+   Schließen bleibt .leaflet-popup noch ~400 ms zum Ausblenden stehen,
+   eine DOM-Abfrage sähe es also fälschlich weiter als offen. */
+let popupOffen = false;
 
 const STATIONS_ICONS = { train: "i-train", car: "i-directions_car",
                          bicycle: "i-pedal_bike" };
@@ -370,7 +374,10 @@ function baueKarte(k) {
   kartenDaten = k;
   sichtfeldEbene = null;
   feldRelais = null;
+  popupOffen = false;
   karte = L.map($("#karte"));
+  karte.on("popupopen", () => (popupOffen = true));
+  karte.on("popupclose", () => (popupOffen = false));
 
   const basis = {};
   k.ebenen.forEach((e, i) => {
@@ -800,11 +807,23 @@ function waehleRelais(index, quelle) {
   }
 }
 
-/* Escape verlässt die Einzelansicht — aber nur, wenn nicht Menü oder
-   Dialog offen sind, die beanspruchen Escape für sich. */
+/* Escape verlässt die Einzelansicht — gestaffelt: Dialog und Menü
+   beanspruchen Escape für sich, danach ein offenes Marker-Popup, erst
+   dann die Einzelansicht. Das Popup geht beim Marker-Klick automatisch
+   auf, also auf dem üblichen Weg IN die Einzelansicht; ohne Staffelung
+   schlösse ein Escape Popup und Einzelansicht in einem Rutsch.
+
+   Das Popup wird hier SELBST geschlossen und nicht Leaflet überlassen:
+   dessen Escape-Handler hängt am Kartencontainer und greift nur, wenn
+   der den Fokus hat. Bloßes Aussteigen (return) könnte Escape sonst
+   dauerhaft wirkungslos machen. */
 document.addEventListener("keydown", (ev) => {
   if (ev.key !== "Escape" || feldRelais === null) return;
   if (!$("#dialog-hintergrund").hidden || !$("#menue").hidden) return;
+  if (popupOffen && karte) {
+    karte.closePopup();
+    return;
+  }
   alleRelaisZeigen();
 });
 
