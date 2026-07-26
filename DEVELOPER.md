@@ -12,6 +12,7 @@ stehen in [`PROJEKTPLAN.md`](PROJEKTPLAN.md).
 - [Projektstruktur](#projektstruktur)
 - [Grafische Oberfläche (pywebview)](#grafische-oberfläche-pywebview)
 - [Technische Highlights & Externe Technologien](#technische-highlights--externe-technologien)
+- [Ausgabeort und Öffnen im System](#ausgabeort-und-öffnen-im-system)
 - [Disk-Cache](#disk-cache)
 - [Releases](#releases)
 
@@ -44,7 +45,11 @@ Dieselben Prüfungen laufen als GitHub-Actions-Workflow bei jedem Push
   Ausnahmen (z. B. deutsche Typografie) sind dort begründet.
 - **mypy strict** — der gesamte Quellcode ist streng typgeprüft; die
   wenigen Lockerungen (ungetypte Bibliotheken, Tests ohne
-  Annotationszwang) sind als Overrides dokumentiert.
+  Annotationszwang) sind als Overrides dokumentiert. **`mypy` ohne
+  Argument aufrufen**, nicht `mypy bmtools`: `pyproject.toml` setzt
+  `packages = ["bmtools", "tests"]`, die Tests werden also mitgeprüft.
+  Ein `mypy bmtools` vor dem Commit sieht grün aus und lässt die CI
+  trotzdem auflaufen (Befund 2026-07-26: abgebrochener Release-Lauf).
 - **pytest + coverage** — getestet wird die Kernlogik (Parser, Geometrie,
   Abdeckungsschätzung, Berichte inkl. PDF, Codeplug, API-Clients mit
   gemockten HTTP-Antworten) sowie die GUI-Logik (Bridge-Validierung,
@@ -69,13 +74,15 @@ bm-routencheck/
 │   ├── gui/              # Programmfenster (pywebview): Bridge, GuiMelder,
 │   │                     #   Hintergrund-Lauf, static/-Frontend mit Leaflet
 │   ├── cli.py            # bmtools-Einstieg: Menü, Subcommand-Dispatcher, Cache-Befehl
+│   ├── ausgabe.py        # Wohin die Ergebnisse gehen — EINE Entscheidungsstelle
 │   ├── cache_admin.py    # Cache-Bereiche auflisten/leeren (UI-frei)
 │   └── ui.py             # Gemeinsames CLI-Erscheinungsbild (Banner, Farben,
 │                         #   Fortschrittsbalken mit ETA ab 10 s Restzeit)
 ├── tests/                # pytest-Suite (Parser, Geometrie, Berichte, Clients)
 ├── packaging/            # PyInstaller-Einstieg, macOS-Entitlements,
 │                         #   Material-Symbols-Sprite-Generator
-├── out/                  # Generierte Berichte/Karten/CSV je Route (nicht versioniert)
+├── out/                  # Ergebnisse von TERMINAL-Läufen (nicht versioniert);
+│                         #   das Fenster schreibt nach Dokumente/, s. ausgabe.py
 ├── pyproject.toml        # Paketdefinition, Abhängigkeiten, Entry Points
 ├── PROJEKTPLAN.md        # Offene Punkte, Festlegungen, API-Eigenheiten
 └── README.md             # Endnutzer-Dokumentation
@@ -347,12 +354,15 @@ Releases werden manuell über GitHub Actions gebaut:
 **Actions → Release → „Run workflow"**, dort Branch und Versionssprung wählen.
 
 - **Branch bestimmt die Art:** `main` erzeugt einen regulären Release
-  (Version wird in `pyproject.toml` committet und getaggt, z. B. `v0.2.0`);
-  jeder andere Branch erzeugt eine **Beta** (nur Tag, z. B. `v0.2.0-beta.1`,
+  (Version wird in `pyproject.toml` committet und getaggt, z. B. `v0.3.0`);
+  jeder andere Branch erzeugt eine **Beta** (nur Tag, z. B. `v0.3.0-beta.1`,
   auf GitHub als Pre-Release markiert — die Versionsnummer im Branch bleibt
   unverändert).
-- **Versionssprung:** `major` erhöht die Featureversion (`0.1.0 → 0.2.0`),
-  `minor` den Patch (`0.1.0 → 0.1.1`).
+- **Versionssprung:** `major` erhöht die Featureversion (`0.2.0 → 0.3.0`),
+  `minor` den Patch (`0.2.0 → 0.2.1`). Achtung, die Vokabel weicht von
+  Semver ab: `major` meint hier die **mittlere** Stelle. Die erste
+  Stelle erhöht `release.yml` nirgends — ein Sprung auf `1.0.0` braucht
+  erst eine dritte Sprung-Option im Workflow.
 - **Assets** (GUI-first, Nutzerfestlegung 2026-07-21): Quell-ZIP sowie
   eigenständige PyInstaller-Builds — Windows (x64) als windowed
   `BM-Routencheck.exe` (Exe-Icon; Terminal-Ausgabe über den
@@ -372,16 +382,37 @@ Releases werden manuell über GitHub Actions gebaut:
   `--generate-notes` an — das ergibt die rohe Commit-Liste („A8-Fix 2",
   „GUI-Fix: …"), für einen Hauptrelease zu wenig. Ein handgeschriebener
   Text wird deshalb **nach** dem Workflow-Lauf drübergelegt:
-  `gh release edit v0.2.0 --notes-file notes.md`. Der Aufruf ersetzt den
+  `gh release edit v0.3.0 --notes-file notes.md`. Der Aufruf ersetzt den
   ganzen Body, der automatische `**Full Changelog**`-Vergleichslink ist
   danach weg — wenn er bleiben soll, gehört er unten in die Datei.
+  Für einen Hauptrelease gehört in die Notes nur, was Endanwender
+  betrifft; Entwickler-Innereien stehen hier und im PROJEKTPLAN.
+- **`main` ist nach dem Lauf voraus:** Der Workflow committet die neue
+  Version selbst („Release 0.3.0") und pusht sie. Wer direkt danach
+  lokal weiterarbeitet, braucht erst ein `git fetch` und setzt seinen
+  Commit per Rebase darauf — sonst wird der Push abgelehnt.
 - **Nachbereitung eines Releases:** Die Betas zur veröffentlichten
-  Version aufräumen — auf GitHub das Pre-Release löschen und den Tag
-  dazu (`git push origin :refs/tags/v0.2.0-beta.6`). **Erst nach dem
-  regulären Release**, nie vorher: Die Beta-Nummerierung in `release.yml`
-  zählt die vorhandenen Tags hoch, ein zu früh gelöschter Tag lässt die
-  nächste Beta auf eine schon vergebene Nummer laufen (Befund
-  2026-07-17).
+  Version aufräumen. **Erst nach dem regulären Release**, nie vorher:
+  Die Beta-Nummerierung in `release.yml` zählt die vorhandenen Tags
+  hoch, ein zu früh gelöschter Tag lässt die nächste Beta auf eine schon
+  vergebene Nummer laufen (Befund 2026-07-17). Dasselbe gilt beim
+  Nachschieben einer weiteren Beta: erst bauen, dann die alte löschen.
+
+  ```bash
+  gh release delete v0.3.0-beta.2 --yes --cleanup-tag   # Release + Tag
+  git push origin --delete feature/…                    # Branch
+  ```
+
+  Dazu die **Build-Artefakte** der Beta-Läufe — die überleben das
+  Löschen von Release und Tag und liegen je Lauf bei rund 300 MB
+  (Linux-Bundle). Über die API je Lauf löschen:
+
+  ```bash
+  gh api repos/<owner>/<repo>/actions/artifacts --paginate \
+    --jq '.artifacts[] | select(.expired==false and
+          .workflow_run.head_branch=="feature/…") | .id' \
+  | xargs -I{} gh api -X DELETE repos/<owner>/<repo>/actions/artifacts/{}
+  ```
 - **Gatekeeper/SmartScreen:** Die Endnutzer-Hinweise zu macOS-Start und
   Windows-Warnungen stehen in der [README](README.md#download--start);
   eine LIESMICH.txt (Doppelklick-Start, Terminal-Pfad ins Bundle) wird
