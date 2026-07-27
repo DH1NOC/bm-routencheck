@@ -6,7 +6,7 @@ VENV = .venv/bin
 qs: lint typen test  ## Lint + Typprüfung + Tests (komplette QS)
 
 lint:
-	$(VENV)/ruff check bmtools tests
+	$(VENV)/ruff check bmtools tests packaging
 
 typen:
 	$(VENV)/mypy

@@ -81,11 +81,19 @@ line-length = 88
 
 [tool.ruff.lint]
 # E/W pycodestyle, F pyflakes, I Import-Sortierung, UP Modernisierung,
-# B bugbear (echte Fehlerquellen), SIM Vereinfachungen, RUF Ruff-eigene.
-select = ["E", "W", "F", "I", "UP", "B", "SIM", "RUF"]
+# B bugbear (echte Fehlerquellen), SIM Vereinfachungen, S Bandit-
+# Sicherheitsregeln (Stolperdraht gegen shell=True, verify=False,
+# pickle, yaml.load, MD5 & Co.), RUF Ruff-eigene.
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "S", "RUF"]
 ignore = [
     "SIM108",  # ternary statt if/else nicht erzwingen (Lesbarkeit)
     "SIM117",  # verschachtelte with-Blöcke sind teils bewusst getrennt
+    # S-Familie, abgewogen beim Security-Review 2026-07-27:
+    "S101",    # assert: mypy-Typverengung im Code, Standard in Tests
+    "S110",    # try/except/pass: die Stellen sind bewusst und begründet
+    "S603",    # Subprocess mit Argumentliste ohne shell=True ist hier
+    "S606",    # der Normal- und Zielzustand — diese drei Regeln warnen
+    "S607",    # pauschal bei JEDEM Aufruf (codesign, open, cmd, …)
     "RUF001",  # deutsche Typografie (Gedankenstrich, ❯) ist gewollt,
     "RUF002",  # auch in Docstrings …
     "RUF003",  # … und Kommentaren
@@ -94,6 +102,10 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Konsolen-Streams der Windowed-Exe leben prozesslang — kein with-Block.
 "packaging/entry.py" = ["SIM115"]
+# Test-Attrappen, keine Geheimnisse: erfundener Komoot-Share-Token
+# bzw. fingierter PyInstaller-Pfad /tmp/_MEI…
+"tests/test_komoot.py" = ["S105"]
+"tests/test_oeffnen.py" = ["S108"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["bmtools"]
