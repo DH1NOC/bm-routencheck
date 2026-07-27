@@ -12,6 +12,8 @@ import sys
 import tomllib
 from pathlib import Path
 
+import pytest
+
 from bmtools import version as version_mod
 
 
@@ -58,11 +60,46 @@ def test_kaputte_pyproject_wirft_nicht(monkeypatch, tmp_path):
     assert version_mod.eigene_version() != version_mod.UNBEKANNT
 
 
+# --------------------------------------------------- Anzeigeschreibweise
+
+@pytest.mark.parametrize("intern,angezeigt", [
+    ("0.4.0b1", "0.4.0-beta.1"),      # der Fall, um den es geht
+    ("0.4.0b12", "0.4.0-beta.12"),
+    ("0.4.0", "0.4.0"),              # reguläre Fassung bleibt, wie sie ist
+    ("0.4.0a2", "0.4.0-alpha.2"),
+    ("0.4.0rc1", "0.4.0-rc.1"),
+    ("0+unbekannt", "0+unbekannt"),  # der Fall ohne Metadaten
+    ("kaputt", "kaputt"),            # unlesbar wird gezeigt, nicht geraten
+])
+def test_version_anzeige(intern, angezeigt):
+    assert version_mod.version_anzeige(intern) == angezeigt
+
+
+def test_anzeige_ist_die_umkehrung_der_workflow_rechnung():
+    """release.yml baut aus dem Label `$V-beta.$N` die Form `${V}b$N`.
+
+    Genau die muss die Anzeige zurückübersetzen, sonst zeigt das
+    Programm eine andere Versionsnummer als Tag, Releases-Seite und
+    Dateiname — und ein Tester meldet einen Fehler, der keiner ist.
+    Der Rauchtest im Workflow vergleicht deshalb gegen das Label.
+    """
+    from pathlib import Path
+
+    workflow = Path(".github/workflows/release.yml").read_text(encoding="utf-8")
+    assert 'VERSION="${VERSION}b$N"' in workflow
+    assert 'BM-Routencheck ${{ needs.version.outputs.label }}' in workflow
+
+    for n in (1, 2, 7):
+        label = f"0.4.0-beta.{n}"
+        assert version_mod.version_anzeige(f"0.4.0b{n}") == label
+
+
 def test_version_flag_in_allen_werkzeugen(capsys, monkeypatch):
     """bmtools, bahn, auto und rad melden alle dieselbe Version."""
     from bmtools.cli import main
 
-    erwartet = f"BM-Routencheck {version_mod.eigene_version()}"
+    erwartet = (f"BM-Routencheck "
+                f"{version_mod.version_anzeige(version_mod.eigene_version())}")
     for aufruf in (["bmtools", "--version"], ["bmtools", "bahn", "--version"],
                    ["bmtools", "auto", "--version"],
                    ["bmtools", "rad", "--version"]):

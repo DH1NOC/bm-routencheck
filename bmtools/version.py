@@ -58,3 +58,32 @@ def eigene_version() -> str:
 def version_bekannt() -> bool:
     """False heißt: Es darf kein Update angeboten werden."""
     return eigene_version() != UNBEKANNT
+
+
+def version_anzeige(version: str) -> str:
+    """PEP-440-Schreibweise in die Form bringen, die der Nutzer kennt.
+
+    Intern und beim Vergleichen gilt `0.4.0b1` — das ist die normalisierte
+    Form, in der die Version auch in den Paket-Metadaten steht. Auf der
+    Releases-Seite, im Tag und in jedem Dateinamen heißt dieselbe Fassung
+    aber `0.4.0-beta.1`. Wer beides nebeneinander sieht, hält es leicht
+    für zwei verschiedene Stände — deshalb wird **ausschließlich zur
+    Anzeige** umgeschrieben (Nutzerentscheidung 2026-07-27).
+
+    Es ist genau die Umkehrung dessen, was `release.yml` rechnet:
+    dort wird aus dem Label `$VERSION-beta.$N` die PEP-440-Form
+    `${VERSION}b$N`.
+    """
+    # Lazy: bmtools/__init__.py lädt dieses Modul bei jedem Import des
+    # Pakets, packaging wird aber nur für diese eine Umschrift gebraucht.
+    from packaging.version import InvalidVersion, Version
+
+    try:
+        geparst = Version(version)
+    except InvalidVersion:
+        return version          # unlesbar unverändert zeigen, nicht raten
+    if geparst.pre is None:
+        return version          # reguläre Fassung — nichts umzuschreiben
+    art, nummer = geparst.pre
+    wort = {"a": "alpha", "b": "beta", "rc": "rc"}.get(art, art)
+    return f"{geparst.base_version}-{wort}.{nummer}"

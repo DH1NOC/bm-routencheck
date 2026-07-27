@@ -180,8 +180,9 @@ def main() -> int:
         # --version daher von Hand. Der Rauchtest im Release-Workflow
         # prüft darüber, dass das gebaute Binary seine Version kennt.
         if tool in ("-V", "--version"):
-            from bmtools.version import eigene_version
-            console.print(f"BM-Routencheck {eigene_version()}")
+            from bmtools.version import eigene_version, version_anzeige
+            console.print(
+                f"BM-Routencheck {version_anzeige(eigene_version())}")
             return 0
         if tool == "--update":
             from bmtools.update.terminal import update_ausfuehren

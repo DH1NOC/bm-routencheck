@@ -28,6 +28,7 @@ Design, je nach System oder Wahl.*
 ## Inhalt
 
 - [Download & Start](#download--start)
+- [Updates](#updates)
 - [Bedienung](#bedienung)
 - [Die Ergebnis-Dateien](#die-ergebnis-dateien)
 - [Die Tools im Detail](#die-tools-im-detail)
@@ -99,6 +100,59 @@ gewohnt (`./bmtools bahn --help`). Für einen Startmenü-Eintrag mit
 Programm-Icon liegt eine `BM-Routencheck.desktop`-Vorlage bei (Pfade
 anpassen, nach `~/.local/share/applications/` kopieren — siehe
 LIESMICH.txt im Archiv).
+
+## Updates
+
+BM-Routencheck hält sich selbst aktuell. Beim Start sieht das Programm im
+Hintergrund nach, ob eine neuere Fassung vorliegt — das verzögert den Start
+nicht, der Hinweis erscheint einfach kurz danach:
+
+- **Im Programmfenster** erscheint oben eine Leiste „Version 0.4.1 ist
+  verfügbar" mit dem Knopf **Jetzt aktualisieren**. Ein Klick lädt und
+  ersetzt das Programm und startet es neu (unter Windows beim nächsten
+  Beenden). Das ✕ blendet den Hinweis für diese Sitzung aus.
+- **Im Terminal** kommt der Hinweis erst *nach* dem Lauf, damit er nichts
+  unterbricht — und nur auf einer echten Konsole. In Skripten und Pipes
+  bleibt er aus. Aktualisiert wird dort von Hand:
+
+```bash
+bmtools --update                          # suchen, laden, ersetzen
+bmtools --update --mit-vorabversionen     # Betas einbeziehen
+bmtools --version                         # installierte Version anzeigen
+```
+
+Im Menü des Programmfensters (☰ → *Updates*) steht die installierte
+Version, und beide Punkte lassen sich umschalten:
+
+| Einstellung | Vorgabe | Bedeutung |
+|---|---|---|
+| Beim Start nach Updates suchen | **an** | Ausschalten unterbindet jede Update-Abfrage komplett — es geht dann keine Anfrage mehr hinaus |
+| Auch Vorabversionen anbieten | **aus** | Der Beta-Kanal. Nur für Tester gedacht: Betas sind absichtlich nicht durchgetestet |
+
+**Was dabei geprüft wird.** Zu jedem Release gehört eine signierte
+Beschreibung aller Programmdateien. Das Programm nimmt eine neue Version
+nur an, wenn diese Signatur zu dem Schlüssel passt, der im Programm selbst
+steckt, **und** die heruntergeladene Datei exakt die dort genannte
+Prüfsumme hat. Damit ist nicht nur eine abgehörte Verbindung wirkungslos —
+auch ein manipulierter Zwischenspeicher oder Firmen-Proxy kann nichts
+unterschieben. Eine ältere Version wird nie angeboten, und ohne die
+Einstellung *Vorabversionen* nie eine Beta. Scheitert irgendeine dieser
+Prüfungen, passiert schlicht nichts; die installierte Fassung bleibt
+unangetastet.
+
+**Wann kein Update angeboten wird** — jeweils mit Absicht:
+
+- Bei der [Installation aus dem Quellcode](#installation-aus-dem-quellcode)
+  — dort ist `git pull` der richtige Weg.
+- Wenn das Programm an einem Ort liegt, an dem du kein Schreibrecht hast
+  (etwa systemweit installiert). Das Programm sagt das und verweist auf die
+  Releases-Seite, statt einen halben Austausch zu versuchen — nach einem
+  Administrator-Passwort fragt es nie.
+- Auf Macs mit Intel-Prozessor, für die es bewusst kein fertiges Programm
+  gibt.
+
+Die alte Fassung bleibt neben der neuen liegen, bis diese einmal sauber
+gestartet ist.
 
 ## Bedienung
 
@@ -327,6 +381,11 @@ bm-auto --von "Winkelhaider Str. 4a, Feucht" --nach "Bendorf" --oeffnen
 | `--oeffnen` | Bericht und Karte nach dem Lauf im Browser öffnen (interaktiv automatisch aktiv) |
 | `--gui` / `--terminal` | Programmfenster bzw. Terminal erzwingen — Standard: ohne Routen-Argumente öffnet sich auf dem Desktop das Fenster |
 | `--ausgabe ORDNER` | Ausgabeverzeichnis. Default im Terminal: `out/<start>-<ziel>` unterhalb des aktuellen Verzeichnisses. Das Programmfenster schreibt stattdessen immer nach `Dokumente/bm-routencheck-ergebnisse/` (siehe [Die Ergebnis-Dateien](#die-ergebnis-dateien)) |
+| `--version` | Installierte Programmversion ausgeben und beenden |
+
+`bmtools` selbst kennt zusätzlich `--version`/`-V` sowie `--update`
+(siehe [Updates](#updates)); beides steht vor dem Toolnamen, also
+`bmtools --update`, nicht `bmtools bahn --update`.
 
 Alle genutzten Dienste sind ohne Anmeldung nutzbar — keine API-Keys, keine
 Konfigurationsdatei.

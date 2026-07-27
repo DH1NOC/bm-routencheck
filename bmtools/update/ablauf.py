@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from bmtools.version import eigene_version
+from bmtools.version import eigene_version, version_anzeige
 
 from . import laden, tausch
 from .pruefen import Angebot, suche_update
@@ -104,6 +104,6 @@ def neustart() -> None:
 def hinweis_zeilen(angebot: Angebot) -> list[str]:
     """Terminal-Hinweis — dieselbe Botschaft wie die Info-Leiste."""
     vorab = " (Vorabversion)" if angebot.vorabversion else ""
-    return [f"Version {angebot.version}{vorab} ist verfügbar "
-            f"(installiert: {eigene_version()}).",
+    return [f"Version {version_anzeige(angebot.version)}{vorab} ist verfügbar "
+            f"(installiert: {version_anzeige(eigene_version())}).",
             "Aktualisieren mit: bmtools --update"]

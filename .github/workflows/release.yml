@@ -249,11 +249,16 @@ jobs:
           # metadata findet nichts ohne --copy-metadata. Im Quellbaum
           # sieht alles richtig aus, im Artefakt nicht — deshalb hier
           # gegen die tatsächlich gebaute Version prüfen.
+          # Verglichen wird gegen das LABEL (0.4.0-beta.1), nicht gegen
+          # die PEP-440-Form (0.4.0b1): Das Programm zeigt die Version so
+          # an, wie sie auch im Tag und in den Dateinamen steht
+          # (version_anzeige(), Nutzerentscheidung 2026-07-27). Bei einem
+          # regulären Release sind beide ohnehin gleich.
           GEMELDET="$("$BIN" --version)"
           echo "Gemeldete Version: $GEMELDET"
-          if [ "$GEMELDET" != "BM-Routencheck ${{ needs.version.outputs.version }}" ]; then
+          if [ "$GEMELDET" != "BM-Routencheck ${{ needs.version.outputs.label }}" ]; then
             echo "::error::Binary meldet '$GEMELDET', gebaut wurde \
-          ${{ needs.version.outputs.version }}"
+          ${{ needs.version.outputs.label }}"
             exit 1
           fi
           # PYTHONTZPATH leer: erzwingt den tzdata-Fallback auch auf

@@ -57,6 +57,21 @@ def ist_neuer(kandidat: str, laufend: str) -> bool:
         return False
 
 
+def ist_vorabversion(version: str) -> bool:
+    """Ist das eine Beta? — beantwortet aus der Versionsnummer selbst.
+
+    Absichtlich NICHT aus dem `prerelease`-Flag der GitHub-Antwort: Die
+    ist unbeglaubigt. Wer sie fälschen kann, schöbe einem Nutzer mit
+    abgeschaltetem Beta-Kanal sonst eine (echte, signierte) Vorabversion
+    unter — kein Downgrade, aber eine Kanalwahl, die dem Nutzer gehört
+    und nicht dem Netzweg. Unlesbares gilt sicherheitshalber als Beta.
+    """
+    try:
+        return Version(version).is_prerelease
+    except InvalidVersion:
+        return True
+
+
 def _release_urls(eintrag: dict[str, Any]) -> tuple[str, str, str] | None:
     """(manifest_url, signatur_url, basis_url) aus einem Release-Eintrag."""
     namen = {a.get("name"): a.get("browser_download_url")
@@ -100,8 +115,9 @@ def suche_update(*, mit_vorabversionen: bool = False,
         for eintrag in eintraege:
             if not isinstance(eintrag, dict) or eintrag.get("draft"):
                 continue
-            vorab = bool(eintrag.get("prerelease"))
-            if vorab and not mit_vorabversionen:
+            # Nur eine Vorsortierung, um uns unnötige Abrufe zu sparen —
+            # die verbindliche Antwort steht weiter unten im Manifest.
+            if eintrag.get("prerelease") and not mit_vorabversionen:
                 continue
             urls = _release_urls(eintrag)
             if urls is None:
@@ -113,8 +129,12 @@ def suche_update(*, mit_vorabversionen: bool = False,
                 geprueft = pruefe_manifest(roh, signatur)
             except (httpx.HTTPError, ManifestFehler):
                 continue          # nicht echt oder nicht erreichbar
-            # Ab hier zählt NUR noch das Manifest.
+            # Ab hier zählt NUR noch das Manifest — auch für die Frage,
+            # ob das eine Vorabversion ist.
             if not ist_neuer(geprueft.version, laufend):
+                continue
+            vorab = ist_vorabversion(geprueft.version)
+            if vorab and not mit_vorabversionen:
                 continue
             artefakt = geprueft.fuer(ziel_plattform)
             if artefakt is None:

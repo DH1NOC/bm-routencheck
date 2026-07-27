@@ -111,8 +111,11 @@ class Bridge:
 
     def init_zustand(self) -> dict[str, Any]:
         """Startzustand fürs Frontend (aufgerufen bei pywebviewready)."""
+        from bmtools.version import eigene_version, version_anzeige
+
         from . import einstellungen
         return {"tab": self._tool or "bahn",
+                "version": version_anzeige(eigene_version()),
                 "einstellungen": einstellungen.laden()}
 
     def suche_update(self) -> dict[str, Any] | None:
@@ -134,7 +137,8 @@ class Bridge:
             return None
         if angebot is None:
             return None
-        return {"version": angebot.version,
+        from bmtools.version import version_anzeige
+        return {"version": version_anzeige(angebot.version),
                 "vorabversion": angebot.vorabversion,
                 "datei": angebot.artefakt.datei}
 
@@ -162,7 +166,9 @@ class Bridge:
             sofort = durchfuehren(angebot, fortschritt)
         except UpdateFehler as e:
             return {"ok": False, "fehler": str(e)}
-        return {"ok": True, "version": angebot.version, "sofort": sofort}
+        from bmtools.version import version_anzeige
+        return {"ok": True, "version": version_anzeige(angebot.version),
+                "sofort": sofort}
 
     def neustart_nach_update(self) -> None:
         """Neue Fassung starten und das Fenster schließen."""

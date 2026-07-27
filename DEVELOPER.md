@@ -14,6 +14,7 @@ stehen in [`PROJEKTPLAN.md`](PROJEKTPLAN.md).
 - [Technische Highlights & Externe Technologien](#technische-highlights--externe-technologien)
 - [Ausgabeort und Öffnen im System](#ausgabeort-und-öffnen-im-system)
 - [Disk-Cache](#disk-cache)
+- [Selbst-Updater](#selbst-updater)
 - [Releases](#releases)
 
 ## Entwicklungsumgebung
@@ -73,14 +74,18 @@ bm-routencheck/
 │   ├── road/             # bm-auto / bm-rad (Maps-/Komoot-Link, GPX, OSRM, Geocoding)
 │   ├── gui/              # Programmfenster (pywebview): Bridge, GuiMelder,
 │   │                     #   Hintergrund-Lauf, static/-Frontend mit Leaflet
+│   ├── update/           # Selbst-Updater: signiertes Manifest prüfen,
+│   │                     #   Artefakt laden, Programm ersetzen (UI-frei)
 │   ├── cli.py            # bmtools-Einstieg: Menü, Subcommand-Dispatcher, Cache-Befehl
+│   ├── version.py        # Eigene Programmversion — Grundlage jeder Update-Entscheidung
 │   ├── ausgabe.py        # Wohin die Ergebnisse gehen — EINE Entscheidungsstelle
 │   ├── cache_admin.py    # Cache-Bereiche auflisten/leeren (UI-frei)
 │   └── ui.py             # Gemeinsames CLI-Erscheinungsbild (Banner, Farben,
 │                         #   Fortschrittsbalken mit ETA ab 10 s Restzeit)
 ├── tests/                # pytest-Suite (Parser, Geometrie, Berichte, Clients)
 ├── packaging/            # PyInstaller-Einstieg, macOS-Entitlements,
-│                         #   Material-Symbols-Sprite-Generator
+│                         #   Material-Symbols-Sprite-Generator,
+│                         #   schluessel_erzeugen.py + manifest_signieren.py
 ├── out/                  # Ergebnisse von TERMINAL-Läufen (nicht versioniert);
 │                         #   das Fenster schreibt nach Dokumente/, s. ausgabe.py
 ├── pyproject.toml        # Paketdefinition, Abhängigkeiten, Entry Points
@@ -348,6 +353,122 @@ Alle Caches liegen unter dem platformdirs-Cache-Verzeichnis des Nutzers
 denselben `user_cache_dir`-Aufrufen wie die Clients, damit sie auf jeder
 Plattform übereinstimmen.
 
+## Selbst-Updater
+
+`bmtools/update/` ersetzt das ausgelieferte Programm durch eine neuere
+Fassung. Die Anforderung des Nutzers war ausdrücklich, **MITM
+auszuschließen** — HTTPS allein leistet das nicht, wer eine eigene
+Root-CA im System hat (Firmen-Proxy, untergeschobenes Zertifikat), sieht
+und ändert alles. Belastbar ist nur eine Signatur.
+
+### Signiert wird ein Manifest, nicht das einzelne Artefakt
+
+`manifest.json` nennt Version und je Plattform Dateiname + SHA256,
+daneben liegt `manifest.json.sig` (Ed25519). **Warum nicht die Artefakte
+selbst signieren?** Dann bliebe *Replay* offen: Wer die API-Antwort
+fälschen kann, liefert eine ältere, echt signierte Version aus — die
+Signatur wäre gültig, die Version käme aber aus der gefälschten JSON.
+Nur wenn die Version selbst aus dem signierten Manifest stammt, greift
+die Downgrade-Sperre.
+
+Die Reihenfolge ist der eigentliche Schutz und darf nicht umgestellt
+werden:
+
+1. GitHub-API abfragen — **nur ein Hinweis, wo ein Manifest liegen könnte**
+2. Manifest + Signatur laden, gegen die **einkompilierten** Schlüssel prüfen
+3. ab hier zählt **ausschließlich** der Manifest-Inhalt
+4. Version aus dem Manifest gegen die laufende, `≤` ablehnen
+5. Artefakt laden, SHA256 gegen das Manifest — erst dann auspacken
+6. erst dann tauschen
+
+Punkt 3 gilt auch für die **Kanalfrage**: Ob ein Angebot eine Beta ist,
+beantwortet `ist_vorabversion()` aus der Versionsnummer im Manifest, nicht
+aus dem `prerelease`-Flag der GitHub-Antwort. Die ist unbeglaubigt — wer
+sie fälschen kann, schöbe einem Nutzer mit abgeschaltetem Beta-Kanal
+sonst eine echte, signierte Vorabversion unter. Kein Downgrade, aber die
+Kanalwahl gehört dem Nutzer, nicht dem Netzweg
+(`test_beta_erkennung_kommt_aus_dem_manifest`).
+
+### Module
+
+| Modul | Aufgabe |
+|---|---|
+| `schluessel.py` | Die beiden öffentlichen Ed25519-Schlüssel (HAUPT, RESERVE) — absichtlich im Klartext, sie prüfen nur |
+| `manifest.py` | Aufbau, Serialisierung und Prüfung des Manifests; `pruefe_manifest()` ist die Grenze zwischen unbeglaubigt und beglaubigt |
+| `pruefen.py` | Release-Abfrage, Versionsvergleich (PEP 440), Artefaktauswahl, Beta-Filter — rein und ohne Seiteneffekte |
+| `ziel.py` | Plattformkennung, das zu ersetzende Programm, Schreibrechtsprüfung |
+| `laden.py` | Herunterladen, SHA256, Auspacken (mit Zip-Slip-Schutz) |
+| `tausch.py` | Das Ersetzen je Plattform — die Naht, an der die Tests ansetzen |
+| `ablauf.py` | Verbindet alles zu dem, was GUI und Terminal aufrufen |
+| `terminal.py` | Hintergrundprüfung + `bmtools --update` |
+
+**Zwei Schlüsselplätze von Anfang an.** Ein ausgeliefertes Binary
+akzeptiert nur Schlüssel, die es kennt — ohne zweiten Platz wäre bei
+Verlust oder Kompromittierung des Hauptschlüssels *jeder* Client
+dauerhaft von Updates abgeschnitten. Nachrüsten geht nicht, deshalb war
+das vor dem ersten Release zu entscheiden. RESERVE wird im Normalbetrieb
+nie benutzt; sein privates Gegenstück liegt **nur offline**, nie bei
+GitHub. Neue Paare erzeugt `packaging/schluessel_erzeugen.py`.
+
+**Bewusst akzeptiertes Restrisiko:** Wer Schreibrechte auf das Repo hat,
+kann gültig signieren. Gegen MITM schützt das Verfahren vollständig,
+gegen ein übernommenes GitHub-Konto nicht (Nutzerentscheidung
+2026-07-27; die Alternative wäre lokales Signieren als manueller Schritt
+je Release). **Kein Zertifikats-Pinning** — GitHub rotiert seine CAs, das
+wäre nur eine zusätzliche Bruchstelle.
+
+### Fallstricke, die im Quellbaum unsichtbar sind
+
+- **Version im gefrorenen Binary.** `bmtools/version.py` liest im
+  Checkout `pyproject.toml` und erst sonst die Paket-Metadaten:
+  `importlib.metadata` liefert im venv die Version des letzten
+  `pip install` — hier 0.1.2, während pyproject auf 0.3.0 stand. Im
+  PyInstaller-Binary sind die Metadaten überhaupt nur da, wenn
+  `--copy-metadata bm-routencheck` sie mitnimmt; ohne sie meldet
+  `eigene_version()` `0+unbekannt`, und `version_bekannt()` sorgt dafür,
+  dass der Updater dann **schweigt** statt auf einer erfundenen Version zu
+  entscheiden. Weil das im Quellbaum grün aussieht und nur im Artefakt
+  kaputt ist (dieselbe Fehlerklasse wie `mypy bmtools` statt `mypy`),
+  prüft der Rauchtest in `release.yml` auf allen drei Plattformen
+  `--version` gegen die tatsächlich gebaute Version.
+- **Zwei Schreibweisen derselben Version.** Intern und beim Vergleichen
+  gilt die normalisierte PEP-440-Form `0.4.0b1` — so steht sie in den
+  Paket-Metadaten und im Manifest. Angezeigt wird über
+  `version_anzeige()` aber `0.4.0-beta.1`, also die Form aus Tag,
+  Releases-Seite und Dateinamen: Wer beides nebeneinander sieht, hält es
+  sonst für zwei Stände und meldet einen Fehler, der keiner ist
+  (Nutzerentscheidung 2026-07-27). Die Umschrift ist exakt die Umkehrung
+  der Rechnung in `release.yml` (`VERSION="${VERSION}b$N"`), und der
+  Rauchtest dort vergleicht deshalb gegen `label`, nicht gegen
+  `version`. `test_anzeige_ist_die_umkehrung_der_workflow_rechnung`
+  hält beide Seiten zusammen. **Nie zum Vergleichen benutzen** —
+  `ist_neuer()` und `ist_vorabversion()` arbeiten weiter auf der
+  PEP-440-Form.
+- **Der Arbeitsordner liegt neben dem Ziel**, nicht im System-Temp:
+  `os.replace()` kann keine Dateisystemgrenzen überschreiten (`EXDEV`),
+  und `/tmp` ist oft tmpfs.
+- **Die alte Fassung wird nur zur Seite geschoben** (`<name>.vorher`).
+  Dass `beim_start_aufraeumen()` in `packaging/entry.py` überhaupt läuft,
+  *ist* der Beweis für den gelungenen Start — eine eigene
+  Fehlstart-Erkennung wäre nur eine weitere Fehlerquelle.
+- **Linux/macOS** tauschen mit `os.replace()`: Der Prozess hält das alte
+  Inode, der Name zeigt danach auf die neue Datei. Auf macOS ist das Ziel
+  das `.app`-Bundle (nicht das Binary darin), und davor läuft
+  `codesign --verify --deep --strict` — ein selbst geladenes Archiv trägt
+  kein Quarantäne-Attribut, Gatekeeper prüft also nicht für uns mit.
+- **Windows:** Die laufende `.exe` ist gesperrt. Eine Batch-Datei wartet
+  auf unser Prozessende, tauscht, startet neu und löscht sich selbst —
+  daher gibt `ersetze()` dort `False` zurück („Tausch beim Beenden").
+  Das Muster „unsigniertes Programm lädt eine Exe und führt sie aus" kann
+  Virenscanner-Heuristiken auslösen.
+- **Plattformnamen sind ein Vertrag** zwischen `release.yml` und
+  `ziel.py`; weichen sie ab, findet der Client sein Artefakt nie.
+  `test_plattformnamen_decken_sich_mit_dem_workflow` liest dazu die
+  Workflow-Datei.
+- **Kein Elevation-Dialog.** Fehlt das Schreibrecht am enthaltenden
+  Ordner, scheitert `durchfuehren()` früh — *bevor* 240 MB geladen sind —
+  mit dem Verweis auf die Releases-Seite.
+
 ## Releases
 
 Releases werden manuell über GitHub Actions gebaut:
@@ -363,6 +484,28 @@ Releases werden manuell über GitHub Actions gebaut:
   Semver ab: `major` meint hier die **mittlere** Stelle. Die erste
   Stelle erhöht `release.yml` nirgends — ein Sprung auf `1.0.0` braucht
   erst eine dritte Sprung-Option im Workflow.
+- **Signiertes Update-Manifest (Pflicht, seit 0.4.0):** Der Release-Job
+  ruft `packaging/manifest_signieren.py` und legt `manifest.json` +
+  `manifest.json.sig` zu den Assets — daraus entscheiden die
+  ausgelieferten Clients über Updates (siehe
+  [Selbst-Updater](#selbst-updater)). Dafür muss das Repository-Secret
+  **`UPDATE_SIGN_KEY`** gesetzt sein (privater HAUPT-Schlüssel,
+  base64, aus `packaging/schluessel_erzeugen.py`). **Fehlt es, bricht
+  der Workflow mit Fehler ab** — und zwar absichtlich: Ein Release ohne
+  Manifest würde den Clients nie angeboten, sie blieben stumm auf der
+  alten Version stehen. Ein halb veröffentlichtes Release ist leichter zu
+  reparieren als eine Nutzerschaft, die nichts mehr bekommt.
+  Der **RESERVE**-Privatschlüssel gehört ausschließlich offline und nie
+  zu GitHub. Das Skript prüft seine eigene Signatur anschließend auf dem
+  öffentlichen Weg gegen `bmtools/update/schluessel.py` und bricht ab,
+  wenn sie nicht angenommen würde — ein falsch hinterlegtes Secret fällt
+  so beim Bauen auf und nicht erst beim Nutzer, dessen Update sonst
+  stumm ausbliebe.
+- **Rauchtest prüft die Version:** Jeder Build ruft `--version` und
+  vergleicht mit der gebauten Version; `--copy-metadata bm-routencheck`
+  im PyInstaller-Aufruf ist die Voraussetzung dafür. Schlägt das fehl,
+  bricht der Build ab — ein Binary, das seine Version nicht kennt, könnte
+  keine Downgrade-Sperre halten.
 - **Assets** (GUI-first, Nutzerfestlegung 2026-07-21): Quell-ZIP sowie
   eigenständige PyInstaller-Builds — Windows (x64) als windowed
   `BM-Routencheck.exe` (Exe-Icon; Terminal-Ausgabe über den
@@ -445,3 +588,40 @@ Die `.exe` ist derzeit nicht code-signiert: Microsofts Signaturdienst
 (Trusted Signing) steht Einzelentwicklern in Deutschland nicht offen,
 klassische Zertifikate kosten laufend Geld. Daher die
 SmartScreen-/Smart-App-Control-Hinweise in der README.
+
+### Update-Signierung
+
+| Secret | Inhalt |
+| --- | --- |
+| `UPDATE_SIGN_KEY` | Privater **HAUPT**-Ed25519-Schlüssel, base64 (Rohformat, 32 Byte) |
+
+Einmalige Einrichtung — die öffentlichen Gegenstücke stehen bereits in
+`bmtools/update/schluessel.py`:
+
+```bash
+.venv/bin/python packaging/schluessel_erzeugen.py
+```
+
+Das Skript gibt zwei Paare aus und speichert **nichts**. HAUPT/PRIVAT
+kommt als `UPDATE_SIGN_KEY` unter Settings → Secrets and variables →
+Actions und zusätzlich in den Passwortmanager; RESERVE/PRIVAT nur in den
+Passwortmanager. Danach das Konsolenfenster schließen bzw. den
+Shell-Verlauf leeren — die privaten Schlüssel standen dort im Klartext.
+
+**Der private Schlüssel ist nicht ersetzbar.** Geht er verloren, kann
+kein bereits ausgeliefertes Binary je wieder ein Update annehmen — die
+Nutzer müssten von Hand neu herunterladen. Genau dafür existiert der
+zweite Schlüsselplatz: Bei Verlust oder Verdacht auf Kompromittierung von
+HAUPT wird ab dem nächsten Release mit RESERVE signiert
+(`UPDATE_SIGN_KEY` auf den Reserve-Schlüssel umstellen), und im selben
+Zug rücken in `schluessel.py` RESERVE nach HAUPT und ein frisch erzeugter
+Schlüssel auf den freien Platz. Alte Clients akzeptieren beide, weil
+beide seit dem ersten Release einkompiliert sind.
+
+Ein lokaler Probelauf ohne GitHub, wenn am Manifestformat gearbeitet wird:
+
+```bash
+UPDATE_SIGN_KEY=<privat-base64> \
+  .venv/bin/python packaging/manifest_signieren.py 0.4.0 /tmp/probe \
+  "linux-x64=/pfad/zum/bmtools-0.4.0-linux-x64.tar.gz"
+```

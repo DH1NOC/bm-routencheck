@@ -153,7 +153,35 @@ def test_terminal_pruefung_schluckt_fehler(monkeypatch):
     assert pruefung._angebot is None
 
 
-def test_update_ausfuehren_meldet_aktuell(monkeypatch, capsys):
+@pytest.fixture
+def ausgeliefert(tmp_path, monkeypatch):
+    """`--update` tut nur im ausgelieferten Programm überhaupt etwas."""
+    monkeypatch.setattr("bmtools.update.terminal.eigenes_programm",
+                        lambda: tmp_path / "bmtools")
+
+
+def test_update_ausfuehren_verweist_im_quellcode_auf_git(monkeypatch, capsys):
+    """Kein »Bereits aktuell« im Checkout — das wäre schlicht falsch.
+
+    Hier gibt es nichts zu tauschen, also darf auch nicht der Eindruck
+    entstehen, man sei auf dem neuesten Stand (Befund 2026-07-27).
+    """
+    from bmtools.update import terminal
+
+    monkeypatch.setattr("bmtools.update.terminal.eigenes_programm",
+                        lambda: None)
+
+    def nie(**k):
+        raise AssertionError("darf gar nicht erst suchen")
+
+    monkeypatch.setattr("bmtools.update.terminal.ablauf.suche", nie)
+    assert terminal.update_ausfuehren(Console()) == 0
+    ausgabe = capsys.readouterr().out
+    assert "git pull" in ausgabe
+    assert "aktuell" not in ausgabe.lower()
+
+
+def test_update_ausfuehren_meldet_aktuell(monkeypatch, capsys, ausgeliefert):
     from bmtools.update import terminal
 
     monkeypatch.setattr("bmtools.update.terminal.ablauf.suche",
@@ -162,7 +190,8 @@ def test_update_ausfuehren_meldet_aktuell(monkeypatch, capsys):
     assert "aktuell" in capsys.readouterr().out.lower()
 
 
-def test_update_ausfuehren_meldet_fehlschlag_klar(monkeypatch, capsys):
+def test_update_ausfuehren_meldet_fehlschlag_klar(monkeypatch, capsys,
+                                                  ausgeliefert):
     from bmtools.update import terminal
 
     monkeypatch.setattr("bmtools.update.terminal.ablauf.suche",
@@ -201,6 +230,32 @@ def test_bridge_reicht_das_angebot_durch(monkeypatch):
     info = Bridge().suche_update()
     assert info == {"version": "0.4.1", "vorabversion": False,
                     "datei": "bmtools-0.4.1-linux-x64.tar.gz"}
+
+
+def test_angezeigte_version_traegt_die_label_schreibweise(monkeypatch):
+    """Beta-Versionen erreichen die Oberfläche als `0.4.1-beta.2`.
+
+    Intern und beim Vergleichen gilt die PEP-440-Form `0.4.1b2`; auf der
+    Releases-Seite und in jedem Dateinamen steht aber `0.4.1-beta.2`.
+    Zeigte das Programm die interne Form, vergliche ein Tester zwei
+    Schreibweisen desselben Standes und meldete einen Fehler, der keiner
+    ist (Nutzerentscheidung 2026-07-27).
+
+    Der Test hängt an den WEGEN nach draußen, nicht an `version_anzeige`
+    selbst — sonst bliebe er grün, wenn der Aufruf irgendwo herausfällt.
+    """
+    import dataclasses
+
+    from bmtools.gui import einstellungen
+    from bmtools.gui.bridge import Bridge
+
+    beta = dataclasses.replace(angebot("0.4.1b2"), vorabversion=True)
+    monkeypatch.setattr(einstellungen, "laden", lambda: {"update_vorab": True})
+    monkeypatch.setattr(ablauf, "suche", lambda **k: beta)
+
+    info = Bridge().suche_update()
+    assert info is not None and info["version"] == "0.4.1-beta.2"
+    assert "0.4.1-beta.2" in ablauf.hinweis_zeilen(beta)[0]
 
 
 def test_bridge_schluckt_netzfehler(monkeypatch):

@@ -88,8 +88,21 @@ Installer").
 | 2 | Signatur-Infrastruktur: Manifest + Signierschritt in `release.yml`, Abhängigkeiten `cryptography` und `packaging` | **fertig** |
 | 3 | Prüflogik (rein, testbar): Signatur, Versionsvergleich, Artefaktauswahl, Beta-Filter | **fertig** |
 | 4 | Tausch je System hinter einer Test-Naht: Linux `os.replace()`, macOS Bundle + `codesign --verify`, Windows Helfer-Prozess | **fertig** |
-| 5 | Info-Leiste in der GUI, Terminal-Hinweis nach dem Lauf, `--update` | **fertig** (Sichtprüfung durch den Nutzer steht aus) |
-| 6 | Doku und Beta-Zyklus | offen |
+| 5 | Info-Leiste in der GUI, Terminal-Hinweis nach dem Lauf, `--update` | **fertig** (Sichtprüfung abgenommen 2026-07-27) |
+| 6 | Doku und Beta-Zyklus | Doku **fertig**, Beta-Zyklus offen (§5) |
+
+Zu Schritt 6 gehörte ein Befund an der Prüflogik: Der Beta-Filter hing
+am `prerelease`-Flag der GitHub-Antwort — also an einer unbeglaubigten
+Angabe, mitten in einem Verfahren, dessen ganzer Zweck es ist, genau
+solchen Angaben nicht zu trauen. Ein Angreifer hätte damit zwar kein
+Downgrade erzwingen können (die Versionsprüfung stammt aus dem
+Manifest), aber einem Nutzer mit abgeschaltetem Beta-Kanal eine echte
+Vorabversion unterschieben. Die Einstufung kommt jetzt aus der
+Versionsnummer im signierten Manifest
+(`ist_vorabversion()`, `test_beta_erkennung_kommt_aus_dem_manifest`).
+Aufgefallen ist das erst beim Aufschreiben — die Zusicherung „ab hier
+zählt ausschließlich der Manifest-Inhalt" sollte in den PROJEKTPLAN, und
+sie stimmte noch nicht ganz.
 
 ## 4. Fallstricke
 
@@ -110,3 +123,95 @@ Installer").
 - **macOS.** Vor dem Tausch `codesign --verify` auf das entpackte
   Bundle; ein selbst heruntergeladenes Archiv trägt kein
   Quarantäne-Attribut, Gatekeeper prüft also nicht für uns mit.
+
+## 5. Beta-Zyklus
+
+**Vorbedingung, ohne die gar nichts geht:** Das Repository-Secret
+`UPDATE_SIGN_KEY` muss gesetzt sein — sonst bricht der Release-Workflow
+ab (Anleitung: DEVELOPER.md, „Update-Signierung"). Die öffentlichen
+Schlüssel stehen bereits einkompiliert in `bmtools/update/schluessel.py`;
+gebraucht wird der private HAUPT-Schlüssel aus demselben Lauf von
+`packaging/schluessel_erzeugen.py`.
+
+### Warum zwei Betas nötig sind
+
+0.3.0 kennt keinen Updater — von dort führt kein Weg. Erprobbar ist der
+Ablauf erst zwischen zwei Ständen, die ihn beide schon haben: **beta.1
+wird von Hand installiert, beta.2 wird von beta.1 aus eingespielt.** Das
+ist der eigentliche Test; alles davor ist nur die Vorbereitung darauf.
+
+### Ablauf
+
+1. **beta.1 bauen** — Actions → Release → Branch `feature/updater`,
+   Sprung `major` → `v0.4.0-beta.1`. Prüfen, dass der Lauf durchläuft
+   und im Release **`manifest.json` + `manifest.json.sig`** liegen (der
+   Signierschritt ist noch nie gelaufen).
+2. **beta.1 von Hand installieren** — Windows, macOS, Linux. Auf jedem
+   System einmal `--version` aufrufen: Es muss `BM-Routencheck 0.4.0-beta.1`
+   erscheinen. Meldet eines `0+unbekannt`, greift `--copy-metadata`
+   dort nicht und der Updater bliebe stumm.
+3. **Beta-Kanal einschalten** — Fenster, ☰ → *Updates* → „Auch
+   Vorabversionen anbieten". Ohne das bekommt beta.1 nie ein Angebot.
+4. **beta.2 bauen** — derselbe Weg, `v0.4.0-beta.2`.
+5. **Den Sprung durchspielen**, je Plattform:
+   - beta.1 starten → Info-Leiste „Version 0.4.0-beta.2 ist verfügbar
+     (Vorabversion)" erscheint kurz nach dem Fensteraufbau
+   - „Jetzt aktualisieren" → Fortschritt in der Leiste → Neustart
+     (Windows: Hinweis „Tausch beim Beenden", danach beenden)
+   - neue Fassung meldet `--version` = `0.4.0-beta.2`
+   - im Terminal derselbe Weg über `bmtools --update --mit-vorabversionen`
+   - **Solange beta.2 noch angeboten wird**, auch den Fall ohne
+     Schreibrecht prüfen: eine Kopie von beta.1 an einen fremden Ort
+     legen (`sudo cp`, Eigentümer root) und von dort `--update` rufen →
+     Meldung mit Verweis auf die Releases-Seite, **kein**
+     Passwortdialog. Danach ist das Fenster zu — sobald der Client auf
+     beta.2 steht, gibt es kein Angebot mehr, an dem sich das zeigen
+     ließe.
+6. **Rückfallebene prüfen:** Nach dem ersten Tausch liegt neben dem
+   Programm ein `…​.vorher`. Nach dem **nächsten** Start der neuen
+   Fassung muss es verschwunden sein (`beim_start_aufraeumen()` in
+   `packaging/entry.py` — der Einstieg aller drei gebauten Programme).
+7. **Ablehnungen prüfen** — die Fälle, in denen nichts passieren darf:
+   - Beta-Kanal wieder aus → beta.2 bietet nichts mehr an
+   - „Beim Start nach Updates suchen" aus → keine Leiste, keine Anfrage
+     beim Start. `bmtools --update` sucht weiterhin — ein ausdrücklicher
+     Befehl schlägt eine passive Einstellung, das ist kein Befund.
+   - Quellcode-Checkout (`.venv/bin/bmtools --update`) → Verweis auf
+     `git pull`, kein Downloadversuch
+
+### Was danach passiert
+
+Läuft alles durch: von `main` den regulären Release **0.4.0** bauen und
+die Betas samt Tags und Build-Artefakten abräumen (Reihenfolge und
+Befehle in DEVELOPER.md, „Nachbereitung eines Releases"). Danach ist
+dieses Dokument erledigt und wird aufgelöst — die Sicherheits- und
+Betriebsteile stehen dauerhaft in DEVELOPER.md und PROJEKTPLAN §3.
+
+### Text für die Tester (Discord, ohne Markdown-Links)
+
+> **BM-Routencheck 0.4.0-beta.1 — bitte testen**
+>
+> Neu: Das Programm sucht beim Start selbst nach Updates und kann sich
+> auf Knopfdruck ersetzen. Genau das soll diese Runde prüfen.
+>
+> So geht's:
+> 1. beta.1 herunterladen und wie gewohnt starten (einmal noch von Hand).
+> 2. Im Fenster oben rechts auf das Menü, unter „Updates" den Punkt
+>    „Auch Vorabversionen anbieten" einschalten.
+> 3. Programm neu starten. Sobald beta.2 da ist, erscheint oben eine
+>    Leiste „Version … ist verfügbar" — dann bitte auf „Jetzt
+>    aktualisieren" klicken.
+>
+> Bitte meldet mir:
+> - Kam die Leiste? Wie lange hat sie gebraucht?
+> - Lief das Aktualisieren durch, und startete das Programm danach neu?
+> - Zeigt es danach die neue Versionsnummer? Sie steht im Menü unter
+>   „Updates" (im Terminal: ./bmtools --version)
+> - Blieb irgendwo eine Datei mit der Endung .vorher liegen?
+> - Kam eine Warnung von Virenscanner oder System?
+>
+> Wenn etwas schiefgeht: Bitte den genauen Wortlaut der Meldung
+> schicken. Euer installiertes Programm bleibt in dem Fall unverändert
+> — kaputtgehen kann dabei nichts.
+>
+> Downloads: github.com/DH1NOC/bm-routencheck/releases

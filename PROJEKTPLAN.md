@@ -1,6 +1,6 @@
 # BM-Routencheck — Projektplan
 
-Stand: 2026-07-26
+Stand: 2026-07-27
 
 ## 1. Status
 
@@ -51,6 +51,17 @@ gegengetestet) bringt drei Dinge:
   mehrere Dateimanager, bereinigte Kind-Umgebung — und statt Schweigen
   eine Meldung samt Fehlercode.
 
+**In Arbeit — Selbst-Updater** (Branch `feature/updater`, seit
+2026-07-27, wird Featureversion 0.4.0): Die App erkennt neue Releases,
+zeigt im Fenster eine Info-Leiste mit „Jetzt aktualisieren" und ersetzt
+sich am eigenen Ort selbst; im Terminal ein Hinweis nach dem Lauf plus
+`bmtools --update`. Gesichert über ein **signiertes Manifest** gegen zwei
+einkompilierte Ed25519-Schlüssel — MITM auszuschließen war die
+ausdrückliche Anforderung. Die sechs Schritte sind umgesetzt (Plan und
+Begründungen in `UPDATER.md`, Technik in
+[DEVELOPER.md](DEVELOPER.md#selbst-updater)); **der Beta-Zyklus steht
+noch aus** und ist die eigentliche Abnahme — siehe §2.
+
 Nachbereitung erledigt (2026-07-26): Beta-Releases samt Tags gelöscht,
 `feature/einzelrelais-sichtfeld` lokal und auf origin entfernt,
 Build-Artefakte der Betas abgeräumt (dabei auch die liegengebliebenen
@@ -67,6 +78,20 @@ GUI-Umbau G0–G5 und U0–U9 samt Konzept und Nutzerfestlegungen in der von
 
 ## 2. Offene Punkte
 
+- [ ] **Updater — Secret `UPDATE_SIGN_KEY` hinterlegen (blockiert jedes
+      weitere Release):** Der Release-Workflow bricht ohne dieses Secret
+      ab, auch bei einem unabhängigen Hotfix von `main`. Der private
+      HAUPT-Schlüssel gehört als Repository-Secret hinterlegt *und*
+      offline gesichert, der RESERVE-Schlüssel ausschließlich offline
+      (Anleitung: DEVELOPER.md, „Update-Signierung"). Die öffentlichen
+      Gegenstücke sind bereits einkompiliert.
+- [ ] **Updater — Beta-Zyklus (die eigentliche Abnahme):** Der
+      Update-Weg ist erst zwischen zwei Builds erprobbar, die den
+      Updater beide schon haben — 0.3.0 hat ihn nicht. Also: `beta.1`
+      bauen, auf allen drei Systemen von Hand installieren, Beta-Kanal
+      einschalten, `beta.2` bauen und den Sprung beta.1 → beta.2
+      durchspielen. Checkliste in `UPDATER.md` §5. Solange das nicht
+      gelaufen ist, gilt nichts davon als getestet („Kein Try&Error").
 - [ ] **M5 — AnyTone AT-D890UV (ruht):** Der Codeplug-Export in
       `bmtools/routelib/codeplug/anytone.py` nutzt das D878UV-Spaltenlayout
       als Arbeitsannahme; das CSV-Layout des D890UV ist nicht gesichert
@@ -119,6 +144,9 @@ Projektprinzipien:
 | Karte GUI ↔ karte.html | Beide Karten zeigen dasselbe und werden aus denselben Helfern in `routelib/mapview.py` gespeist (`karten_daten` ↔ `write_map`); Legenden-Wortlaut und -Farben stehen einmal in Python (`_legende_infos`, `_feld_legende`), nie doppelt in JS. Auch die Bedienung ist gleich: Marker-Klick zeigt nur dessen Sichtfeld, Zweitklick/`Esc`/Legendenknopf führen zurück |
 | Fortschrittsanzeige | Lange Pipeline-Schritte (FM-Stützpunkte, Erreichbarkeit inkl. Höhenkacheln, Karten-Sichtfelder) zeigen `ui.fortschritt()` (rich-Balken mit X/Y, Prozent); die ETA-Spalte blendet erst ab > 10 s geschätzter Restzeit ein und bleibt danach bis zum Abschluss stehen (Nutzerwunsch 2026-07-17) |
 | UI-freie Bibliotheksschichten | `bm_api`/`fm_api`/`routelib` importieren nichts aus `ui.py`; Fortschritt wird über optionale `(fertig, gesamt)`-Callbacks nach außen gereicht, die Pipeline hängt daran die Balken |
+| Updates nur signiert | **MITM muss ausgeschlossen sein** (Nutzeranforderung 2026-07-27) — HTTPS allein leistet das nicht. Signiert wird ein **Manifest** (Version + Dateiname + SHA256 je Plattform), nicht das einzelne Artefakt: Sonst bliebe Replay offen, eine ältere echt signierte Fassung ließe sich als „neu" ausgeben. Die Reihenfolge ist der Schutz und darf nicht umgestellt werden — GitHub-Antwort ist **nur ein Hinweis, wo zu suchen ist**; ab `pruefe_manifest()` zählt ausschließlich der Manifest-Inhalt, **auch für die Beta-Frage** (das `prerelease`-Flag der API ist unbeglaubigt und darf keinem Nutzer den Kanal umstellen). Downgrade wird immer abgelehnt, `0+unbekannt` als eigene Version heißt schweigen statt raten. Zwei einkompilierte Schlüsselplätze (HAUPT + RESERVE), weil Rotation nachträglich unmöglich ist; RESERVE-Privatschlüssel nur offline. Bewusst akzeptiert: Wer Schreibrechte aufs Repo hat, kann gültig signieren |
+| Updates ohne Elevation | Kein Administrator-Dialog, nie (passt zu „keine Installer"). Fehlt das Schreibrecht am enthaltenden Ordner, wird **früh** abgebrochen — vor dem Download — und auf die Releases-Seite verwiesen, statt einen halben Tausch zu wagen. Kein Angebot bei Quellcode-Installation (dort `git pull`) und keins auf Intel-Macs, für die bewusst kein Binary gebaut wird. Die alte Fassung bleibt als `<name>.vorher` liegen, bis die neue **einmal gestartet** ist. Beta-Kanal ist eine Einstellung mit **Vorgabe aus**; die Prüfung läuft bei jedem Start im Hintergrund und verzögert ihn nie (Festlegungen 2026-07-27) |
+| Versions-Schreibweise | **Verglichen wird PEP 440 (`0.4.0b1`), angezeigt die Label-Form (`0.4.0-beta.1`)** — also die, die auch im Tag, auf der Releases-Seite und in jedem Dateinamen steht. Wer beides nebeneinander sieht, hält es sonst für zwei Stände und meldet einen Fehler, der keiner ist. Die Umschrift macht `version_anzeige()` und ausschließlich zur Anzeige; `ist_neuer()`/`ist_vorabversion()` arbeiten weiter auf der PEP-440-Form. Der Rauchtest in `release.yml` vergleicht deshalb gegen `label` (Nutzerentscheidung 2026-07-27) |
 | Doku-Trennung | `README.md` richtet sich an Endnutzer (Download, Bedienung, Ausgaben); Technik (Architektur, QS, Cache-Interna, Release-Prozess) steht in `DEVELOPER.md` — beide verweisen aufeinander (Nutzerfestlegung 2026-07-17) |
 
 Fachliche Regeln (dürfen bei Änderungen nicht regressieren):

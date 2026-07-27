@@ -117,6 +117,21 @@ def test_beta_nur_wenn_gewuenscht(signierer, linux):
     assert angebot is not None and angebot.vorabversion
 
 
+def test_beta_erkennung_kommt_aus_dem_manifest(signierer, linux):
+    """Die Kanalwahl gehört dem Nutzer, nicht dem Netzweg.
+
+    Hier lügt die GitHub-Antwort: `prerelease: false` auf einer echten,
+    korrekt signierten Beta. Käme die Einstufung von dort, bekäme ein
+    Nutzer mit abgeschaltetem Beta-Kanal sie untergeschoben.
+    """
+    releases = [("v0.4.1-beta.1", "0.4.1b1", False)]   # gelogenes Flag
+    with fake_api(releases, signierer) as c:
+        assert p.suche_update(client=c) is None
+    with fake_api(releases, signierer) as c:
+        angebot = p.suche_update(mit_vorabversionen=True, client=c)
+    assert angebot is not None and angebot.vorabversion
+
+
 def test_neuestes_gewinnt(signierer, linux):
     with fake_api([("v0.4.1", "0.4.1", False),
                    ("v0.5.0", "0.5.0", False),

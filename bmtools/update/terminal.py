@@ -15,8 +15,11 @@ import threading
 
 from rich.console import Console
 
+from bmtools.version import version_anzeige
+
 from . import ablauf
 from .pruefen import Angebot
+from .ziel import eigenes_programm
 
 
 class Hintergrundpruefung:
@@ -55,6 +58,16 @@ class Hintergrundpruefung:
 def update_ausfuehren(console: Console, *,
                       mit_vorabversionen: bool = False) -> int:
     """`bmtools --update`: suchen, laden, tauschen, neu starten."""
+    # Zuerst der Fall, der gar keiner ist: Aus dem Quellcode gestartet
+    # gibt es nichts zu tauschen. Ohne diese Abfrage liefe man in
+    # suche() -> None und bekäme „Bereits aktuell" zu lesen — eine
+    # Auskunft, die hier schlicht nicht stimmt.
+    if eigenes_programm() is None:
+        console.print("Das läuft aus dem Quellcode — hier aktualisiert "
+                      "[bold]git pull[/bold] (danach ggf. "
+                      "[bold]pip install -e .[/bold]).")
+        return 0
+
     console.print("Suche nach Updates …")
     try:
         angebot = ablauf.suche(mit_vorabversionen=mit_vorabversionen)
@@ -81,7 +94,8 @@ def update_ausfuehren(console: Console, *,
             console.print("Die installierte Version ist unverändert.")
             return 1
 
-    console.print(f"[green]Aktualisiert auf {angebot.version}.[/green]")
+    console.print(f"[green]Aktualisiert auf "
+                  f"{version_anzeige(angebot.version)}.[/green]")
     if sofort:
         console.print("Beim nächsten Start läuft die neue Fassung.")
     else:

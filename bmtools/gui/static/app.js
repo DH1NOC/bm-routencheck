@@ -7,6 +7,7 @@
 let aktiverModus = "bahn";
 let laufAktiv = false;
 let einstellungen = {};  // persistiert über die Bridge (gui.json)
+let installierteVersion = "";  // aus init_zustand, fürs Menü
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -937,6 +938,12 @@ async function oeffneMenue() {
    Theme-Wahl). Vorgabe: prüfen JA, Vorabversionen NEIN
    (Nutzerfestlegung 2026-07-27). */
 function zeigeUpdateHaken() {
+  // "0+unbekannt" ist der Fall ohne Paket-Metadaten — dann entscheidet
+  // der Updater bewusst gar nichts, und das gehört auch so dazustehen.
+  $("#menue-version").textContent =
+    !installierteVersion || installierteVersion.startsWith("0+")
+      ? "Version unbekannt — keine Update-Prüfung"
+      : "Version " + installierteVersion;
   $("#menue-update-pruefen").classList.toggle(
     "aktiv", einstellungen.update_pruefen !== false);
   $("#menue-update-vorab").classList.toggle(
@@ -1218,6 +1225,7 @@ window.bmEreignis = (e) => {
 window.addEventListener("pywebviewready", async () => {
   const z = await window.pywebview.api.init_zustand();
   einstellungen = z.einstellungen || {};
+  installierteVersion = z.version || "";
   setzeTheme(einstellungen.theme || "system", false);
   zeigeUpdateHaken();
   waehleModus(z.tab || "bahn");
