@@ -6,7 +6,9 @@ auspacken. Ein Archiv, dessen Prüfsumme nicht stimmt, wird nie geöffnet.
 """
 from __future__ import annotations
 
+import os
 import shutil
+import stat
 import tarfile
 import zipfile
 from collections.abc import Callable
@@ -38,6 +40,50 @@ def _sicherer_pfad(ziel: Path, name: str) -> Path:
     if not aufgeloest.is_relative_to(ziel.resolve()):
         raise LadeFehler(f"Archiv-Eintrag zeigt aus dem Ordner heraus: {name!r}")
     return aufgeloest
+
+
+def _linkziel_pruefen(eintrag: Path, linkziel: str, wurzel: Path) -> None:
+    """Symlink-Ziel muss innerhalb des Auspack-Ordners bleiben.
+
+    Rein lexikalisch geprüft (normpath statt resolve): Beim Prüfen ist
+    noch nichts ausgepackt, und da JEDES Linkziel im Ordner bleiben
+    muss, kann auch eine Kette von Verknüpfungen nicht hinausführen.
+    """
+    if Path(linkziel).is_absolute():
+        raise LadeFehler(f"Verknüpfung mit absolutem Ziel: {linkziel!r}")
+    aufgeloest = Path(os.path.normpath(eintrag.parent / linkziel))
+    if not aufgeloest.is_relative_to(wurzel.resolve()):
+        raise LadeFehler(
+            f"Verknüpfung zeigt aus dem Ordner heraus: {linkziel!r}")
+
+
+def _zip_auspacken(z: zipfile.ZipFile, nach: Path) -> None:
+    """extractall-Ersatz, der Symlinks als Symlinks auspackt.
+
+    `zipfile.extractall` macht aus einem Symlink eine reguläre Datei
+    mit dem Linkziel als Inhalt. Das .app-Bundle enthält aber Symlinks
+    (Frameworks) — so entpackt wäre seine Signatur zerstört, codesign
+    lehnte ab und jedes macOS-Update bräche folgenlos ab. Deshalb
+    selbst auspacken: Symlinks bleiben Symlinks (Ziele geprüft, gleiche
+    Tiefenverteidigung wie beim Zip-Slip), Dateirechte aus dem Archiv
+    bleiben erhalten (ditto packt sie beim Bauen mit ein).
+    """
+    for eintrag in z.infolist():
+        pfad = _sicherer_pfad(nach, eintrag.filename)
+        modus = eintrag.external_attr >> 16
+        if stat.S_ISLNK(modus):
+            linkziel = z.read(eintrag).decode("utf-8", errors="replace")
+            _linkziel_pruefen(pfad, linkziel, nach)
+            pfad.parent.mkdir(parents=True, exist_ok=True)
+            pfad.symlink_to(linkziel)
+        elif eintrag.is_dir():
+            pfad.mkdir(parents=True, exist_ok=True)
+        else:
+            pfad.parent.mkdir(parents=True, exist_ok=True)
+            with z.open(eintrag) as quelle, pfad.open("wb") as datei:
+                shutil.copyfileobj(quelle, datei)
+            if stat.S_IMODE(modus):
+                pfad.chmod(stat.S_IMODE(modus))
 
 
 def hole(angebot: Angebot, nach: Path,
@@ -90,15 +136,17 @@ def packe_aus(archiv: Path, nach: Path, plattform: str) -> Path:
     if plattform == MACOS:
         try:
             with zipfile.ZipFile(archiv) as z:
-                for eintrag in z.namelist():
-                    _sicherer_pfad(nach, eintrag)
-                z.extractall(nach)
+                _zip_auspacken(z, nach)
         except (zipfile.BadZipFile, OSError) as e:
             raise LadeFehler(f"ZIP nicht lesbar: {e}") from e
-        bundles = sorted(nach.glob("*.app"))
+        # Nur echte Ordner: ditto legt neben das Bundle AppleDouble-
+        # DATEIEN wie »._BM-Routencheck.app«, und »._« sortiert vor
+        # jedem Buchstaben — glob allein erwischte zuverlässig die
+        # falsche (Befund 2026-07-27, ditto-Probelauf).
+        bundles = sorted(p for p in nach.glob("*.app") if p.is_dir())
         if not bundles:
             raise LadeFehler("Kein .app-Bundle im Archiv")
-        # ZIP erhält das Ausführbar-Bit nicht zuverlässig
+        # Netz für ZIPs ohne Rechte-Einträge (Fremd-Werkzeuge)
         binaer = bundles[0] / "Contents" / "MacOS" / "BM-Routencheck"
         if binaer.is_file():
             binaer.chmod(0o755)

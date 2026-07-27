@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import io
 import os
+import stat
 import tarfile
 import zipfile
 
@@ -101,6 +102,66 @@ def test_macos_bundle_wird_gefunden(tmp_path):
         zf.writestr("BM-Routencheck.app/Contents/MacOS/BM-Routencheck", "x")
     neu = ld.packe_aus(archiv, tmp_path / "ziel", z.MACOS)
     assert neu.name == "BM-Routencheck.app"
+
+
+def _symlink_eintrag(name: str, linkziel: str) -> tuple[zipfile.ZipInfo, str]:
+    info = zipfile.ZipInfo(name)
+    info.external_attr = (stat.S_IFLNK | 0o755) << 16
+    return info, linkziel
+
+
+def test_macos_symlinks_bleiben_symlinks(tmp_path):
+    """ditto packt die Framework-Symlinks des Bundles mit ein;
+    zipfile.extractall machte daraus reguläre Dateien mit dem Linkziel
+    als Inhalt — die Bundle-Signatur wäre zerstört gewesen und codesign
+    hätte jedes macOS-Update abgelehnt (Befund 2026-07-27). Dateirechte
+    aus dem Archiv bleiben ebenfalls erhalten."""
+    archiv = tmp_path / "gut.zip"
+    with zipfile.ZipFile(archiv, "w") as zf:
+        binaer = zipfile.ZipInfo("BM-Routencheck.app/Contents/MacOS/"
+                                 "BM-Routencheck")
+        binaer.external_attr = (stat.S_IFREG | 0o755) << 16
+        zf.writestr(binaer, "x")
+        zf.writestr(*_symlink_eintrag(
+            "BM-Routencheck.app/Contents/Frameworks/Aktuell",
+            "../MacOS/BM-Routencheck"))
+    neu = ld.packe_aus(archiv, tmp_path / "ziel", z.MACOS)
+    link = neu / "Contents" / "Frameworks" / "Aktuell"
+    assert link.is_symlink()
+    assert os.readlink(link) == "../MacOS/BM-Routencheck"
+    assert os.access(neu / "Contents" / "MacOS" / "BM-Routencheck", os.X_OK)
+
+
+def test_appledouble_datei_wird_nicht_mit_dem_bundle_verwechselt(tmp_path):
+    """ditto legt neben das Bundle eine AppleDouble-DATEI
+    »._BM-Routencheck.app«, und »._« sortiert vor jedem Buchstaben —
+    glob allein wählte zuverlässig die falsche (ditto-Probelauf
+    2026-07-27). Das Bundle ist ein Ordner, die Attrappe nicht."""
+    archiv = tmp_path / "gut.zip"
+    with zipfile.ZipFile(archiv, "w") as zf:
+        zf.writestr("._BM-Routencheck.app", "AppleDouble-Metadaten")
+        zf.writestr("BM-Routencheck.app/Contents/MacOS/BM-Routencheck", "x")
+    neu = ld.packe_aus(archiv, tmp_path / "ziel", z.MACOS)
+    assert neu.name == "BM-Routencheck.app"
+    assert neu.is_dir()
+
+
+def test_zip_verknuepfung_nach_draussen_wird_abgelehnt(tmp_path):
+    """Symlinks dürfen bleiben — aber nur mit Ziel INNERHALB des
+    Auspack-Ordners (dieselbe Tiefenverteidigung wie beim Zip-Slip)."""
+    archiv = tmp_path / "boese.zip"
+    with zipfile.ZipFile(archiv, "w") as zf:
+        zf.writestr(*_symlink_eintrag("App.app/link", "../../draussen"))
+    with pytest.raises(ld.LadeFehler, match="heraus"):
+        ld.packe_aus(archiv, tmp_path / "ziel", z.MACOS)
+
+
+def test_zip_verknuepfung_mit_absolutem_ziel_wird_abgelehnt(tmp_path):
+    archiv = tmp_path / "boese.zip"
+    with zipfile.ZipFile(archiv, "w") as zf:
+        zf.writestr(*_symlink_eintrag("App.app/link", "/etc/passwd"))
+    with pytest.raises(ld.LadeFehler, match="absolut"):
+        ld.packe_aus(archiv, tmp_path / "ziel", z.MACOS)
 
 
 def test_archiv_ohne_programm(tmp_path):
