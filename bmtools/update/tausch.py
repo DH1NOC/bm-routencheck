@@ -159,7 +159,9 @@ def _helfer_starten(skript: Path, ziel: Path, neu: Path, alt: Path) -> None:
     CREATE_NO_WINDOW gibt cmd eine eigene (unsichtbare) Konsole; der
     Prozess überlebt unser Ende, genau dafür ist er da.
     """
-    umgebung = {**os.environ,
+    # _saubere_umgebung: Die vom Helfer gestartete neue Exe darf den
+    # Bootloader-Zustand unseres Prozesses nicht erben (siehe dort).
+    umgebung = {**_saubere_umgebung(),
                 "BM_UPDATE_PID": str(os.getpid()),
                 "BM_UPDATE_ZIEL": str(ziel),
                 "BM_UPDATE_NEU": str(neu),
@@ -232,24 +234,52 @@ def ersetze(ziel: Path, neu: Path) -> bool:
     return True
 
 
+def _saubere_umgebung() -> dict[str, str]:
+    """Umgebung ohne die Laufzeitvariablen des PyInstaller-Bootloaders.
+
+    Der Onefile-Bootloader hinterlegt _MEI…/_PYI…-Variablen für seinen
+    eigenen Kindprozess. Erbt die neu gestartete Fassung sie, hält ihr
+    Bootloader sich für bereits entpackt und hängt am Auspack-Ordner
+    des ALTEN Prozesses — der beim Beenden gelöscht wird. Je nach
+    Rennen fehlen dann »nur« die Paket-Metadaten (Version unbekannt,
+    Updater bliebe stumm) oder die neue Fassung stirbt beim Start
+    (beide Ausgänge beobachtet: Beta-Befunde 2026-07-27, Linux
+    beta.3→beta.4). LD_LIBRARY_PATH verbiegt der Bootloader ebenfalls;
+    den Originalwert bewahrt er in LD_LIBRARY_PATH_ORIG auf.
+    """
+    umgebung = {name: wert for name, wert in os.environ.items()
+                if not name.startswith(("_MEI", "_PYI"))}
+    original = umgebung.pop("LD_LIBRARY_PATH_ORIG", None)
+    if original:
+        umgebung["LD_LIBRARY_PATH"] = original
+    elif getattr(sys, "frozen", False):
+        umgebung.pop("LD_LIBRARY_PATH", None)
+    return umgebung
+
+
 def neu_starten(ziel: Path) -> None:
     """Die frisch getauschte Fassung starten und uns beenden.
 
-    macOS: NICHT direkt `open` rufen. Solange wir leben, sieht
-    LaunchServices unsere Bundle-ID als laufend und AKTIVIERT nur die
-    alte Instanz, statt die neue zu starten — die Selbst-Aktivierung
-    mitten im Fenster-Abbau ließ die App bei »Neustart …« einfrieren
-    (Beta-Befund 2026-07-27, beta.1→beta.2). Ein abgekoppelter
-    sh-Helfer wartet deshalb auf unser Prozessende; erst dann startet
-    `open` wirklich die neue Fassung.
+    Nie direkt starten — ein abgekoppelter sh-Helfer wartet erst auf
+    unser Prozessende, mit bereinigter Umgebung:
+
+    * macOS — `open` auf das eigene Bundle startet nichts, solange die
+      alte Instanz lebt: LaunchServices sieht die Bundle-ID als laufend
+      und AKTIVIERT sie nur (Beta-Befund 2026-07-27: Fenster fror bei
+      »Neustart …« ein).
+    * Linux — die neue Fassung muss vollständig unabhängig vom
+      sterbenden Prozess sein: bereinigte Umgebung gegen den geerbten
+      Bootloader-Zustand (_saubere_umgebung) und Warten auf unser
+      Ende, damit sich die Instanzen nicht überlappen.
     """
     if sys.platform == "darwin" and ziel.suffix == ".app":
-        befehl = (f"while kill -0 {os.getpid()} 2>/dev/null; "
-                  f"do sleep 0.2; done; open {shlex.quote(str(ziel))}")
-        subprocess.Popen(["/bin/sh", "-c", befehl],
-                         start_new_session=True,
-                         stdin=subprocess.DEVNULL,
-                         stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL)
+        start = f"open {shlex.quote(str(ziel))}"
     else:
-        subprocess.Popen([str(ziel)], close_fds=True)
+        start = f"exec {shlex.quote(str(ziel))}"
+    befehl = (f"while kill -0 {os.getpid()} 2>/dev/null; "
+              f"do sleep 0.2; done; {start}")
+    subprocess.Popen(["/bin/sh", "-c", befehl],
+                     start_new_session=True, env=_saubere_umgebung(),
+                     stdin=subprocess.DEVNULL,
+                     stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL)

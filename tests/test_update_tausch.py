@@ -409,13 +409,55 @@ def test_macos_neustart_wartet_auf_unser_ende(tmp_path, monkeypatch):
     assert kwargs.get("start_new_session") is True   # überlebt unser Ende
 
 
-def test_linux_neustart_startet_direkt(tmp_path, monkeypatch):
-    """Ohne LaunchServices gibt es nichts zu umschiffen: Das neue
-    Binary wird schlicht gestartet."""
+def test_linux_neustart_wartet_und_startet_direkt(tmp_path, monkeypatch):
+    """Auch Linux wartet auf unser Ende: Die neue Fassung darf sich
+    nicht mit dem sterbenden Prozess überlappen (Beta-Befund
+    2026-07-27, zweiter Lauf: App weg, kein Neustart). Gestartet wird
+    das Binary selbst, nicht `open`."""
     monkeypatch.setattr("bmtools.update.tausch.sys.platform", "linux")
     laeufe = []
     monkeypatch.setattr("bmtools.update.tausch.subprocess.Popen",
-                        lambda argv, **kwargs: laeufe.append(argv))
+                        lambda argv, **kwargs: laeufe.append((argv, kwargs)))
     ziel = tmp_path / "bmtools"
     t.neu_starten(ziel)
-    assert laeufe == [[str(ziel)]]
+    argv, kwargs = laeufe[0]
+    assert argv[:2] == ["/bin/sh", "-c"]
+    assert f"kill -0 {os.getpid()}" in argv[2]
+    assert str(ziel) in argv[2] and "open " not in argv[2]
+    assert kwargs.get("start_new_session") is True
+
+
+def test_neustart_erbt_keinen_bootloader_zustand(tmp_path, monkeypatch):
+    """Die _MEI…/_PYI…-Variablen des Onefile-Bootloaders dürfen NICHT
+    an die neue Fassung vererbt werden: Ihr Bootloader hielte sich für
+    bereits entpackt und hinge am Auspack-Ordner des alten Prozesses —
+    der beim Beenden verschwindet. Beide beobachteten Ausgänge (Version
+    »unbekannt« bzw. Absturz beim Start) haben dieselbe Wurzel
+    (Beta-Befunde 2026-07-27, Linux beta.3→beta.4)."""
+    monkeypatch.setattr("bmtools.update.tausch.sys.platform", "linux")
+    monkeypatch.setenv("_MEIPASS2", str(tmp_path / "_MEI_alt"))
+    monkeypatch.setenv("_PYI_PARENT_PROCESS_LEVEL", "1")
+    monkeypatch.setenv("LD_LIBRARY_PATH", str(tmp_path / "_MEI_alt"))
+    monkeypatch.setenv("LD_LIBRARY_PATH_ORIG", "/usr/lib/eigen")
+    monkeypatch.setenv("HOME", "/home/tester")
+    laeufe = []
+    monkeypatch.setattr("bmtools.update.tausch.subprocess.Popen",
+                        lambda argv, **kwargs: laeufe.append(kwargs))
+    t.neu_starten(tmp_path / "bmtools")
+    umgebung = laeufe[0]["env"]
+    assert "_MEIPASS2" not in umgebung
+    assert "_PYI_PARENT_PROCESS_LEVEL" not in umgebung
+    assert umgebung["LD_LIBRARY_PATH"] == "/usr/lib/eigen"  # Original zurück
+    assert "LD_LIBRARY_PATH_ORIG" not in umgebung
+    assert umgebung["HOME"] == "/home/tester"      # Rest bleibt erhalten
+
+
+def test_windows_helfer_erbt_keinen_bootloader_zustand(windows, monkeypatch):
+    """Dieselbe Wurzel wie unter Linux: Die vom Helfer gestartete neue
+    Exe darf den Bootloader-Zustand unseres Prozesses nicht erben."""
+    monkeypatch.setenv("_PYI_ARCHIVE_FILE", r"C:\alt\BM-Routencheck.exe")
+    ziel, neu, laeufe = windows
+    t.ersetze(ziel, neu)
+    _, umgebung = laeufe[0]
+    assert "_PYI_ARCHIVE_FILE" not in umgebung
+    assert umgebung["BM_UPDATE_ZIEL"] == str(ziel)   # Nutzdaten bleiben
