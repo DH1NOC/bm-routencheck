@@ -142,6 +142,13 @@ sie stimmte noch nicht ganz.
   deshalb vom selben Apple-Team stammen wie das laufende
   (`_team_id()`; Referenz ist das laufende Bundle, kein
   einkompiliertes Team).
+- **macOS-Neustart.** `open` auf das eigene Bundle startet NICHTS,
+  solange die alte Instanz noch lebt: LaunchServices sieht die
+  Bundle-ID als laufend und aktiviert sie nur. Zusammen mit einem
+  `destroy()` mitten im eigenen Bridge-Aufruf fror das Fenster bei
+  »Neustart …« ein (Beta-Befund 2026-07-27, beta.1→beta.2). Deshalb:
+  sh-Helfer wartet auf unser Prozessende und ruft `open` erst danach;
+  `destroy()` läuft nachgelagert, nie synchron im Bridge-Aufruf.
 - **zipfile zerstört Symlinks.** `extractall` macht aus einem Symlink
   eine reguläre Datei mit dem Linkziel als Inhalt — das Bundle enthält
   Symlinks, codesign hätte danach jedes Update abgelehnt. Deshalb

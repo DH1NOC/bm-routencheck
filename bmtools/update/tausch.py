@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -232,8 +233,23 @@ def ersetze(ziel: Path, neu: Path) -> bool:
 
 
 def neu_starten(ziel: Path) -> None:
-    """Die frisch getauschte Fassung starten und uns beenden."""
+    """Die frisch getauschte Fassung starten und uns beenden.
+
+    macOS: NICHT direkt `open` rufen. Solange wir leben, sieht
+    LaunchServices unsere Bundle-ID als laufend und AKTIVIERT nur die
+    alte Instanz, statt die neue zu starten — die Selbst-Aktivierung
+    mitten im Fenster-Abbau ließ die App bei »Neustart …« einfrieren
+    (Beta-Befund 2026-07-27, beta.1→beta.2). Ein abgekoppelter
+    sh-Helfer wartet deshalb auf unser Prozessende; erst dann startet
+    `open` wirklich die neue Fassung.
+    """
     if sys.platform == "darwin" and ziel.suffix == ".app":
-        subprocess.Popen(["open", str(ziel)])
+        befehl = (f"while kill -0 {os.getpid()} 2>/dev/null; "
+                  f"do sleep 0.2; done; open {shlex.quote(str(ziel))}")
+        subprocess.Popen(["/bin/sh", "-c", befehl],
+                         start_new_session=True,
+                         stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL)
     else:
         subprocess.Popen([str(ziel)], close_fds=True)

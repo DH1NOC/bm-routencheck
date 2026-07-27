@@ -389,3 +389,33 @@ def test_macos_ohne_eigenes_team_nur_unversehrtheit(macos, monkeypatch):
     monkeypatch.setattr("bmtools.update.tausch.subprocess.run",
                         _codesign_attrappe({str(neu): "TEAM1234"}))
     assert t.ersetze(ziel, neu) is True
+
+
+def test_macos_neustart_wartet_auf_unser_ende(tmp_path, monkeypatch):
+    """`open` direkt würde nur die noch laufende alte Instanz
+    AKTIVIEREN (gleiche Bundle-ID), statt die neue zu starten — das
+    Fenster fror bei »Neustart …« ein (Beta-Befund 2026-07-27,
+    beta.1→beta.2). Der Helfer wartet deshalb erst auf unser Ende."""
+    monkeypatch.setattr("bmtools.update.tausch.sys.platform", "darwin")
+    laeufe = []
+    monkeypatch.setattr("bmtools.update.tausch.subprocess.Popen",
+                        lambda argv, **kwargs: laeufe.append((argv, kwargs)))
+    ziel = tmp_path / "BM-Routencheck.app"
+    t.neu_starten(ziel)
+    argv, kwargs = laeufe[0]
+    assert argv[:2] == ["/bin/sh", "-c"]
+    assert f"kill -0 {os.getpid()}" in argv[2]       # wartet auf uns
+    assert "open " in argv[2] and str(ziel) in argv[2]   # dann erst starten
+    assert kwargs.get("start_new_session") is True   # überlebt unser Ende
+
+
+def test_linux_neustart_startet_direkt(tmp_path, monkeypatch):
+    """Ohne LaunchServices gibt es nichts zu umschiffen: Das neue
+    Binary wird schlicht gestartet."""
+    monkeypatch.setattr("bmtools.update.tausch.sys.platform", "linux")
+    laeufe = []
+    monkeypatch.setattr("bmtools.update.tausch.subprocess.Popen",
+                        lambda argv, **kwargs: laeufe.append(argv))
+    ziel = tmp_path / "bmtools"
+    t.neu_starten(ziel)
+    assert laeufe == [[str(ziel)]]

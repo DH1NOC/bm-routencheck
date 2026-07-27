@@ -268,6 +268,40 @@ def test_angezeigte_version_traegt_die_label_schreibweise(monkeypatch):
     assert "0.4.1-beta.2" in ablauf.hinweis_zeilen(beta)[0]
 
 
+def test_bridge_zerstoert_das_fenster_nicht_im_eigenen_aufruf(monkeypatch):
+    """destroy() mitten im Bridge-Aufruf riss die WKWebView ab, bevor
+    sie die Antwort auf genau diesen Aufruf liefern konnte — das
+    Fenster fror bei »Neustart …« ein (Beta-Befund 2026-07-27, macOS).
+    Der Abriss muss nachgelagert laufen, nie synchron."""
+    import threading
+
+    from bmtools.gui.bridge import Bridge
+
+    monkeypatch.setattr(ablauf, "neustart", lambda: None)
+    geplant = []
+
+    class TimerAttrappe:
+        def __init__(self, wartezeit, funktion):
+            geplant.append((wartezeit, funktion))
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(threading, "Timer", TimerAttrappe)
+
+    class Fenster:
+        def destroy(self):
+            pytest.fail("destroy() lief synchron im Bridge-Aufruf")
+
+    bridge = Bridge()
+    bridge._fenster = Fenster()
+    bridge.neustart_nach_update()
+    assert len(geplant) == 1
+    wartezeit, funktion = geplant[0]
+    assert funktion == bridge._fenster.destroy    # DER Abriss, nur später
+    assert wartezeit > 0
+
+
 def test_bridge_schluckt_netzfehler(monkeypatch):
     from bmtools.gui import einstellungen
     from bmtools.gui.bridge import Bridge

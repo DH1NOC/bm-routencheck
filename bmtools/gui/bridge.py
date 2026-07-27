@@ -171,11 +171,21 @@ class Bridge:
                 "sofort": sofort}
 
     def neustart_nach_update(self) -> None:
-        """Neue Fassung starten und das Fenster schließen."""
+        """Neue Fassung starten und das Fenster schließen.
+
+        destroy() läuft NICHT synchron in diesem Bridge-Aufruf: Die
+        WKWebView schuldet dem Frontend noch die Antwort auf genau
+        diesen Aufruf — der Abriss mittendrin ließ das Fenster bei
+        »Neustart …« einfrieren (Beta-Befund 2026-07-27, macOS). Erst
+        antworten, dann nachgelagert zerstören; der Neustart-Helfer
+        wartet ohnehin auf unser Prozessende.
+        """
+        import threading
+
         from bmtools.update.ablauf import neustart
         neustart()
         if self._fenster is not None:
-            self._fenster.destroy()
+            threading.Timer(0.5, self._fenster.destroy).start()
 
     def setze_einstellung(self, name: str, wert: Any) -> None:
         """Einstellung persistieren (U5: Splitter; U6: Theme) — statt
