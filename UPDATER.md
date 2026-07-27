@@ -60,7 +60,21 @@ nie bei GitHub.
 hat, kann gültig signieren. Gegen MITM schützt das Verfahren
 vollständig, gegen ein übernommenes GitHub-Konto nicht. Der Nutzer hat
 diesen Kompromiss gewählt (2026-07-27); die Alternative wäre lokales
-Signieren mit einem manuellen Schritt je Release.
+Signieren mit einem manuellen Schritt je Release. Der Rettungsweg bei
+Kompromittierung des Hauptschlüssels ist der RESERVE-Schlüssel
+(offline): ein mit ihm signiertes Release wird von allen Clients
+angenommen und kompiliert neue Schlüssel ein.
+
+**Zweites akzeptiertes Restrisiko: kein Widerruf, kein Ablaufdatum.**
+Ein einmal signiertes Manifest bleibt für immer gültig. Wer die
+Release-Antworten kontrolliert (dieselbe MITM-Position wie oben), kann
+Clients deshalb eine ältere, echt signierte Version dauerhaft als
+„neueste" vorsetzen, solange sie neuer als die installierte ist — und
+so das Ausrollen eines Sicherheitsfixes verzögern (Freeze-Angriff).
+Ein Downgrade bleibt ausgeschlossen; das Fenster ist nur „Fix
+vorenthalten". Frische ließe sich allein mit Ablaufdaten im Manifest
+und regelmäßigem Neusignieren erzwingen (TUF-Territorium) — für die
+Größe dieses Projekts bewusst nicht gebaut.
 
 **Kein Zertifikats-Pinning** — GitHub rotiert seine CAs, das wäre nur
 eine zusätzliche Bruchstelle. Die Signatur ist der Schutz.
@@ -123,6 +137,19 @@ sie stimmte noch nicht ganz.
 - **macOS.** Vor dem Tausch `codesign --verify` auf das entpackte
   Bundle; ein selbst heruntergeladenes Archiv trägt kein
   Quarantäne-Attribut, Gatekeeper prüft also nicht für uns mit.
+  Dazu der **Team-Anker** (Härtung 2026-07-27): `--verify` allein
+  nimmt jede intakte Signatur an, auch ad-hoc — das neue Bundle muss
+  deshalb vom selben Apple-Team stammen wie das laufende
+  (`_team_id()`; Referenz ist das laufende Bundle, kein
+  einkompiliertes Team).
+- **zipfile zerstört Symlinks.** `extractall` macht aus einem Symlink
+  eine reguläre Datei mit dem Linkziel als Inhalt — das Bundle enthält
+  Symlinks, codesign hätte danach jedes Update abgelehnt. Deshalb
+  packt `_zip_auspacken()` selbst aus: Symlinks bleiben Symlinks,
+  Linkziele werden gegen Ausbruch geprüft, Dateirechte bleiben
+  erhalten. Und: ditto legt neben das Bundle AppleDouble-DATEIEN wie
+  `._BM-Routencheck.app` — die Bundle-Suche nimmt nur echte Ordner
+  (beides Befunde des ditto-Probelaufs 2026-07-27).
 
 ## 5. Beta-Zyklus
 
@@ -159,6 +186,9 @@ ist der eigentliche Test; alles davor ist nur die Vorbereitung darauf.
    - „Jetzt aktualisieren" → Fortschritt in der Leiste → Neustart
      (Windows: Hinweis „Tausch beim Beenden", danach beenden)
    - neue Fassung meldet `--version` = `0.4.0-beta.2`
+   - macOS zusätzlich: `codesign --verify --deep --strict` auf das
+     getauschte Bundle muss stumm durchlaufen (bestätigt, dass das
+     symlink-erhaltende Auspacken die Signatur wirklich bewahrt)
    - im Terminal derselbe Weg über `bmtools --update --mit-vorabversionen`
    - **Solange beta.2 noch angeboten wird**, auch den Fall ohne
      Schreibrecht prüfen: eine Kopie von beta.1 an einen fremden Ort
