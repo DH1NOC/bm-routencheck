@@ -142,6 +142,16 @@ sie stimmte noch nicht ganz.
   deshalb vom selben Apple-Team stammen wie das laufende
   (`_team_id()`; Referenz ist das laufende Bundle, kein
   einkompiliertes Team).
+- **Onefile-Neustart erbt den Bootloader-Zustand.** Der
+  PyInstaller-Bootloader hinterlegt `_MEI…`/`_PYI…`-Variablen für
+  seinen eigenen Kindprozess. Startet die alte Fassung die neue per
+  Popen, erbt deren Bootloader diesen Zustand und hängt am
+  Auspack-Ordner des sterbenden Prozesses: Version »unbekannt« (und
+  der Updater bliebe fortan stumm) oder Absturz beim Start — beides
+  beobachtet (Beta-Befunde 2026-07-27, Linux beta.3→beta.4). Deshalb
+  `_saubere_umgebung()` überall und auch unter Linux das Warten auf
+  das Prozessende. macOS war nie betroffen: `open` startet über
+  launchd ohne unsere Umgebung.
 - **macOS-Neustart.** `open` auf das eigene Bundle startet NICHTS,
   solange die alte Instanz noch lebt: LaunchServices sieht die
   Bundle-ID als laufend und aktiviert sie nur. Zusammen mit einem
