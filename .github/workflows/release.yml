@@ -185,7 +185,12 @@ jobs:
           # (string-basiert) — die statische Analyse sieht es nicht.
           # --collect-data bmtools: GUI-Frontend (static/ inkl. Leaflet
           # und Material Symbols samt Lizenzen) ins Binary.
+          # --copy-metadata bm-routencheck: Ohne die Paket-Metadaten
+          # kennt das Binary seine eigene Version nicht — importlib.
+          # metadata findet dann nichts, und der Updater müsste
+          # schweigen. Der Rauchtest unten prüft das ausdrücklich.
           GEMEINSAM=(--collect-submodules bmtools --collect-data bmtools
+                     --copy-metadata bm-routencheck
                      --collect-data folium --collect-data branca
                      --collect-all tzdata)
           case "$RUNNER_OS" in
@@ -238,6 +243,19 @@ jobs:
           # Windows: Die windowed Exe hat im CI keine sichtbare Ausgabe,
           # geprüft werden Exit-Codes (Importe, tzdata, Datenpakete).
           "$BIN" --help
+          # Kennt das Binary seine eigene Version? Das ist die Grundlage
+          # jeder Update-Entscheidung (Downgrade-Sperre!) und im
+          # gefrorenen Zustand NICHT selbstverständlich: importlib.
+          # metadata findet nichts ohne --copy-metadata. Im Quellbaum
+          # sieht alles richtig aus, im Artefakt nicht — deshalb hier
+          # gegen die tatsächlich gebaute Version prüfen.
+          GEMELDET="$("$BIN" --version)"
+          echo "Gemeldete Version: $GEMELDET"
+          if [ "$GEMELDET" != "BM-Routencheck ${{ needs.version.outputs.version }}" ]; then
+            echo "::error::Binary meldet '$GEMELDET', gebaut wurde \
+          ${{ needs.version.outputs.version }}"
+            exit 1
+          fi
           # PYTHONTZPATH leer: erzwingt den tzdata-Fallback auch auf
           # Linux/macOS — bahn lädt ZoneInfo("Europe/Berlin") beim Import
           # (genau der Windows-Absturz aus dem Beta-Test 2026-07-17).

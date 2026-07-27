@@ -156,6 +156,13 @@ def main() -> int:
         if tool in ("-h", "--help"):
             _usage(console)
             return 0
+        # Kein argparse-Parser auf dieser Ebene (reiner Dispatcher) —
+        # --version daher von Hand. Der Rauchtest im Release-Workflow
+        # prüft darüber, dass das gebaute Binary seine Version kennt.
+        if tool in ("-V", "--version"):
+            from bmtools.version import eigene_version
+            console.print(f"BM-Routencheck {eigene_version()}")
+            return 0
         if tool == "cache":
             sys.argv = ["bmtools cache", *argv[1:]]
             return _cache_main()
