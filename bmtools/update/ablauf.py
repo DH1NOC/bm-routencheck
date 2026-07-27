@@ -36,8 +36,10 @@ def beim_start_aufraeumen() -> None:
         ziel = eigenes_programm()
         if ziel is not None:
             tausch.alte_fassung_verwerfen(ziel)
-            # Liegengebliebener Arbeitsordner eines abgebrochenen Laufs
+            # Reste eines abgebrochenen Laufs: Arbeitsordner und (nur
+            # Windows) ein Helfer-Skript, das nie zum Selbstlöschen kam
             laden.aufraeumen(ziel.parent / ARBEITSORDNER)
+            tausch.helfer_verwerfen(ziel)
     except Exception:
         pass
 

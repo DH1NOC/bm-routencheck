@@ -189,20 +189,53 @@ def test_zweiter_tausch_raeumt_das_alte_backup_weg(installation):
     assert t.backup_pfad(ziel).read_bytes() == INHALT
 
 
-def test_windows_legt_einen_helfer_an(tmp_path, monkeypatch):
-    """Die laufende Exe ist gesperrt — getauscht wird nach unserem Ende."""
+@pytest.fixture
+def windows(tmp_path, monkeypatch):
+    """Windows-Attrappe: Plattform, Exe und ein abgefangener Popen."""
     monkeypatch.setattr("bmtools.update.tausch.sys.platform", "win32")
+    laeufe: list[list[str]] = []
+    monkeypatch.setattr("bmtools.update.tausch.subprocess.Popen",
+                        lambda argv, **kwargs: laeufe.append(argv))
     ziel = tmp_path / "BM-Routencheck.exe"
     ziel.write_bytes(b"alt")
     neu = tmp_path / "neu.exe"
     neu.write_bytes(INHALT)
+    return ziel, neu, laeufe
 
+
+def test_windows_legt_einen_helfer_an(windows, tmp_path):
+    """Die laufende Exe ist gesperrt — getauscht wird nach unserem Ende."""
+    ziel, neu, _ = windows
     assert t.ersetze(ziel, neu) is False     # noch nichts getauscht
     assert ziel.read_bytes() == b"alt"
-    helfer = (tmp_path / "bm-update.cmd").read_text(encoding="ascii")
+    helfer = (tmp_path / t.HELFER_NAME).read_text(encoding="ascii")
     assert str(os.getpid()) in helfer        # wartet auf uns
     assert str(ziel) in helfer and str(neu) in helfer
     assert "del " in helfer                  # räumt sich selbst weg
+
+
+def test_windows_startet_den_helfer(windows, tmp_path):
+    """Das Skript muss auch LAUFEN — eine Batch-Datei wartet nicht von
+    selbst auf unser Ende (Befund 2026-07-27: sie wurde nie gestartet,
+    das Windows-Update war eine Attrappe)."""
+    ziel, neu, laeufe = windows
+    t.ersetze(ziel, neu)
+    assert laeufe, "Helfer wurde nie gestartet"
+    assert laeufe[0][:2] == ["cmd", "/c"]
+    assert laeufe[0][2] == str(tmp_path / t.HELFER_NAME)
+
+
+def test_windows_meldet_unstartbaren_helfer(windows, monkeypatch):
+    """Scheitert der Start des Helfers, ist das ein TauschFehler mit
+    verständlichem Text — kein stilles »beim Beenden passiert's dann«."""
+    ziel, neu, _ = windows
+
+    def kaputt(*a, **k):
+        raise OSError("cmd nicht gefunden")
+
+    monkeypatch.setattr("bmtools.update.tausch.subprocess.Popen", kaputt)
+    with pytest.raises(t.TauschFehler, match="Helfer"):
+        t.ersetze(ziel, neu)
 
 
 def test_macos_prueft_die_signatur_vor_dem_tausch(tmp_path, monkeypatch):

@@ -34,6 +34,7 @@ from pathlib import Path
 from .ziel import beschreibbar
 
 BACKUP_ENDUNG = ".vorher"
+HELFER_NAME = "bm-update.cmd"
 
 
 class TauschFehler(Exception):
@@ -77,8 +78,13 @@ def _signatur_pruefen(bundle: Path) -> None:
 
 
 def _windows_helfer(ziel: Path, neu: Path, alt: Path) -> Path:
-    """Batch-Datei, die nach unserem Ende tauscht und neu startet."""
-    skript = ziel.with_name("bm-update.cmd")
+    """Batch-Datei, die nach unserem Ende tauscht und neu startet.
+
+    Warten per ping statt `timeout /t`: timeout verweigert ohne echte
+    Konsole den Dienst („Eingabeumleitung wird nicht unterstützt") —
+    und der Helfer läuft absichtlich ohne Fenster.
+    """
+    skript = ziel.with_name(HELFER_NAME)
     skript.write_text(
         "@echo off\r\n"
         "rem Von BM-Routencheck erzeugt; loescht sich am Ende selbst.\r\n"
@@ -86,7 +92,7 @@ def _windows_helfer(ziel: Path, neu: Path, alt: Path) -> Path:
         f'tasklist /FI "PID eq {os.getpid()}" 2>nul | find "{os.getpid()}" '
         ">nul\r\n"
         "if not errorlevel 1 (\r\n"
-        "  timeout /t 1 /nobreak >nul\r\n"
+        "  ping -n 2 127.0.0.1 >nul\r\n"
         "  goto warten\r\n"
         ")\r\n"
         f'move /Y "{ziel}" "{alt}" >nul\r\n'
@@ -96,6 +102,36 @@ def _windows_helfer(ziel: Path, neu: Path, alt: Path) -> Path:
         'del "%~f0"\r\n',
         encoding="ascii")
     return skript
+
+
+def _helfer_starten(skript: Path) -> None:
+    """Den Helfer als eigenständigen, unsichtbaren Prozess starten.
+
+    Eine Batch-Datei wartet nicht von selbst auf unser Ende — ohne
+    diesen Start wäre sie nur eine Absichtserklärung auf der Platte.
+    CREATE_NO_WINDOW gibt cmd eine eigene (unsichtbare) Konsole; der
+    Prozess überlebt unser Ende, genau dafür ist er da.
+    """
+    try:
+        subprocess.Popen(["cmd", "/c", str(skript)],
+                         creationflags=getattr(subprocess,
+                                               "CREATE_NO_WINDOW", 0),
+                         stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL)
+    except OSError as e:
+        raise TauschFehler(f"Update-Helfer nicht startbar: {e}") from e
+
+
+def helfer_verwerfen(ziel: Path) -> None:
+    """Beim Start: liegengebliebenes Helfer-Skript entsorgen.
+
+    Bleibt nur zurück, wenn der Helfer zwischen Schreiben und
+    Selbstlöschen abgebrochen wurde — im Normalfall gibt es hier nichts
+    zu tun.
+    """
+    with contextlib.suppress(OSError):
+        ziel.with_name(HELFER_NAME).unlink(missing_ok=True)
 
 
 def ersetze(ziel: Path, neu: Path) -> bool:
@@ -122,7 +158,7 @@ def ersetze(ziel: Path, neu: Path) -> bool:
         _signatur_pruefen(neu)
 
     if sys.platform == "win32":
-        _windows_helfer(ziel, neu, alt)
+        _helfer_starten(_windows_helfer(ziel, neu, alt))
         return False
 
     # Erst das Alte zur Seite, dann das Neue an seinen Platz. Bricht der

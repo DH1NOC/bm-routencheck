@@ -112,6 +112,16 @@ def test_start_aufraeumen_verwirft_das_backup(installation):
     assert not t.backup_pfad(installation).exists()
 
 
+def test_start_aufraeumen_entsorgt_den_helfer(installation):
+    """Ein Helfer-Skript, das nie zum Selbstlöschen kam, verschwindet
+    beim nächsten Start — es hat seinen Zweck erfüllt oder verfehlt,
+    gebraucht wird es jedenfalls nicht mehr."""
+    helfer = installation.with_name(t.HELFER_NAME)
+    helfer.write_text("@echo off")
+    ablauf.beim_start_aufraeumen()
+    assert not helfer.exists()
+
+
 def test_start_aufraeumen_stoert_nie(monkeypatch):
     """Auch wenn darunter alles schiefgeht: der Start läuft weiter."""
     def kaputt():
