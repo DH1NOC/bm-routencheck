@@ -432,6 +432,37 @@ jobs:
         run: |
           git archive --format=zip --prefix="bm-routencheck-$LABEL/" \
             -o "out/release/bm-routencheck-$LABEL-quellen.zip" HEAD
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Update-Manifest signieren
+        env:
+          UPDATE_SIGN_KEY: ${{ secrets.UPDATE_SIGN_KEY }}
+          # PEP-440-Form (0.4.1b1), nicht das Label: Der Client
+          # vergleicht gegen seine eigene --version, und die kommt aus
+          # den Paket-Metadaten.
+          VERSION: ${{ needs.version.outputs.version }}
+          LABEL: ${{ needs.version.outputs.label }}
+        run: |
+          set -euo pipefail
+          if [ -z "${UPDATE_SIGN_KEY:-}" ]; then
+            echo "::error::Secret UPDATE_SIGN_KEY fehlt. Ohne signiertes \
+          Manifest bekämen die Clients dieses Release nie angeboten — sie \
+          würden stumm auf der alten Version bleiben. Schlüssel erzeugen: \
+          packaging/schluessel_erzeugen.py, dann unter Settings → Secrets \
+          → Actions hinterlegen."
+            exit 1
+          fi
+          pip install --quiet cryptography
+          # Nur die eigenständigen Programme kommen ins Manifest — das
+          # Quell-ZIP ist nichts, womit sich eine Installation ersetzen
+          # ließe. Die Plattformnamen müssen zu bmtools/update/ziel.py
+          # passen (sys.platform + platform.machine()).
+          python packaging/manifest_signieren.py "$VERSION" out/release \
+            "windows-x64=out/release/BM-Routencheck-$LABEL-windows-x64.exe" \
+            "macos-arm64=out/release/BM-Routencheck-$LABEL-macos-arm64.zip" \
+            "linux-x64=out/release/bmtools-$LABEL-linux-x64.tar.gz"
+
       - name: GitHub-Release anlegen
         env:
           GH_TOKEN: ${{ github.token }}
