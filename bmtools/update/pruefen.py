@@ -28,8 +28,28 @@ from .ziel import plattform
 
 API = "https://api.github.com/repos/DH1NOC/bm-routencheck/releases"
 ZEITLIMIT = 10.0
-# Ein manipuliertes Gegenüber darf uns nicht mit Gigabytes zumüllen.
+# Ein manipuliertes Gegenüber darf uns nicht mit Gigabytes zumüllen —
+# durchgesetzt beim Laden selbst (_begrenzt_laden), nicht erst danach.
 MANIFEST_MAX = 64 * 1024
+
+
+def _begrenzt_laden(client: httpx.Client, url: str) -> bytes:
+    """Antwort holen, aber nie mehr als MANIFEST_MAX Bytes annehmen.
+
+    `.content` mit anschließendem Zuschnitt reicht nicht: httpx puffert
+    dabei erst den kompletten Body — eine Gigabyte-Antwort läge damit
+    vollständig im Speicher, bevor irgendeine Signatur geprüft ist.
+    Deshalb streamen und beim ersten Byte zu viel abbrechen.
+    """
+    daten = bytearray()
+    with client.stream("GET", url) as antwort:
+        antwort.raise_for_status()
+        for stueck in antwort.iter_bytes(16 * 1024):
+            daten += stueck
+            if len(daten) > MANIFEST_MAX:
+                raise ManifestFehler(
+                    "Manifest-Antwort ist unplausibel groß — verworfen")
+    return bytes(daten)
 
 
 @dataclass(frozen=True)
@@ -124,8 +144,8 @@ def suche_update(*, mit_vorabversionen: bool = False,
                 continue          # Release ohne Manifest — älter als 0.4.0
             manifest_url, signatur_url, basis = urls
             try:
-                roh = client.get(manifest_url).content[:MANIFEST_MAX]
-                signatur = client.get(signatur_url).content[:MANIFEST_MAX]
+                roh = _begrenzt_laden(client, manifest_url)
+                signatur = _begrenzt_laden(client, signatur_url)
                 geprueft = pruefe_manifest(roh, signatur)
             except (httpx.HTTPError, ManifestFehler):
                 continue          # nicht echt oder nicht erreichbar

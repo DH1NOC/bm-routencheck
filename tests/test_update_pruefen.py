@@ -253,3 +253,29 @@ def test_manifest_wird_nicht_unbegrenzt_gelesen(signierer, linux):
     roh = manifest_bytes("0.4.1")
     assert len(roh) < p.MANIFEST_MAX
     json.loads(roh)                # weiterhin gültiges JSON
+
+
+def test_uebergrosses_manifest_wird_beim_laden_abgebrochen(linux):
+    """Die Grenze muss beim STREAMEN greifen (Befund 2026-07-27: der
+    Zuschnitt kam erst, nachdem .content den kompletten Body gepuffert
+    hatte — eine Gigabyte-Antwort hätte den Speicher gefüllt, bevor je
+    eine Signatur geprüft war). Ein solches Release wird übersprungen,
+    die Suche selbst scheitert nicht."""
+    basis = "https://example.invalid/v9.9.9"
+    eintraege = [{"tag_name": "v9.9.9", "prerelease": False, "draft": False,
+                  "assets": [
+                      {"name": m.MANIFEST_DATEI,
+                       "browser_download_url": f"{basis}/{m.MANIFEST_DATEI}"},
+                      {"name": m.SIGNATUR_DATEI,
+                       "browser_download_url": f"{basis}/{m.SIGNATUR_DATEI}"}]}]
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url).startswith(p.API):
+            return httpx.Response(200, json=eintraege)
+        return httpx.Response(200, content=b"x" * (p.MANIFEST_MAX * 4))
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as c:
+        with pytest.raises(m.ManifestFehler, match="unplausibel"):
+            p._begrenzt_laden(c, f"{basis}/{m.MANIFEST_DATEI}")
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as c:
+        assert p.suche_update(client=c) is None
