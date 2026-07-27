@@ -501,6 +501,15 @@ Releases werden manuell über GitHub Actions gebaut:
   wenn sie nicht angenommen würde — ein falsch hinterlegtes Secret fällt
   so beim Bauen auf und nicht erst beim Nutzer, dessen Update sonst
   stumm ausbliebe.
+- **pip-audit (Pflicht, je Plattform):** Vor jedem Build prüft
+  `pip-audit` die installierte Umgebung gegen die bekannten
+  CVE-Datenbanken — also genau die Pakete, die ins Binary gebündelt auf
+  den Rechnern der Nutzer landen (Linux inklusive PyQt6/WebEngine).
+  Eine bekannte Lücke bricht den Release ab. In der Push-QS läuft das
+  bewusst nicht: Eine frisch gemeldete CVE ohne verfügbaren Fix würde
+  sonst jeden Commit blockieren; beim manuellen Release ist der Stopp
+  dagegen erwünscht. Lokal nachstellbar mit
+  `.venv/bin/pip install pip-audit && .venv/bin/pip-audit --skip-editable`.
 - **Rauchtest prüft die Version:** Jeder Build ruft `--version` und
   vergleicht mit der gebauten Version; `--copy-metadata bm-routencheck`
   im PyInstaller-Aufruf ist die Voraussetzung dafür. Schlägt das fehl,

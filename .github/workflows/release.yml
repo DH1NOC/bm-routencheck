@@ -153,6 +153,25 @@ jobs:
               > /dev/null
           fi
 
+      - name: Abhängigkeiten auf bekannte Lücken prüfen (pip-audit)
+        run: |
+          set -euo pipefail
+          # pip zuerst aktualisieren: Es wird nie ins Binary gebündelt,
+          # aber pip-audit prüft es mit — ein veraltetes Runner-pip
+          # würde den Release sonst wegen eines Pakets stoppen, das gar
+          # nicht ausgeliefert wird (lokaler Probelauf 2026-07-27).
+          python -m pip install --quiet --upgrade pip
+          pip install --quiet pip-audit
+          # Prüft die INSTALLIERTE Umgebung — also genau die Pakete, die
+          # gleich ins Binary gebündelt werden und auf den Rechnern der
+          # Nutzer landen (je Plattform verschieden: Linux bündelt PyQt6
+          # samt WebEngine-Chromium mit). Ein Release mit bekannter CVE
+          # bricht hier ab. In der Push-QS läuft das bewusst NICHT: Eine
+          # frisch gemeldete CVE ohne verfügbaren Fix würde sonst jeden
+          # Commit blockieren — beim (manuellen, seltenen) Release ist
+          # der Stopp dagegen genau richtig.
+          pip-audit --skip-editable
+
       - name: Signatur-Zertifikat importieren (macOS)
         if: runner.os == 'macOS'
         env:
