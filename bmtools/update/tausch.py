@@ -16,7 +16,8 @@ Plattform-Eigenheiten:
   hält das alte Inode, der Name zeigt danach auf die neue Datei.
 * **macOS** — dasselbe Spiel mit dem `.app`-Ordner. Vor dem Tausch
   prüft `codesign --verify`, ob das neue Bundle unversehrt signiert
-  ist; ein selbst geladenes Archiv trägt kein Quarantäne-Attribut,
+  ist, und der Team-Anker, ob es vom selben Apple-Team stammt wie das
+  laufende; ein selbst geladenes Archiv trägt kein Quarantäne-Attribut,
   Gatekeeper prüft also nicht für uns mit.
 * **Windows** — eine laufende `.exe` ist gesperrt. Ein kleiner
   Helfer wartet, bis wir beendet sind, tauscht, startet neu und löscht
@@ -62,11 +63,36 @@ def alte_fassung_verwerfen(ziel: Path) -> bool:
     return True
 
 
-def _signatur_pruefen(bundle: Path) -> None:
-    """macOS: Ist das neue Bundle unversehrt signiert?"""
+def _team_id(bundle: Path) -> str | None:
+    """TeamIdentifier der Signatur — None bei unsigniert oder ad-hoc."""
     try:
         fertig = subprocess.run(
-            ["codesign", "--verify", "--deep", "--strict", str(bundle)],
+            ["codesign", "--display", "--verbose=2", str(bundle)],
+            capture_output=True, timeout=120, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    for zeile in fertig.stderr.decode(errors="replace").splitlines():
+        praefix, _, wert = zeile.partition("=")
+        if praefix == "TeamIdentifier":
+            wert = wert.strip()
+            return wert if wert and wert != "not set" else None
+    return None
+
+
+def _signatur_pruefen(neu: Path, ziel: Path) -> None:
+    """macOS: Ist das neue Bundle unversehrt signiert — vom selben Team?
+
+    `codesign --verify` allein bescheinigt nur Unversehrtheit gegen
+    IRGENDEINE gültige Signatur, auch eine ad-hoc-Signatur. Deshalb der
+    Anker: Das neue Bundle muss vom selben Apple-Team stammen wie das
+    laufende — das notarisierte laufende Bundle IST die Referenz, ein
+    einkompiliertes Team braucht es dafür nicht. Trägt das laufende
+    Bundle selbst kein Team (Entwickler-Build), gibt es nichts zu
+    verankern; dann bleibt es bei der Unversehrtheitsprüfung.
+    """
+    try:
+        fertig = subprocess.run(
+            ["codesign", "--verify", "--deep", "--strict", str(neu)],
             capture_output=True, timeout=120, check=False)
     except (OSError, subprocess.SubprocessError) as e:
         raise TauschFehler(f"codesign nicht ausführbar: {e}") from e
@@ -75,6 +101,15 @@ def _signatur_pruefen(bundle: Path) -> None:
         raise TauschFehler(
             f"Neues Bundle ist nicht gültig signiert — Tausch abgebrochen "
             f"({meldung or 'codesign Code ' + str(fertig.returncode)})")
+
+    eigen = _team_id(ziel)
+    if eigen is None:
+        return
+    fremd = _team_id(neu)
+    if fremd != eigen:
+        raise TauschFehler(
+            f"Neues Bundle ist von einem anderen Team signiert "
+            f"({fremd or 'keinem'} statt {eigen}) — Tausch abgebrochen")
 
 
 def _windows_helfer(ziel: Path) -> Path:
@@ -172,7 +207,7 @@ def ersetze(ziel: Path, neu: Path) -> bool:
             alt.unlink(missing_ok=True)
 
     if sys.platform == "darwin" and ziel.suffix == ".app":
-        _signatur_pruefen(neu)
+        _signatur_pruefen(neu, ziel)
 
     if sys.platform == "win32":
         _helfer_starten(_windows_helfer(ziel), ziel, neu, alt)

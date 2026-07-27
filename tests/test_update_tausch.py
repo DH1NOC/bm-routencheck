@@ -256,13 +256,37 @@ def test_windows_meldet_unstartbaren_helfer(windows, monkeypatch):
         t.ersetze(ziel, neu)
 
 
-def test_macos_prueft_die_signatur_vor_dem_tausch(tmp_path, monkeypatch):
-    """Ein Bundle ohne gültige Signatur wird nicht eingesetzt."""
+@pytest.fixture
+def macos(tmp_path, monkeypatch):
+    """macOS-Attrappe: laufendes und neues Bundle als Ordner."""
     monkeypatch.setattr("bmtools.update.tausch.sys.platform", "darwin")
     ziel = tmp_path / "BM-Routencheck.app"
     ziel.mkdir()
+    (ziel / "alt.txt").write_text("alt")
     neu = tmp_path / "arbeit" / "BM-Routencheck.app"
     neu.mkdir(parents=True)
+    (neu / "neu.txt").write_text("neu")
+    return ziel, neu
+
+
+def _codesign_attrappe(teams):
+    """subprocess.run-Ersatz: --verify ist zufrieden, --display liefert
+    je Bundle-Pfad den TeamIdentifier aus `teams`."""
+    def run(argv, **kwargs):
+        class Fertig:
+            returncode = 0
+            stderr = b""
+        fertig = Fertig()
+        if "--display" in argv:
+            team = teams.get(argv[-1], "not set")
+            fertig.stderr = f"TeamIdentifier={team}\n".encode()
+        return fertig
+    return run
+
+
+def test_macos_prueft_die_signatur_vor_dem_tausch(macos, monkeypatch):
+    """Ein Bundle ohne gültige Signatur wird nicht eingesetzt."""
+    ziel, neu = macos
 
     class Fertig:
         returncode = 1
@@ -273,3 +297,34 @@ def test_macos_prueft_die_signatur_vor_dem_tausch(tmp_path, monkeypatch):
     with pytest.raises(t.TauschFehler, match="signiert"):
         t.ersetze(ziel, neu)
     assert ziel.exists()
+
+
+def test_macos_fremdes_team_wird_abgelehnt(macos, monkeypatch):
+    """Der Anker: --verify allein nähme auch eine intakte FREMDE
+    Signatur an (ad-hoc genügt ihm). Das neue Bundle muss vom selben
+    Team stammen wie das laufende."""
+    ziel, neu = macos
+    monkeypatch.setattr("bmtools.update.tausch.subprocess.run",
+                        _codesign_attrappe({str(ziel): "TEAM1234",
+                                            str(neu): "BOESE666"}))
+    with pytest.raises(t.TauschFehler, match="anderen Team"):
+        t.ersetze(ziel, neu)
+    assert (ziel / "alt.txt").exists()      # nichts getauscht
+
+
+def test_macos_gleiches_team_darf_tauschen(macos, monkeypatch):
+    ziel, neu = macos
+    monkeypatch.setattr("bmtools.update.tausch.subprocess.run",
+                        _codesign_attrappe({str(ziel): "TEAM1234",
+                                            str(neu): "TEAM1234"}))
+    assert t.ersetze(ziel, neu) is True
+    assert (ziel / "neu.txt").exists()
+
+
+def test_macos_ohne_eigenes_team_nur_unversehrtheit(macos, monkeypatch):
+    """Läuft hier ein unsignierter Entwickler-Build, gibt es kein Team
+    zu verankern — die Unversehrtheitsprüfung des neuen Bundles bleibt."""
+    ziel, neu = macos
+    monkeypatch.setattr("bmtools.update.tausch.subprocess.run",
+                        _codesign_attrappe({str(neu): "TEAM1234"}))
+    assert t.ersetze(ziel, neu) is True
