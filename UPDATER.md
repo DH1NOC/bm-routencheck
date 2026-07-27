@@ -85,10 +85,10 @@ Installer").
 | # | Inhalt | Stand |
 |---|---|---|
 | 1 | Versionsanzeige: `bmtools.version`, `--version` überall, `--copy-metadata` im Build, Rauchtest prüft die Version im Artefakt | **fertig** |
-| 2 | Signatur-Infrastruktur: Manifest + Signierschritt in `release.yml`, Abhängigkeiten `cryptography` und `packaging` | offen |
-| 3 | Prüflogik (rein, testbar): Signatur, Versionsvergleich, Artefaktauswahl, Beta-Filter | offen |
-| 4 | Tausch je System hinter einer Test-Naht: Linux `os.replace()`, macOS Bundle + `codesign --verify`, Windows Helfer-Prozess | offen |
-| 5 | Info-Leiste in der GUI, Terminal-Hinweis nach dem Lauf, `--update` | offen |
+| 2 | Signatur-Infrastruktur: Manifest + Signierschritt in `release.yml`, Abhängigkeiten `cryptography` und `packaging` | **fertig** |
+| 3 | Prüflogik (rein, testbar): Signatur, Versionsvergleich, Artefaktauswahl, Beta-Filter | **fertig** |
+| 4 | Tausch je System hinter einer Test-Naht: Linux `os.replace()`, macOS Bundle + `codesign --verify`, Windows Helfer-Prozess | **fertig** |
+| 5 | Info-Leiste in der GUI, Terminal-Hinweis nach dem Lauf, `--update` | **fertig** (Sichtprüfung durch den Nutzer steht aus) |
 | 6 | Doku und Beta-Zyklus | offen |
 
 ## 4. Fallstricke

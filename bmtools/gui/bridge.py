@@ -115,6 +115,62 @@ class Bridge:
         return {"tab": self._tool or "bahn",
                 "einstellungen": einstellungen.laden()}
 
+    def suche_update(self) -> dict[str, Any] | None:
+        """Nach einem Update sehen — vom Frontend im Hintergrund
+        gerufen, damit der Fensterstart nicht wartet (UPDATER.md §2).
+
+        None heißt in jedem Zweifelsfall »nichts anbieten«: abgeschaltet,
+        kein Netz, Quellcode-Installation, Manifest nicht echt.
+        """
+        from . import einstellungen
+        werte = einstellungen.laden()
+        if not werte.get("update_pruefen", True):
+            return None
+        try:
+            from bmtools.update.ablauf import suche
+            angebot = suche(
+                mit_vorabversionen=bool(werte.get("update_vorab", False)))
+        except Exception:
+            return None
+        if angebot is None:
+            return None
+        return {"version": angebot.version,
+                "vorabversion": angebot.vorabversion,
+                "datei": angebot.artefakt.datei}
+
+    def fuehre_update_aus(self) -> dict[str, Any]:
+        """Update einspielen. Blockiert bewusst — das Frontend zeigt
+        so lange den Fortschritt in der Leiste."""
+        from bmtools.update.ablauf import UpdateFehler, durchfuehren, suche
+
+        from . import einstellungen
+        werte = einstellungen.laden()
+        try:
+            angebot = suche(
+                mit_vorabversionen=bool(werte.get("update_vorab", False)))
+        except Exception as e:
+            return {"ok": False, "fehler": f"Update-Prüfung fehlgeschlagen: {e}"}
+        if angebot is None:
+            return {"ok": False, "fehler": "Kein Update mehr verfügbar."}
+
+        def fortschritt(geladen: int, gesamt: int) -> None:
+            if gesamt:
+                self._sende_ereignis({"typ": "update_fortschritt",
+                                      "prozent": geladen * 100 // gesamt})
+
+        try:
+            sofort = durchfuehren(angebot, fortschritt)
+        except UpdateFehler as e:
+            return {"ok": False, "fehler": str(e)}
+        return {"ok": True, "version": angebot.version, "sofort": sofort}
+
+    def neustart_nach_update(self) -> None:
+        """Neue Fassung starten und das Fenster schließen."""
+        from bmtools.update.ablauf import neustart
+        neustart()
+        if self._fenster is not None:
+            self._fenster.destroy()
+
     def setze_einstellung(self, name: str, wert: Any) -> None:
         """Einstellung persistieren (U5: Splitter; U6: Theme) — statt
         localStorage, das WKWebView für file:// nicht zuverlässig über

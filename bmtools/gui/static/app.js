@@ -930,7 +930,37 @@ async function oeffneMenue() {
   $("#menue-cache-info").textContent = info.leer
     ? "Cache ist leer"
     : "Cache: " + info.gesamt + " (" + info.dateien + " Dateien)";
+  zeigeUpdateHaken();
 }
+
+/* Zwei Haken im Menü; »aktiv« zeichnet den Haken sichtbar (wie bei der
+   Theme-Wahl). Vorgabe: prüfen JA, Vorabversionen NEIN
+   (Nutzerfestlegung 2026-07-27). */
+function zeigeUpdateHaken() {
+  $("#menue-update-pruefen").classList.toggle(
+    "aktiv", einstellungen.update_pruefen !== false);
+  $("#menue-update-vorab").classList.toggle(
+    "aktiv", einstellungen.update_vorab === true);
+}
+
+function schalteEinstellung(name, vorgabe) {
+  const neu = !(einstellungen[name] === undefined
+    ? vorgabe : einstellungen[name]);
+  einstellungen[name] = neu;
+  window.pywebview.api.setze_einstellung(name, neu);
+  zeigeUpdateHaken();
+  return neu;
+}
+
+$("#menue-update-pruefen").addEventListener("click", () => {
+  if (schalteEinstellung("update_pruefen", true)) updatePruefen();
+  else $("#update-leiste").hidden = true;
+});
+
+$("#menue-update-vorab").addEventListener("click", () => {
+  schalteEinstellung("update_vorab", false);
+  updatePruefen();
+});
 
 $("#einstellungen").addEventListener("click", (ev) => {
   ev.stopPropagation();
@@ -959,6 +989,66 @@ $("#menue-cache-leeren").addEventListener("click", () => {
 $("#menue-ordner").addEventListener("click", async () => {
   $("#menue").hidden = true;
   meldeOeffnen(await window.pywebview.api.oeffne_ordner(), "Ordner");
+});
+
+/* ------------------------------------------------------- Updates */
+/* Die Prüfung läuft in der Bridge und braucht Netz — deshalb erst NACH
+   dem Fensteraufbau angestoßen und nie abgewartet. Die Leiste erscheint
+   still, wenn eine neuere Version verifiziert vorliegt. */
+
+let updateLaeuft = false;
+
+function zeigeUpdateLeiste(info) {
+  const vorab = info.vorabversion ? " (Vorabversion)" : "";
+  $("#update-text").textContent =
+    "Version " + info.version + vorab + " ist verfügbar.";
+  $("#update-leiste").hidden = false;
+}
+
+async function updatePruefen() {
+  try {
+    const info = await window.pywebview.api.suche_update();
+    if (info && info.version) zeigeUpdateLeiste(info);
+  } catch (e) {
+    /* Offline oder abgeschaltet — kein Hinweis, kein Lärm. */
+  }
+}
+
+$("#update-weg").addEventListener("click", () => {
+  $("#update-leiste").hidden = true;
+});
+
+$("#update-jetzt").addEventListener("click", async () => {
+  if (updateLaeuft) return;
+  updateLaeuft = true;
+  const knopf = $("#update-jetzt");
+  knopf.disabled = true;
+  $("#update-weg").hidden = true;
+  $("#update-text").textContent = "Wird geladen …";
+  const r = await window.pywebview.api.fuehre_update_aus();
+  if (!r || !r.ok) {
+    // Die installierte Fassung ist unverändert — das gehört dazugesagt
+    $("#update-leiste").classList.add("fehler");
+    $("#update-text").textContent =
+      (r && r.fehler ? r.fehler : "Update fehlgeschlagen.") +
+      " Die installierte Version ist unverändert.";
+    knopf.hidden = true;
+    $("#update-weg").hidden = false;
+    updateLaeuft = false;
+    return;
+  }
+  if (r.sofort) {
+    $("#update-text").textContent =
+      "Aktualisiert auf " + r.version + " — Neustart …";
+    await window.pywebview.api.neustart_nach_update();
+  } else {
+    // Windows: Der Helfer tauscht, sobald wir beendet sind
+    $("#update-text").textContent =
+      "Aktualisiert auf " + r.version +
+      " — der Tausch erfolgt beim Beenden des Programms.";
+    knopf.hidden = true;
+    $("#update-weg").hidden = false;
+  }
 });
 
 /* ---------------------------------------------------- Statusleiste */
@@ -1129,7 +1219,11 @@ window.addEventListener("pywebviewready", async () => {
   const z = await window.pywebview.api.init_zustand();
   einstellungen = z.einstellungen || {};
   setzeTheme(einstellungen.theme || "system", false);
+  zeigeUpdateHaken();
   waehleModus(z.tab || "bahn");
+  // Bewusst NICHT abgewartet: Die Prüfung braucht Netz, der Aufbau des
+  // Fensters soll darauf nie warten (UPDATER.md §2).
+  updatePruefen();
 });
 
 /* Fallback für Ansicht im Browser (Entwicklung ohne Bridge) */

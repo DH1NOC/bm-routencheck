@@ -816,6 +816,39 @@ select {
   outline-offset: 1px;
 }
 
+/* ============================================== Update-Hinweis */
+/* Sitzt unter dem Kopf und über dem Arbeitsbereich — sichtbar, aber
+   nie im Weg; der Schließen-Knopf nimmt sie bis zum nächsten Start weg. */
+.update-leiste {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .5rem 1.1rem;
+  background: var(--hinweis-flaeche, #e7f1fb);
+  border-bottom: 1px solid var(--rand);
+  font-size: .85rem;
+}
+.update-leiste.fehler {
+  background: var(--warn-flaeche, #fdf0e3);
+}
+.update-leiste .icon { flex: none; }
+.update-knoepfe {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  margin-left: auto;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .update-leiste {
+    background: #1d2b3a;
+  }
+  :root:not([data-theme="light"]) .update-leiste.fehler {
+    background: #3a2c1d;
+  }
+}
+:root[data-theme="dark"] .update-leiste { background: #1d2b3a; }
+:root[data-theme="dark"] .update-leiste.fehler { background: #3a2c1d; }
+
 /* ================================================= Statusleiste */
 .statusleiste {
   grid-column: 1 / -1;
