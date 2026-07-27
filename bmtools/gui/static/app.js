@@ -1051,7 +1051,10 @@ $("#update-jetzt").addEventListener("click", async () => {
   updateStart = null;
   updateEtaSichtbar = false;
   const knopf = $("#update-jetzt");
-  knopf.disabled = true;
+  // Ausblenden statt nur deaktivieren: Während der Aktualisierung hat
+  // der Knopf keine Funktion mehr (Nutzerwunsch 2026-07-27); die
+  // Leiste gehört jetzt dem Fortschritt.
+  knopf.hidden = true;
   $("#update-weg").hidden = true;
   $("#update-text").textContent = "Wird geladen …";
   const r = await window.pywebview.api.fuehre_update_aus();
