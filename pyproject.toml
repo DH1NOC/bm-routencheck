@@ -23,6 +23,15 @@ dependencies = [
     # ZoneInfo("Europe/Berlin") dort ab (Beta-Befund 2026-07-17); unter
     # Linux/macOS nur ungenutzter Fallback zur Systemdatenbank.
     "tzdata>=2024.1",
+    # Update-Signatur (UPDATER.md): Ed25519-Prüfung des Release-Manifests.
+    # Python hat keine Public-Key-Kryptografie an Bord, und selbst
+    # geschriebene Krypto kommt nicht in Frage — die einzige Ausnahme
+    # von „schlanke Abhängigkeiten", und eine begründete.
+    "cryptography>=42.0",
+    # Versionsvergleich nach PEP 440 (0.4.0b2 < 0.4.0). Bisher nur
+    # transitiv über setuptools da; für die Downgrade-Sperre zu wichtig,
+    # um sich darauf zu verlassen.
+    "packaging>=23.0",
 ]
 
 [project.optional-dependencies]
