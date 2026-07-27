@@ -157,10 +157,23 @@ class Bridge:
         if angebot is None:
             return {"ok": False, "fehler": "Kein Update mehr verfügbar."}
 
+        letzte = {"prozent": -1}
+
         def fortschritt(geladen: int, gesamt: int) -> None:
-            if gesamt:
-                self._sende_ereignis({"typ": "update_fortschritt",
-                                      "prozent": geladen * 100 // gesamt})
+            if not gesamt:
+                return
+            prozent = geladen * 100 // gesamt
+            # Nur ganze Prozentschritte senden: Der Callback feuert je
+            # 64-KB-Stück — ungedrosselt wären das beim Linux-Artefakt
+            # Tausende evaluate_js auf dem UI-Thread (dieselbe Sorge
+            # wie SENDETAKT_S im GuiMelder). geladen/gesamt reisen mit,
+            # daraus rechnet das Frontend die ETA.
+            if prozent == letzte["prozent"]:
+                return
+            letzte["prozent"] = prozent
+            self._sende_ereignis({"typ": "update_fortschritt",
+                                  "prozent": prozent,
+                                  "geladen": geladen, "gesamt": gesamt})
 
         try:
             sofort = durchfuehren(angebot, fortschritt)

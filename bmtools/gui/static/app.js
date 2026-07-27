@@ -1025,9 +1025,31 @@ $("#update-weg").addEventListener("click", () => {
   $("#update-leiste").hidden = true;
 });
 
+/* Fortschritt + ETA des Update-Downloads (Bridge-Ereignis je vollem
+   Prozent). Die ETA ist sticky wie bei den Task-Balken (melder.py):
+   einmal über der Schwelle, bleibt sie bis zum Ende sichtbar — sonst
+   flackerte sie um die Schwelle herum. */
+let updateStart = null;
+let updateEtaSichtbar = false;
+
+function updateFortschritt(e) {
+  if (!updateLaeuft) return;
+  if (updateStart === null) updateStart = Date.now();
+  let text = "Wird geladen … " + e.prozent + " %";
+  const laufzeit = (Date.now() - updateStart) / 1000;
+  if (laufzeit > 1 && e.geladen > 0 && e.geladen < e.gesamt) {
+    const eta = Math.round(laufzeit / e.geladen * (e.gesamt - e.geladen));
+    if (eta > 10) updateEtaSichtbar = true;
+    if (updateEtaSichtbar) text += " · " + etaText(eta);
+  }
+  $("#update-text").textContent = text;
+}
+
 $("#update-jetzt").addEventListener("click", async () => {
   if (updateLaeuft) return;
   updateLaeuft = true;
+  updateStart = null;
+  updateEtaSichtbar = false;
   const knopf = $("#update-jetzt");
   knopf.disabled = true;
   $("#update-weg").hidden = true;
@@ -1197,6 +1219,9 @@ window.bmEreignis = (e) => {
       break;
     case "task_update":
       aktualisiereTask(e);
+      break;
+    case "update_fortschritt":
+      updateFortschritt(e);
       break;
     case "balken_ende":
       break;  // Einzelschritt-Balken bleibt bis zum nächsten Task stehen

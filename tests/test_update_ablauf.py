@@ -268,6 +268,32 @@ def test_angezeigte_version_traegt_die_label_schreibweise(monkeypatch):
     assert "0.4.1-beta.2" in ablauf.hinweis_zeilen(beta)[0]
 
 
+def test_bridge_drosselt_den_fortschritt_auf_prozentschritte(monkeypatch):
+    """Der Lade-Callback feuert je 64-KB-Stück; jedes Ereignis ist ein
+    evaluate_js auf dem UI-Thread. Gesendet wird nur je vollem Prozent,
+    mit geladen/gesamt für die ETA-Rechnung des Frontends."""
+    from bmtools.gui import einstellungen
+    from bmtools.gui.bridge import Bridge
+
+    monkeypatch.setattr(einstellungen, "laden", lambda: {})
+    monkeypatch.setattr(ablauf, "suche", lambda **k: angebot())
+
+    def lade(angebot, fortschritt):
+        for geladen in (0, 1, 65536, 131072, 500_000, 1_000_000):
+            fortschritt(geladen, 1_000_000)
+        return True
+
+    monkeypatch.setattr(ablauf, "durchfuehren", lade)
+    bridge = Bridge()
+    gesendet: list[dict[str, object]] = []
+    monkeypatch.setattr(bridge, "_sende_ereignis", gesendet.append)
+
+    assert bridge.fuehre_update_aus()["ok"] is True
+    assert [e["prozent"] for e in gesendet] == [0, 6, 13, 50, 100]
+    assert gesendet[-1] == {"typ": "update_fortschritt", "prozent": 100,
+                            "geladen": 1_000_000, "gesamt": 1_000_000}
+
+
 def test_bridge_zerstoert_das_fenster_nicht_im_eigenen_aufruf(monkeypatch):
     """destroy() mitten im Bridge-Aufruf riss die WKWebView ab, bevor
     sie die Antwort auf genau diesen Aufruf liefern konnte — das
