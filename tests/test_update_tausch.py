@@ -191,38 +191,56 @@ def test_zweiter_tausch_raeumt_das_alte_backup_weg(installation):
 
 @pytest.fixture
 def windows(tmp_path, monkeypatch):
-    """Windows-Attrappe: Plattform, Exe und ein abgefangener Popen."""
+    """Windows-Attrappe: Plattform, Exe und ein abgefangener Popen.
+
+    Der Programmordner heißt absichtlich »Jürgen« — auf deutschen
+    Windows-Systemen ist der Umlaut im Benutzerpfad der Normalfall,
+    nicht der Sonderfall (Befund 2026-07-27: encoding="ascii" warf
+    dort einen unbehandelten UnicodeEncodeError).
+    """
     monkeypatch.setattr("bmtools.update.tausch.sys.platform", "win32")
-    laeufe: list[list[str]] = []
-    monkeypatch.setattr("bmtools.update.tausch.subprocess.Popen",
-                        lambda argv, **kwargs: laeufe.append(argv))
-    ziel = tmp_path / "BM-Routencheck.exe"
+    laeufe: list[tuple[list[str], dict[str, str]]] = []
+    monkeypatch.setattr(
+        "bmtools.update.tausch.subprocess.Popen",
+        lambda argv, **kwargs: laeufe.append((argv, kwargs.get("env") or {})))
+    ordner = tmp_path / "Jürgen"
+    ordner.mkdir()
+    ziel = ordner / "BM-Routencheck.exe"
     ziel.write_bytes(b"alt")
-    neu = tmp_path / "neu.exe"
+    neu = ordner / "neu.exe"
     neu.write_bytes(INHALT)
     return ziel, neu, laeufe
 
 
-def test_windows_legt_einen_helfer_an(windows, tmp_path):
-    """Die laufende Exe ist gesperrt — getauscht wird nach unserem Ende."""
+def test_windows_legt_einen_helfer_an(windows):
+    """Die laufende Exe ist gesperrt — getauscht wird nach unserem Ende.
+    Die Pfade reisen als Umgebungsvariablen mit: die Batch-Datei selbst
+    bleibt reines ASCII, egal wie der Benutzerpfad heißt."""
     ziel, neu, _ = windows
     assert t.ersetze(ziel, neu) is False     # noch nichts getauscht
     assert ziel.read_bytes() == b"alt"
-    helfer = (tmp_path / t.HELFER_NAME).read_text(encoding="ascii")
-    assert str(os.getpid()) in helfer        # wartet auf uns
-    assert str(ziel) in helfer and str(neu) in helfer
+    helfer = ziel.with_name(t.HELFER_NAME).read_text(encoding="ascii")
+    assert "%BM_UPDATE_PID%" in helfer       # wartet auf uns
+    assert "%BM_UPDATE_ZIEL%" in helfer and "%BM_UPDATE_NEU%" in helfer
+    assert "Jürgen" not in helfer            # kein Pfad im Skript
     assert "del " in helfer                  # räumt sich selbst weg
 
 
-def test_windows_startet_den_helfer(windows, tmp_path):
+def test_windows_startet_den_helfer(windows):
     """Das Skript muss auch LAUFEN — eine Batch-Datei wartet nicht von
     selbst auf unser Ende (Befund 2026-07-27: sie wurde nie gestartet,
-    das Windows-Update war eine Attrappe)."""
+    das Windows-Update war eine Attrappe). Pfade und PID kommen als
+    Umgebungsvariablen mit — volles Unicode, kein cmd-Quoting."""
     ziel, neu, laeufe = windows
     t.ersetze(ziel, neu)
     assert laeufe, "Helfer wurde nie gestartet"
-    assert laeufe[0][:2] == ["cmd", "/c"]
-    assert laeufe[0][2] == str(tmp_path / t.HELFER_NAME)
+    argv, umgebung = laeufe[0]
+    assert argv[:2] == ["cmd", "/c"]
+    assert argv[2] == str(ziel.with_name(t.HELFER_NAME))
+    assert umgebung["BM_UPDATE_PID"] == str(os.getpid())
+    assert umgebung["BM_UPDATE_ZIEL"] == str(ziel)
+    assert umgebung["BM_UPDATE_NEU"] == str(neu)
+    assert umgebung["BM_UPDATE_ALT"] == str(t.backup_pfad(ziel))
 
 
 def test_windows_meldet_unstartbaren_helfer(windows, monkeypatch):

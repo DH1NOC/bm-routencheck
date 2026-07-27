@@ -77,8 +77,17 @@ def _signatur_pruefen(bundle: Path) -> None:
             f"({meldung or 'codesign Code ' + str(fertig.returncode)})")
 
 
-def _windows_helfer(ziel: Path, neu: Path, alt: Path) -> Path:
+def _windows_helfer(ziel: Path) -> Path:
     """Batch-Datei, die nach unserem Ende tauscht und neu startet.
+
+    Die Pfade stehen NICHT im Skript, sondern kommen als
+    Umgebungsvariablen mit (BM_UPDATE_*): cmd liest Batch-Dateien in
+    der OEM-Codepage, und unter C:\\Users\\Jürgen scheiterte vorher
+    schon das Schreiben mit encoding="ascii" — mit unbehandeltem
+    UnicodeEncodeError. Umgebungsvariablen laufen über CreateProcessW
+    (volles Unicode), und weil %VAR% nur einmal expandiert wird, sind
+    auch %-Zeichen und cmd-Sonderzeichen in Pfaden kein Thema mehr.
+    Die Datei selbst bleibt so garantiert reines ASCII.
 
     Warten per ping statt `timeout /t`: timeout verweigert ohne echte
     Konsole den Dienst („Eingabeumleitung wird nicht unterstützt") —
@@ -88,23 +97,25 @@ def _windows_helfer(ziel: Path, neu: Path, alt: Path) -> Path:
     skript.write_text(
         "@echo off\r\n"
         "rem Von BM-Routencheck erzeugt; loescht sich am Ende selbst.\r\n"
+        "rem Pfade und PID kommen als BM_UPDATE_*-Umgebungsvariablen.\r\n"
         ":warten\r\n"
-        f'tasklist /FI "PID eq {os.getpid()}" 2>nul | find "{os.getpid()}" '
-        ">nul\r\n"
+        'tasklist /FI "PID eq %BM_UPDATE_PID%" 2>nul '
+        '| find "%BM_UPDATE_PID%" >nul\r\n'
         "if not errorlevel 1 (\r\n"
         "  ping -n 2 127.0.0.1 >nul\r\n"
         "  goto warten\r\n"
         ")\r\n"
-        f'move /Y "{ziel}" "{alt}" >nul\r\n'
-        f'move /Y "{neu}" "{ziel}" >nul\r\n'
-        f'if errorlevel 1 move /Y "{alt}" "{ziel}" >nul\r\n'
-        f'start "" "{ziel}"\r\n'
+        'move /Y "%BM_UPDATE_ZIEL%" "%BM_UPDATE_ALT%" >nul\r\n'
+        'move /Y "%BM_UPDATE_NEU%" "%BM_UPDATE_ZIEL%" >nul\r\n'
+        'if errorlevel 1 move /Y "%BM_UPDATE_ALT%" "%BM_UPDATE_ZIEL%" '
+        ">nul\r\n"
+        'start "" "%BM_UPDATE_ZIEL%"\r\n'
         'del "%~f0"\r\n',
         encoding="ascii")
     return skript
 
 
-def _helfer_starten(skript: Path) -> None:
+def _helfer_starten(skript: Path, ziel: Path, neu: Path, alt: Path) -> None:
     """Den Helfer als eigenständigen, unsichtbaren Prozess starten.
 
     Eine Batch-Datei wartet nicht von selbst auf unser Ende — ohne
@@ -112,8 +123,14 @@ def _helfer_starten(skript: Path) -> None:
     CREATE_NO_WINDOW gibt cmd eine eigene (unsichtbare) Konsole; der
     Prozess überlebt unser Ende, genau dafür ist er da.
     """
+    umgebung = {**os.environ,
+                "BM_UPDATE_PID": str(os.getpid()),
+                "BM_UPDATE_ZIEL": str(ziel),
+                "BM_UPDATE_NEU": str(neu),
+                "BM_UPDATE_ALT": str(alt)}
     try:
         subprocess.Popen(["cmd", "/c", str(skript)],
+                         env=umgebung,
                          creationflags=getattr(subprocess,
                                                "CREATE_NO_WINDOW", 0),
                          stdin=subprocess.DEVNULL,
@@ -158,7 +175,7 @@ def ersetze(ziel: Path, neu: Path) -> bool:
         _signatur_pruefen(neu)
 
     if sys.platform == "win32":
-        _helfer_starten(_windows_helfer(ziel, neu, alt))
+        _helfer_starten(_windows_helfer(ziel), ziel, neu, alt)
         return False
 
     # Erst das Alte zur Seite, dann das Neue an seinen Platz. Bricht der
