@@ -51,16 +51,22 @@ gegengetestet) bringt drei Dinge:
   mehrere Dateimanager, bereinigte Kind-Umgebung — und statt Schweigen
   eine Meldung samt Fehlercode.
 
-**In Arbeit — Selbst-Updater** (Branch `feature/updater`, seit
-2026-07-27, wird Featureversion 0.4.0): Die App erkennt neue Releases,
-zeigt im Fenster eine Info-Leiste mit „Jetzt aktualisieren" und ersetzt
+**Erledigt — Selbst-Updater** (Featureversion 0.4.0, abgenommen
+2026-07-27): Die App erkennt neue Releases, zeigt im Fenster eine
+Info-Leiste mit „Jetzt aktualisieren" (Fortschritt + ETA) und ersetzt
 sich am eigenen Ort selbst; im Terminal ein Hinweis nach dem Lauf plus
-`bmtools --update`. Gesichert über ein **signiertes Manifest** gegen zwei
-einkompilierte Ed25519-Schlüssel — MITM auszuschließen war die
-ausdrückliche Anforderung. Die sechs Schritte sind umgesetzt (Plan und
-Begründungen in `UPDATER.md`, Technik in
-[DEVELOPER.md](DEVELOPER.md#selbst-updater)); **der Beta-Zyklus steht
-noch aus** und ist die eigentliche Abnahme — siehe §2.
+`bmtools --update`. Gesichert über ein **signiertes Manifest** gegen
+zwei einkompilierte Ed25519-Schlüssel — MITM auszuschließen war die
+ausdrückliche Anforderung; Technik und Fallstricke in
+[DEVELOPER.md](DEVELOPER.md#selbst-updater). Der Beta-Zyklus
+(beta.1–beta.6) wurde auf allen drei Plattformen durchgespielt —
+Update-Sprünge, Ablehnungsfälle und Rückfallebene bestanden. Vier
+Befunde dabei gefunden und behoben (macOS-Neustart-Deadlock,
+Bootloader-Umgebung auf Linux und Windows, Fortschrittsanzeige ohne
+Empfänger); dem voraus ging ein Security-Review mit drei Fixes und
+drei Härtungen samt QS-Ausbau (Bandit-Regeln in ruff, defusedxml,
+pip-audit im Release-Build). Plan und Abnahmeprotokoll standen in
+`UPDATER.md` (mit Abschluss aufgelöst, Historie in Git).
 
 Nachbereitung erledigt (2026-07-26): Beta-Releases samt Tags gelöscht,
 `feature/einzelrelais-sichtfeld` lokal und auf origin entfernt,
@@ -78,20 +84,6 @@ GUI-Umbau G0–G5 und U0–U9 samt Konzept und Nutzerfestlegungen in der von
 
 ## 2. Offene Punkte
 
-- [ ] **Updater — Secret `UPDATE_SIGN_KEY` hinterlegen (blockiert jedes
-      weitere Release):** Der Release-Workflow bricht ohne dieses Secret
-      ab, auch bei einem unabhängigen Hotfix von `main`. Der private
-      HAUPT-Schlüssel gehört als Repository-Secret hinterlegt *und*
-      offline gesichert, der RESERVE-Schlüssel ausschließlich offline
-      (Anleitung: DEVELOPER.md, „Update-Signierung"). Die öffentlichen
-      Gegenstücke sind bereits einkompiliert.
-- [ ] **Updater — Beta-Zyklus (die eigentliche Abnahme):** Der
-      Update-Weg ist erst zwischen zwei Builds erprobbar, die den
-      Updater beide schon haben — 0.3.0 hat ihn nicht. Also: `beta.1`
-      bauen, auf allen drei Systemen von Hand installieren, Beta-Kanal
-      einschalten, `beta.2` bauen und den Sprung beta.1 → beta.2
-      durchspielen. Checkliste in `UPDATER.md` §5. Solange das nicht
-      gelaufen ist, gilt nichts davon als getestet („Kein Try&Error").
 - [ ] **M5 — AnyTone AT-D890UV (ruht):** Der Codeplug-Export in
       `bmtools/routelib/codeplug/anytone.py` nutzt das D878UV-Spaltenlayout
       als Arbeitsannahme; das CSV-Layout des D890UV ist nicht gesichert

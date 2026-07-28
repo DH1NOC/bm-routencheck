@@ -48,7 +48,7 @@ def suche(*, mit_vorabversionen: bool = False) -> Angebot | None:
     """Neueres, verifiziertes Angebot — nur im gefrorenen Binary.
 
     Aus dem Quellcode gestartet gibt es nichts zu tauschen; dort ist
-    `git pull` der Weg (UPDATER.md §2).
+    `git pull` der Weg (DEVELOPER.md „Selbst-Updater“).
     """
     if eigenes_programm() is None:
         return None

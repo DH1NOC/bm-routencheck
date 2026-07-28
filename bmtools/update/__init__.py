@@ -1,1 +1,4 @@
-"""Selbst-Update: Prüfen, Verifizieren, Ersetzen (siehe UPDATER.md)."""
+"""Selbst-Update: Prüfen, Verifizieren, Ersetzen.
+
+Konzept und Fallstricke: DEVELOPER.md, Abschnitt „Selbst-Updater".
+"""

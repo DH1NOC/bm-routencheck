@@ -417,6 +417,19 @@ gegen ein übernommenes GitHub-Konto nicht (Nutzerentscheidung
 je Release). **Kein Zertifikats-Pinning** — GitHub rotiert seine CAs, das
 wäre nur eine zusätzliche Bruchstelle.
 
+**Zweites akzeptiertes Restrisiko: kein Widerruf, kein Ablaufdatum.**
+Ein signiertes Manifest bleibt für immer gültig. Wer die
+Release-Antworten kontrolliert, kann Clients eine ältere, echt
+signierte Version dauerhaft als „neueste" vorsetzen, solange sie neuer
+als die installierte ist — und so das Ausrollen eines Sicherheitsfixes
+verzögern (Freeze-Angriff). Ein Downgrade bleibt ausgeschlossen.
+Frische ließe sich nur mit Ablaufdaten im Manifest und regelmäßigem
+Neusignieren erzwingen (TUF-Territorium) — für die Größe dieses
+Projekts bewusst nicht gebaut. Der Rettungsweg bei Kompromittierung des
+Hauptschlüssels ist der RESERVE-Schlüssel: Ein mit ihm signiertes
+Release wird von allen Clients angenommen und kompiliert neue
+Schlüssel ein.
+
 ### Fallstricke, die im Quellbaum unsichtbar sind
 
 - **Version im gefrorenen Binary.** `bmtools/version.py` liest im
@@ -456,6 +469,35 @@ wäre nur eine zusätzliche Bruchstelle.
   das `.app`-Bundle (nicht das Binary darin), und davor läuft
   `codesign --verify --deep --strict` — ein selbst geladenes Archiv trägt
   kein Quarantäne-Attribut, Gatekeeper prüft also nicht für uns mit.
+  Dazu der **Team-Anker** (Härtung 2026-07-27): `--verify` allein nimmt
+  jede intakte Signatur an, auch ad-hoc — das neue Bundle muss vom
+  selben Apple-Team stammen wie das laufende (`_team_id()`; Referenz ist
+  das laufende Bundle, kein einkompiliertes Team).
+- **zipfile zerstört Symlinks.** `extractall` macht aus einem Symlink
+  eine reguläre Datei mit dem Linkziel als Inhalt — das `.app`-Bundle
+  enthält Symlinks, codesign hätte danach jedes Update abgelehnt.
+  `_zip_auspacken()` in `laden.py` packt deshalb selbst aus: Symlinks
+  bleiben Symlinks, Linkziele werden gegen Ausbruch geprüft, Dateirechte
+  bleiben erhalten. Und: ditto legt neben das Bundle AppleDouble-DATEIEN
+  wie `._BM-Routencheck.app` — die Bundle-Suche nimmt nur echte Ordner
+  (Befunde des ditto-Probelaufs 2026-07-27).
+- **macOS-Neustart über einen sh-Helfer.** `open` auf das eigene Bundle
+  startet NICHTS, solange die alte Instanz lebt: LaunchServices sieht
+  die Bundle-ID als laufend und aktiviert sie nur. Zusammen mit einem
+  `destroy()` mitten im eigenen Bridge-Aufruf fror das Fenster bei
+  »Neustart …« ein (Beta-Befund 2026-07-27). Deshalb wartet ein
+  abgekoppelter Helfer auf unser Prozessende und ruft `open` erst
+  danach; `destroy()` läuft nachgelagert, nie synchron im Bridge-Aufruf.
+- **Onefile-Neustart erbt den Bootloader-Zustand.** Der
+  PyInstaller-Bootloader hinterlegt `_MEI…`/`_PYI…`-Variablen für seinen
+  eigenen Kindprozess. Erbt die neu gestartete Fassung sie, hängt ihr
+  Bootloader am Auspack-Ordner des sterbenden Prozesses: Version
+  »unbekannt« (Updater bliebe fortan stumm), Absturz beim Start
+  („Failed to load Python DLL") oder gar kein Start — alle drei
+  Ausgänge beobachtet (Beta-Befunde 2026-07-27, Linux und Windows).
+  Deshalb `_saubere_umgebung()` bei jedem Neustart-Weg und auch unter
+  Linux das Warten auf das Prozessende. macOS war nie betroffen:
+  `open` startet über launchd, ohne unsere Umgebung.
 - **Windows:** Die laufende `.exe` ist gesperrt. Eine Batch-Datei wartet
   auf unser Prozessende, tauscht, startet neu und löscht sich selbst —
   daher gibt `ersetze()` dort `False` zurück („Tausch beim Beenden").

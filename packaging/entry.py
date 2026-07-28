@@ -91,7 +91,7 @@ if __name__ == "__main__":
     _schreibbares_arbeitsverzeichnis()
     # Wir laufen — also hat ein etwaiger Tausch geklappt: Sicherung der
     # Vorversion und Reste eines abgebrochenen Laufs wegräumen
-    # (UPDATER.md §2, »behalten bis zum ersten Erfolg«). Darf den Start
+    # (DEVELOPER.md „Selbst-Updater“, »behalten bis zum ersten Erfolg«). Darf den Start
     # nie aufhalten; die Funktion schluckt ihre Fehler selbst.
     from bmtools.update.ablauf import beim_start_aufraeumen
     beim_start_aufraeumen()

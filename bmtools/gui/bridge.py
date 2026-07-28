@@ -120,7 +120,7 @@ class Bridge:
 
     def suche_update(self) -> dict[str, Any] | None:
         """Nach einem Update sehen — vom Frontend im Hintergrund
-        gerufen, damit der Fensterstart nicht wartet (UPDATER.md §2).
+        gerufen, damit der Fensterstart nicht wartet (DEVELOPER.md „Selbst-Updater“).
 
         None heißt in jedem Zweifelsfall »nichts anbieten«: abgeschaltet,
         kein Netz, Quellcode-Installation, Manifest nicht echt.

@@ -1258,7 +1258,7 @@ window.addEventListener("pywebviewready", async () => {
   zeigeUpdateHaken();
   waehleModus(z.tab || "bahn");
   // Bewusst NICHT abgewartet: Die Prüfung braucht Netz, der Aufbau des
-  // Fensters soll darauf nie warten (UPDATER.md §2).
+  // Fensters soll darauf nie warten (DEVELOPER.md „Selbst-Updater").
   updatePruefen();
 });
 

@@ -1,7 +1,7 @@
 """Das signierte Update-Manifest — Aufbau, Signatur, Prüfung.
 
 Warum ein Manifest und nicht einfach die Artefakte signiert werden,
-steht in UPDATER.md §1. Kurz: Sonst bliebe *Replay* offen — wer die
+steht in DEVELOPER.md („Selbst-Updater“). Kurz: Sonst bliebe *Replay* offen — wer die
 GitHub-Antwort fälschen kann, liefert eine ältere, echt signierte
 Version aus. Nur wenn die Version selbst aus dem signierten Manifest
 stammt, greift die Downgrade-Sperre.

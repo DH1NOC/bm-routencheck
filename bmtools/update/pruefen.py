@@ -1,6 +1,6 @@
 """Gibt es eine neuere Version? — Abfrage, Verifikation, Entscheidung.
 
-Der sicherheitskritische Teil ist die Reihenfolge (UPDATER.md §1):
+Der sicherheitskritische Teil ist die Reihenfolge (DEVELOPER.md „Selbst-Updater“):
 Die GitHub-Antwort sagt nur, WO ein Manifest liegen könnte. Was danach
 geschieht, richtet sich ausschließlich nach dem signierten Manifest.
 Insbesondere kommt die Version, gegen die verglichen wird, NIE aus der

@@ -200,7 +200,7 @@ def main() -> int:
         sys.argv = [f"bmtools {tool}", *argv[1:]]
         # Update-Prüfung nebenher: startet jetzt, meldet sich erst nach
         # dem Lauf und nur auf einer echten Konsole — Skripte und Pipes
-        # bleiben unbehelligt (UPDATER.md §2).
+        # bleiben unbehelligt (DEVELOPER.md „Selbst-Updater“).
         pruefung = _update_pruefung_starten()
         tool_code = TOOLS[tool][2](not terminal_erzwungen)
         if pruefung is not None:
