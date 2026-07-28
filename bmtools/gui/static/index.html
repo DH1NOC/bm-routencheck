@@ -232,6 +232,21 @@
     <h1>BM-Routencheck</h1>
   </header>
 
+  <!-- Update-Hinweis (erscheint nach der Hintergrundprüfung) -->
+  <div id="update-leiste" class="update-leiste" hidden>
+    <svg class="icon"><use href="#i-download"/></svg>
+    <span id="update-text"></span>
+    <span class="update-knoepfe">
+      <button type="button" class="umriss schmal" id="update-jetzt">
+        Jetzt aktualisieren
+      </button>
+      <button type="button" class="rund klein" id="update-weg"
+              title="Hinweis ausblenden">
+        <svg class="icon"><use href="#i-close"/></svg>
+      </button>
+    </span>
+  </div>
+
   <!-- Leerzustand (vor dem ersten Lauf) -->
   <section id="leer" class="leerzustand">
     <svg class="icon riesig"><use href="#i-route"/></svg>
@@ -390,6 +405,19 @@
   <button type="button" class="menue-eintrag" data-theme-wahl="dunkel">
     <svg class="icon menue-haken"><use href="#i-check_circle"/></svg>
     Dunkel
+  </button>
+  <hr class="menue-linie">
+  <p class="menue-titel">Updates</p>
+  <!-- Die installierte Version gehört sichtbar: Beta-Tester sollen sie
+       melden können, ohne dafür ins Terminal zu wechseln. -->
+  <p class="menue-info" id="menue-version">Version …</p>
+  <button type="button" class="menue-eintrag" id="menue-update-pruefen">
+    <svg class="icon menue-haken"><use href="#i-check_circle"/></svg>
+    Beim Start nach Updates suchen
+  </button>
+  <button type="button" class="menue-eintrag" id="menue-update-vorab">
+    <svg class="icon menue-haken"><use href="#i-check_circle"/></svg>
+    Auch Vorabversionen anbieten
   </button>
   <hr class="menue-linie">
   <p class="menue-info" id="menue-cache-info">Cache: …</p>

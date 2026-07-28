@@ -19,6 +19,14 @@ GPX_ROUTE_ONLY = """<?xml version="1.0"?>
   <rte><rtept lat="50.1" lon="7.2"/><rtept lat="50.2" lon="7.3"/></rte>
 </gpx>"""
 
+# Entity-Aufblasen: jede Referenz vervielfacht sich — xml.etree würde
+# das expandieren (Speicher-DoS), defusedxml lehnt Entities rundweg ab.
+GPX_ENTITY_BOMBE = """<?xml version="1.0"?>
+<!DOCTYPE gpx [<!ENTITY a "xxxx"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;">]>
+<gpx version="1.0"><trk><name>&b;</name><trkseg>
+  <trkpt lat="50.1" lon="7.2"/><trkpt lat="50.2" lon="7.3"/>
+</trkseg></trk></gpx>"""
+
 
 def test_track(tmp_path):
     p = tmp_path / "tour.gpx"
@@ -47,5 +55,14 @@ def test_leere_datei(tmp_path):
 def test_kaputtes_xml(tmp_path):
     p = tmp_path / "kaputt.gpx"
     p.write_text("<gpx><trk>")
+    with pytest.raises(RouteInputError, match="nicht lesbar"):
+        read_gpx(p)
+
+
+def test_entity_bombe_wird_abgelehnt(tmp_path):
+    """Bösartiges GPX (geteilte Tracks!) darf nur eine saubere
+    Fehlermeldung auslösen — kein Entity-Expandieren, kein Traceback."""
+    p = tmp_path / "boese.gpx"
+    p.write_text(GPX_ENTITY_BOMBE)
     with pytest.raises(RouteInputError, match="nicht lesbar"):
         read_gpx(p)

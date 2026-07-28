@@ -7,6 +7,7 @@
 let aktiverModus = "bahn";
 let laufAktiv = false;
 let einstellungen = {};  // persistiert über die Bridge (gui.json)
+let installierteVersion = "";  // aus init_zustand, fürs Menü
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -930,7 +931,43 @@ async function oeffneMenue() {
   $("#menue-cache-info").textContent = info.leer
     ? "Cache ist leer"
     : "Cache: " + info.gesamt + " (" + info.dateien + " Dateien)";
+  zeigeUpdateHaken();
 }
+
+/* Zwei Haken im Menü; »aktiv« zeichnet den Haken sichtbar (wie bei der
+   Theme-Wahl). Vorgabe: prüfen JA, Vorabversionen NEIN
+   (Nutzerfestlegung 2026-07-27). */
+function zeigeUpdateHaken() {
+  // "0+unbekannt" ist der Fall ohne Paket-Metadaten — dann entscheidet
+  // der Updater bewusst gar nichts, und das gehört auch so dazustehen.
+  $("#menue-version").textContent =
+    !installierteVersion || installierteVersion.startsWith("0+")
+      ? "Version unbekannt — keine Update-Prüfung"
+      : "Version " + installierteVersion;
+  $("#menue-update-pruefen").classList.toggle(
+    "aktiv", einstellungen.update_pruefen !== false);
+  $("#menue-update-vorab").classList.toggle(
+    "aktiv", einstellungen.update_vorab === true);
+}
+
+function schalteEinstellung(name, vorgabe) {
+  const neu = !(einstellungen[name] === undefined
+    ? vorgabe : einstellungen[name]);
+  einstellungen[name] = neu;
+  window.pywebview.api.setze_einstellung(name, neu);
+  zeigeUpdateHaken();
+  return neu;
+}
+
+$("#menue-update-pruefen").addEventListener("click", () => {
+  if (schalteEinstellung("update_pruefen", true)) updatePruefen();
+  else $("#update-leiste").hidden = true;
+});
+
+$("#menue-update-vorab").addEventListener("click", () => {
+  schalteEinstellung("update_vorab", false);
+  updatePruefen();
+});
 
 $("#einstellungen").addEventListener("click", (ev) => {
   ev.stopPropagation();
@@ -959,6 +996,91 @@ $("#menue-cache-leeren").addEventListener("click", () => {
 $("#menue-ordner").addEventListener("click", async () => {
   $("#menue").hidden = true;
   meldeOeffnen(await window.pywebview.api.oeffne_ordner(), "Ordner");
+});
+
+/* ------------------------------------------------------- Updates */
+/* Die Prüfung läuft in der Bridge und braucht Netz — deshalb erst NACH
+   dem Fensteraufbau angestoßen und nie abgewartet. Die Leiste erscheint
+   still, wenn eine neuere Version verifiziert vorliegt. */
+
+let updateLaeuft = false;
+
+function zeigeUpdateLeiste(info) {
+  const vorab = info.vorabversion ? " (Vorabversion)" : "";
+  $("#update-text").textContent =
+    "Version " + info.version + vorab + " ist verfügbar.";
+  $("#update-leiste").hidden = false;
+}
+
+async function updatePruefen() {
+  try {
+    const info = await window.pywebview.api.suche_update();
+    if (info && info.version) zeigeUpdateLeiste(info);
+  } catch (e) {
+    /* Offline oder abgeschaltet — kein Hinweis, kein Lärm. */
+  }
+}
+
+$("#update-weg").addEventListener("click", () => {
+  $("#update-leiste").hidden = true;
+});
+
+/* Fortschritt + ETA des Update-Downloads (Bridge-Ereignis je vollem
+   Prozent). Die ETA ist sticky wie bei den Task-Balken (melder.py):
+   einmal über der Schwelle, bleibt sie bis zum Ende sichtbar — sonst
+   flackerte sie um die Schwelle herum. */
+let updateStart = null;
+let updateEtaSichtbar = false;
+
+function updateFortschritt(e) {
+  if (!updateLaeuft) return;
+  if (updateStart === null) updateStart = Date.now();
+  let text = "Wird geladen … " + e.prozent + " %";
+  const laufzeit = (Date.now() - updateStart) / 1000;
+  if (laufzeit > 1 && e.geladen > 0 && e.geladen < e.gesamt) {
+    const eta = Math.round(laufzeit / e.geladen * (e.gesamt - e.geladen));
+    if (eta > 10) updateEtaSichtbar = true;
+    if (updateEtaSichtbar) text += " · " + etaText(eta);
+  }
+  $("#update-text").textContent = text;
+}
+
+$("#update-jetzt").addEventListener("click", async () => {
+  if (updateLaeuft) return;
+  updateLaeuft = true;
+  updateStart = null;
+  updateEtaSichtbar = false;
+  const knopf = $("#update-jetzt");
+  // Ausblenden statt nur deaktivieren: Während der Aktualisierung hat
+  // der Knopf keine Funktion mehr (Nutzerwunsch 2026-07-27); die
+  // Leiste gehört jetzt dem Fortschritt.
+  knopf.hidden = true;
+  $("#update-weg").hidden = true;
+  $("#update-text").textContent = "Wird geladen …";
+  const r = await window.pywebview.api.fuehre_update_aus();
+  if (!r || !r.ok) {
+    // Die installierte Fassung ist unverändert — das gehört dazugesagt
+    $("#update-leiste").classList.add("fehler");
+    $("#update-text").textContent =
+      (r && r.fehler ? r.fehler : "Update fehlgeschlagen.") +
+      " Die installierte Version ist unverändert.";
+    knopf.hidden = true;
+    $("#update-weg").hidden = false;
+    updateLaeuft = false;
+    return;
+  }
+  if (r.sofort) {
+    $("#update-text").textContent =
+      "Aktualisiert auf " + r.version + " — Neustart …";
+    await window.pywebview.api.neustart_nach_update();
+  } else {
+    // Windows: Der Helfer tauscht, sobald wir beendet sind
+    $("#update-text").textContent =
+      "Aktualisiert auf " + r.version +
+      " — der Tausch erfolgt beim Beenden des Programms.";
+    knopf.hidden = true;
+    $("#update-weg").hidden = false;
+  }
 });
 
 /* ---------------------------------------------------- Statusleiste */
@@ -1101,6 +1223,9 @@ window.bmEreignis = (e) => {
     case "task_update":
       aktualisiereTask(e);
       break;
+    case "update_fortschritt":
+      updateFortschritt(e);
+      break;
     case "balken_ende":
       break;  // Einzelschritt-Balken bleibt bis zum nächsten Task stehen
     case "fehler":
@@ -1128,8 +1253,13 @@ window.bmEreignis = (e) => {
 window.addEventListener("pywebviewready", async () => {
   const z = await window.pywebview.api.init_zustand();
   einstellungen = z.einstellungen || {};
+  installierteVersion = z.version || "";
   setzeTheme(einstellungen.theme || "system", false);
+  zeigeUpdateHaken();
   waehleModus(z.tab || "bahn");
+  // Bewusst NICHT abgewartet: Die Prüfung braucht Netz, der Aufbau des
+  // Fensters soll darauf nie warten (DEVELOPER.md „Selbst-Updater").
+  updatePruefen();
 });
 
 /* Fallback für Ansicht im Browser (Entwicklung ohne Bridge) */

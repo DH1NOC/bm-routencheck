@@ -153,6 +153,25 @@ jobs:
               > /dev/null
           fi
 
+      - name: Abhängigkeiten auf bekannte Lücken prüfen (pip-audit)
+        run: |
+          set -euo pipefail
+          # pip zuerst aktualisieren: Es wird nie ins Binary gebündelt,
+          # aber pip-audit prüft es mit — ein veraltetes Runner-pip
+          # würde den Release sonst wegen eines Pakets stoppen, das gar
+          # nicht ausgeliefert wird (lokaler Probelauf 2026-07-27).
+          python -m pip install --quiet --upgrade pip
+          pip install --quiet pip-audit
+          # Prüft die INSTALLIERTE Umgebung — also genau die Pakete, die
+          # gleich ins Binary gebündelt werden und auf den Rechnern der
+          # Nutzer landen (je Plattform verschieden: Linux bündelt PyQt6
+          # samt WebEngine-Chromium mit). Ein Release mit bekannter CVE
+          # bricht hier ab. In der Push-QS läuft das bewusst NICHT: Eine
+          # frisch gemeldete CVE ohne verfügbaren Fix würde sonst jeden
+          # Commit blockieren — beim (manuellen, seltenen) Release ist
+          # der Stopp dagegen genau richtig.
+          pip-audit --skip-editable
+
       - name: Signatur-Zertifikat importieren (macOS)
         if: runner.os == 'macOS'
         env:
@@ -185,7 +204,12 @@ jobs:
           # (string-basiert) — die statische Analyse sieht es nicht.
           # --collect-data bmtools: GUI-Frontend (static/ inkl. Leaflet
           # und Material Symbols samt Lizenzen) ins Binary.
+          # --copy-metadata bm-routencheck: Ohne die Paket-Metadaten
+          # kennt das Binary seine eigene Version nicht — importlib.
+          # metadata findet dann nichts, und der Updater müsste
+          # schweigen. Der Rauchtest unten prüft das ausdrücklich.
           GEMEINSAM=(--collect-submodules bmtools --collect-data bmtools
+                     --copy-metadata bm-routencheck
                      --collect-data folium --collect-data branca
                      --collect-all tzdata)
           case "$RUNNER_OS" in
@@ -238,6 +262,24 @@ jobs:
           # Windows: Die windowed Exe hat im CI keine sichtbare Ausgabe,
           # geprüft werden Exit-Codes (Importe, tzdata, Datenpakete).
           "$BIN" --help
+          # Kennt das Binary seine eigene Version? Das ist die Grundlage
+          # jeder Update-Entscheidung (Downgrade-Sperre!) und im
+          # gefrorenen Zustand NICHT selbstverständlich: importlib.
+          # metadata findet nichts ohne --copy-metadata. Im Quellbaum
+          # sieht alles richtig aus, im Artefakt nicht — deshalb hier
+          # gegen die tatsächlich gebaute Version prüfen.
+          # Verglichen wird gegen das LABEL (0.4.0-beta.1), nicht gegen
+          # die PEP-440-Form (0.4.0b1): Das Programm zeigt die Version so
+          # an, wie sie auch im Tag und in den Dateinamen steht
+          # (version_anzeige(), Nutzerentscheidung 2026-07-27). Bei einem
+          # regulären Release sind beide ohnehin gleich.
+          GEMELDET="$("$BIN" --version)"
+          echo "Gemeldete Version: $GEMELDET"
+          if [ "$GEMELDET" != "BM-Routencheck ${{ needs.version.outputs.label }}" ]; then
+            echo "::error::Binary meldet '$GEMELDET', gebaut wurde \
+          ${{ needs.version.outputs.label }}"
+            exit 1
+          fi
           # PYTHONTZPATH leer: erzwingt den tzdata-Fallback auch auf
           # Linux/macOS — bahn lädt ZoneInfo("Europe/Berlin") beim Import
           # (genau der Windows-Absturz aus dem Beta-Test 2026-07-17).
@@ -414,6 +456,37 @@ jobs:
         run: |
           git archive --format=zip --prefix="bm-routencheck-$LABEL/" \
             -o "out/release/bm-routencheck-$LABEL-quellen.zip" HEAD
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Update-Manifest signieren
+        env:
+          UPDATE_SIGN_KEY: ${{ secrets.UPDATE_SIGN_KEY }}
+          # PEP-440-Form (0.4.1b1), nicht das Label: Der Client
+          # vergleicht gegen seine eigene --version, und die kommt aus
+          # den Paket-Metadaten.
+          VERSION: ${{ needs.version.outputs.version }}
+          LABEL: ${{ needs.version.outputs.label }}
+        run: |
+          set -euo pipefail
+          if [ -z "${UPDATE_SIGN_KEY:-}" ]; then
+            echo "::error::Secret UPDATE_SIGN_KEY fehlt. Ohne signiertes \
+          Manifest bekämen die Clients dieses Release nie angeboten — sie \
+          würden stumm auf der alten Version bleiben. Schlüssel erzeugen: \
+          packaging/schluessel_erzeugen.py, dann unter Settings → Secrets \
+          → Actions hinterlegen."
+            exit 1
+          fi
+          pip install --quiet cryptography
+          # Nur die eigenständigen Programme kommen ins Manifest — das
+          # Quell-ZIP ist nichts, womit sich eine Installation ersetzen
+          # ließe. Die Plattformnamen müssen zu bmtools/update/ziel.py
+          # passen (sys.platform + platform.machine()).
+          python packaging/manifest_signieren.py "$VERSION" out/release \
+            "windows-x64=out/release/BM-Routencheck-$LABEL-windows-x64.exe" \
+            "macos-arm64=out/release/BM-Routencheck-$LABEL-macos-arm64.zip" \
+            "linux-x64=out/release/bmtools-$LABEL-linux-x64.tar.gz"
+
       - name: GitHub-Release anlegen
         env:
           GH_TOKEN: ${{ github.token }}

@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Callable
+from typing import Any
 
 import questionary
 from questionary import Choice, Separator
@@ -133,6 +134,25 @@ def _cache_leeren_interaktiv(console: Console) -> None:
                   f"{cache_admin.groesse_mensch(frei)} freigegeben.")
 
 
+def _update_pruefung_starten() -> Any:
+    """Hintergrundprüfung anwerfen — oder None, wenn abgeschaltet.
+
+    Darf den Start unter keinen Umständen aufhalten oder zum Scheitern
+    bringen; im Zweifel passiert einfach nichts.
+    """
+    try:
+        from bmtools.gui import einstellungen
+        from bmtools.update.terminal import Hintergrundpruefung
+        werte = einstellungen.laden()
+        if not werte.get("update_pruefen", True):
+            return None
+        return Hintergrundpruefung(
+            mit_vorabversionen=bool(werte.get("update_vorab", False))
+        ).starten()
+    except Exception:
+        return None
+
+
 def main() -> int:
     console = Console()
 
@@ -156,6 +176,19 @@ def main() -> int:
         if tool in ("-h", "--help"):
             _usage(console)
             return 0
+        # Kein argparse-Parser auf dieser Ebene (reiner Dispatcher) —
+        # --version daher von Hand. Der Rauchtest im Release-Workflow
+        # prüft darüber, dass das gebaute Binary seine Version kennt.
+        if tool in ("-V", "--version"):
+            from bmtools.version import eigene_version, version_anzeige
+            console.print(
+                f"BM-Routencheck {version_anzeige(eigene_version())}")
+            return 0
+        if tool == "--update":
+            from bmtools.update.terminal import update_ausfuehren
+            return update_ausfuehren(
+                console,
+                mit_vorabversionen="--mit-vorabversionen" in argv[1:])
         if tool == "cache":
             sys.argv = ["bmtools cache", *argv[1:]]
             return _cache_main()
@@ -165,7 +198,14 @@ def main() -> int:
             return 2
         # Argumente ans Tool durchreichen (argv[0] für dessen --help-Anzeige)
         sys.argv = [f"bmtools {tool}", *argv[1:]]
-        return TOOLS[tool][2](not terminal_erzwungen)
+        # Update-Prüfung nebenher: startet jetzt, meldet sich erst nach
+        # dem Lauf und nur auf einer echten Konsole — Skripte und Pipes
+        # bleiben unbehelligt (DEVELOPER.md „Selbst-Updater“).
+        pruefung = _update_pruefung_starten()
+        tool_code = TOOLS[tool][2](not terminal_erzwungen)
+        if pruefung is not None:
+            pruefung.hinweis_ausgeben(console)
+        return tool_code
 
     if not terminal_erzwungen:
         code = gui.start_oder_none(console, None, erzwungen=gui_erzwungen)

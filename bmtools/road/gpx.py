@@ -1,15 +1,21 @@
 """GPX-Import — der garantierte Weg für Komoot & Co.
 
-Bewusst nur Standardbibliothek (xml.etree), namespace-tolerant:
-GPX 1.0/1.1 nutzen unterschiedliche Namespaces, Portale ergänzen
-eigene. Gelesen werden Track-Punkte (trkpt), ersatzweise
-Routen-Punkte (rtept).
+Geparst wird über defusedxml statt xml.etree direkt: GPX-Dateien
+kommen nicht nur vom Nutzer selbst (Komoot-Export, von anderen
+geteilte Tracks), und xml.etree ist laut eigener Doku nicht gegen
+bösartiges XML gehärtet (Entity-Aufblasen → Speicher-DoS). Ansonsten
+namespace-tolerant: GPX 1.0/1.1 nutzen unterschiedliche Namespaces,
+Portale ergänzen eigene. Gelesen werden Track-Punkte (trkpt),
+ersatzweise Routen-Punkte (rtept).
 """
 from __future__ import annotations
 
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
+from xml.etree.ElementTree import ParseError
+
+from defusedxml import DefusedXmlException
+from defusedxml.ElementTree import parse as _xml_parse
 
 from bmtools.routelib.model import Point
 
@@ -28,9 +34,11 @@ def _local(tag: str) -> str:
 
 def read_gpx(path: Path) -> GpxTrack:
     try:
-        root = ET.parse(path).getroot()
-    except (ET.ParseError, OSError) as e:
+        root = _xml_parse(path).getroot()
+    except (ParseError, DefusedXmlException, OSError) as e:
         raise RouteInputError(f"GPX-Datei nicht lesbar ({path}): {e}") from e
+    if root is None:
+        raise RouteInputError(f"GPX-Datei nicht lesbar ({path}): leer")
 
     points: list[Point] = []
     route_points: list[Point] = []

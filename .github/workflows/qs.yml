@@ -19,7 +19,7 @@ jobs:
       - name: Abhängigkeiten installieren
         run: pip install -e .[dev]
       - name: Lint (ruff)
-        run: ruff check bmtools tests
+        run: ruff check bmtools tests packaging
       - name: Typprüfung (mypy strict)
         run: mypy
       - name: Tests + Abdeckung (pytest)

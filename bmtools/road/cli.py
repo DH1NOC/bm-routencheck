@@ -211,6 +211,7 @@ def main(profile: str, *, gui_start: bool = True) -> int:
     ap.add_argument("--via", action="append", default=[], metavar="ORT",
                     help="Zwischenpunkt (mehrfach möglich)")
     ui.add_start_arguments(ap)
+    ui.add_version_argument(ap)
     ui.add_fm_arguments(ap)
     ap.add_argument("--korridor", "--corridor", dest="corridor", type=float,
                     default=None, metavar="KM",

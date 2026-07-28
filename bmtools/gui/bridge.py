@@ -111,9 +111,94 @@ class Bridge:
 
     def init_zustand(self) -> dict[str, Any]:
         """Startzustand fürs Frontend (aufgerufen bei pywebviewready)."""
+        from bmtools.version import eigene_version, version_anzeige
+
         from . import einstellungen
         return {"tab": self._tool or "bahn",
+                "version": version_anzeige(eigene_version()),
                 "einstellungen": einstellungen.laden()}
+
+    def suche_update(self) -> dict[str, Any] | None:
+        """Nach einem Update sehen — vom Frontend im Hintergrund
+        gerufen, damit der Fensterstart nicht wartet (DEVELOPER.md „Selbst-Updater“).
+
+        None heißt in jedem Zweifelsfall »nichts anbieten«: abgeschaltet,
+        kein Netz, Quellcode-Installation, Manifest nicht echt.
+        """
+        from . import einstellungen
+        werte = einstellungen.laden()
+        if not werte.get("update_pruefen", True):
+            return None
+        try:
+            from bmtools.update.ablauf import suche
+            angebot = suche(
+                mit_vorabversionen=bool(werte.get("update_vorab", False)))
+        except Exception:
+            return None
+        if angebot is None:
+            return None
+        from bmtools.version import version_anzeige
+        return {"version": version_anzeige(angebot.version),
+                "vorabversion": angebot.vorabversion,
+                "datei": angebot.artefakt.datei}
+
+    def fuehre_update_aus(self) -> dict[str, Any]:
+        """Update einspielen. Blockiert bewusst — das Frontend zeigt
+        so lange den Fortschritt in der Leiste."""
+        from bmtools.update.ablauf import UpdateFehler, durchfuehren, suche
+
+        from . import einstellungen
+        werte = einstellungen.laden()
+        try:
+            angebot = suche(
+                mit_vorabversionen=bool(werte.get("update_vorab", False)))
+        except Exception as e:
+            return {"ok": False, "fehler": f"Update-Prüfung fehlgeschlagen: {e}"}
+        if angebot is None:
+            return {"ok": False, "fehler": "Kein Update mehr verfügbar."}
+
+        letzte = {"prozent": -1}
+
+        def fortschritt(geladen: int, gesamt: int) -> None:
+            if not gesamt:
+                return
+            prozent = geladen * 100 // gesamt
+            # Nur ganze Prozentschritte senden: Der Callback feuert je
+            # 64-KB-Stück — ungedrosselt wären das beim Linux-Artefakt
+            # Tausende evaluate_js auf dem UI-Thread (dieselbe Sorge
+            # wie SENDETAKT_S im GuiMelder). geladen/gesamt reisen mit,
+            # daraus rechnet das Frontend die ETA.
+            if prozent == letzte["prozent"]:
+                return
+            letzte["prozent"] = prozent
+            self._sende_ereignis({"typ": "update_fortschritt",
+                                  "prozent": prozent,
+                                  "geladen": geladen, "gesamt": gesamt})
+
+        try:
+            sofort = durchfuehren(angebot, fortschritt)
+        except UpdateFehler as e:
+            return {"ok": False, "fehler": str(e)}
+        from bmtools.version import version_anzeige
+        return {"ok": True, "version": version_anzeige(angebot.version),
+                "sofort": sofort}
+
+    def neustart_nach_update(self) -> None:
+        """Neue Fassung starten und das Fenster schließen.
+
+        destroy() läuft NICHT synchron in diesem Bridge-Aufruf: Die
+        WKWebView schuldet dem Frontend noch die Antwort auf genau
+        diesen Aufruf — der Abriss mittendrin ließ das Fenster bei
+        »Neustart …« einfrieren (Beta-Befund 2026-07-27, macOS). Erst
+        antworten, dann nachgelagert zerstören; der Neustart-Helfer
+        wartet ohnehin auf unser Prozessende.
+        """
+        import threading
+
+        from bmtools.update.ablauf import neustart
+        neustart()
+        if self._fenster is not None:
+            threading.Timer(0.5, self._fenster.destroy).start()
 
     def setze_einstellung(self, name: str, wert: Any) -> None:
         """Einstellung persistieren (U5: Splitter; U6: Theme) — statt

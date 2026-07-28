@@ -64,6 +64,18 @@ def add_fm_arguments(ap: argparse.ArgumentParser) -> None:
                          "Ton wird nur gesendet")
 
 
+def add_version_argument(ap: argparse.ArgumentParser) -> None:
+    """`--version` in allen Tools — der Updater braucht eine belastbare
+    eigene Version, und der Rauchtest im Release-Workflow prüft über
+    genau dieses Flag, dass das gebaute Binary sie auch kennt."""
+    from bmtools.version import eigene_version, version_anzeige
+
+    ap.add_argument("--version", action="version",
+                    version=f"BM-Routencheck "
+                            f"{version_anzeige(eigene_version())}",
+                    help="Programmversion ausgeben und beenden")
+
+
 def add_start_arguments(ap: argparse.ArgumentParser) -> None:
     """--gui/--terminal in allen Tools (GUI-UMBAU.md, 2026-07-18):
     Ohne Argumente entscheidet die Desktop-Erkennung, diese Flags
