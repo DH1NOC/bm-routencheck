@@ -8,6 +8,7 @@ import pytest
 
 from bmtools.road import RouteInputError
 from bmtools.road.gmaps_link import (
+    ensure_scheme,
     expand_short_link,
     is_gmaps_url,
     parse_gmaps_url,
@@ -111,6 +112,15 @@ def test_is_gmaps_url():
     assert is_gmaps_url(CAR_URL)
     assert is_gmaps_url("https://maps.app.goo.gl/xaSZdtWAmRcPMDuYA")
     assert not is_gmaps_url("https://www.komoot.com/tour/3051244254")
+
+
+def test_ensure_scheme():
+    # Abgetippte/aus Messengern kopierte Links kommen ohne https:// an
+    assert ensure_scheme("maps.app.goo.gl/x") == "https://maps.app.goo.gl/x"
+    assert ensure_scheme("https://maps.app.goo.gl/x") == \
+        "https://maps.app.goo.gl/x"
+    assert is_gmaps_url("maps.app.goo.gl/xaSZdtWAmRcPMDuYA")
+    assert is_gmaps_url("www.google.com/maps/dir/Koblenz/Bendorf")
 
 
 def _client(handler) -> httpx.Client:

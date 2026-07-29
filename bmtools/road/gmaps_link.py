@@ -59,7 +59,14 @@ class GmapsRoute:
     mode: str | None  # "car" | "bike" | "foot" | None (Link ohne Angabe)
 
 
+def ensure_scheme(url: str) -> str:
+    """Fehlendes https:// ergänzen (abgetippte oder aus Messengern
+    kopierte Links kommen oft ohne Schema an)."""
+    return url if "://" in url else "https://" + url.lstrip("/")
+
+
 def is_gmaps_url(url: str) -> bool:
+    url = ensure_scheme(url)
     host = urlsplit(url).netloc.lower()
     return ("google." in host and "/maps" in urlsplit(url).path) \
         or host in SHORTLINK_HOSTS
