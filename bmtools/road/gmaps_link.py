@@ -7,6 +7,7 @@ Verkehrsmittel als !3e0..3. Geroutet wird danach selbst (OSRM).
 
 Unterstützte Formen:
 - https://www.google.com/maps/dir/<wp1>/<wp2>/.../@.../data=!...
+  (auch mit eingeschobenen Parameter-Segmenten wie /am=t/)
 - https://www.google.com/maps/dir/?api=1&origin=...&destination=...
   (dokumentierte Maps-URLs-API)
 - Kurzlinks https://maps.app.goo.gl/... (ein 302 auf die Lang-URL,
@@ -31,6 +32,9 @@ _MODE_BY_3E = {"0": "car", "1": "bike", "2": "foot", "3": "transit"}
 _MODE_BY_TRAVELMODE = {"driving": "car", "bicycling": "bike",
                        "walking": "foot", "transit": "transit"}
 
+# Parameter-Pfadsegmente wie am=t, die Google seit ~2026-07 zwischen
+# @-Viewport und data=-Blob einschiebt (verifiziert 2026-07-29, Issue #1)
+_PARAM_SEGMENT = re.compile(r"^[a-z][a-z0-9_]{0,11}=")
 _COORD_SEGMENT = re.compile(r"^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$")
 _BLOB_PAIR = re.compile(r"!1d(-?\d+(?:\.\d+)?)!2d(-?\d+(?:\.\d+)?)")
 _BLOB_MODE = re.compile(r"!3e(\d)")
@@ -120,6 +124,8 @@ def parse_gmaps_url(url: str) -> GmapsRoute:
         if seg.startswith("data="):
             blob = seg
             break
+        if _PARAM_SEGMENT.match(seg):
+            continue  # Parameter-Segment (z. B. am=t), kein Wegpunkt
         if seg:
             names.append(unquote_plus(seg))
 

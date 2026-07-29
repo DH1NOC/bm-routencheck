@@ -65,6 +65,23 @@ def test_drag_via_mehr_paare_als_namen():
         [(49.0, 11.0), (49.5, 10.0), (50.4, 7.5)]
 
 
+def test_param_segment_am_t_ist_kein_wegpunkt():
+    # Struktur eines am 2026-07-29 expandierten Kurzlinks (Issue #1,
+    # anonymisiert): zwischen @-Viewport und data= schiebt Google
+    # inzwischen Parameter-Segmente wie am=t ein — vorher wurde daraus
+    # ein dritter Wegpunkt »am=t« und die Koordinaten-Zuordnung kippte.
+    url = (
+        "https://www.google.com/maps/dir/Start/Ziel/@49.6,10.6,90091m/am=t/"
+        "data=!3m1!1e3!4m14!4m13!1m5!1m1!1s0x0:0x1!2m2!1d11.0!2d49.4"
+        "!1m5!1m1!1s0x0:0x2!2m2!1d10.9!2d49.8!3e1?entry=tts"
+    )
+    route = parse_gmaps_url(url)
+    assert route.mode == "bike"
+    assert [w.name for w in route.waypoints] == ["Start", "Ziel"]
+    assert [(w.lat, w.lon) for w in route.waypoints] == \
+        [(49.4, 11.0), (49.8, 10.9)]
+
+
 def test_api1_form():
     url = ("https://www.google.com/maps/dir/?api=1&origin=Koblenz"
            "&destination=N%C3%BCrnberg&waypoints=W%C3%BCrzburg%7CFürth"
