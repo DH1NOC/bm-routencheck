@@ -7,6 +7,7 @@ Verkehrsmittel als !3e0..3. Geroutet wird danach selbst (OSRM).
 
 Unterstützte Formen:
 - https://www.google.com/maps/dir/<wp1>/<wp2>/.../@.../data=!...
+  (auch mit eingeschobenen Parameter-Segmenten wie /am=t/)
 - https://www.google.com/maps/dir/?api=1&origin=...&destination=...
   (dokumentierte Maps-URLs-API)
 - Kurzlinks https://maps.app.goo.gl/... (ein 302 auf die Lang-URL,
@@ -31,6 +32,9 @@ _MODE_BY_3E = {"0": "car", "1": "bike", "2": "foot", "3": "transit"}
 _MODE_BY_TRAVELMODE = {"driving": "car", "bicycling": "bike",
                        "walking": "foot", "transit": "transit"}
 
+# Parameter-Pfadsegmente wie am=t, die Google seit ~2026-07 zwischen
+# @-Viewport und data=-Blob einschiebt (verifiziert 2026-07-29, Issue #1)
+_PARAM_SEGMENT = re.compile(r"^[a-z][a-z0-9_]{0,11}=")
 _COORD_SEGMENT = re.compile(r"^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$")
 _BLOB_PAIR = re.compile(r"!1d(-?\d+(?:\.\d+)?)!2d(-?\d+(?:\.\d+)?)")
 _BLOB_MODE = re.compile(r"!3e(\d)")
@@ -55,7 +59,14 @@ class GmapsRoute:
     mode: str | None  # "car" | "bike" | "foot" | None (Link ohne Angabe)
 
 
+def ensure_scheme(url: str) -> str:
+    """Fehlendes https:// ergänzen (abgetippte oder aus Messengern
+    kopierte Links kommen oft ohne Schema an)."""
+    return url if "://" in url else "https://" + url.lstrip("/")
+
+
 def is_gmaps_url(url: str) -> bool:
+    url = ensure_scheme(url)
     host = urlsplit(url).netloc.lower()
     return ("google." in host and "/maps" in urlsplit(url).path) \
         or host in SHORTLINK_HOSTS
@@ -68,7 +79,15 @@ def expand_short_link(url: str, http: httpx.Client | None = None) -> str:
     try:
         current = url
         for _ in range(5):
-            r = http.get(current, follow_redirects=False)
+            try:
+                r = http.get(current, follow_redirects=False)
+            except httpx.HTTPError as e:
+                raise RouteInputError(
+                    f"Kurzlink ließ sich nicht auflösen — Netzwerkfehler "
+                    f"beim Abruf von Google ({e}). Internetverbindung "
+                    f"prüfen; alternativ die Route im Browser öffnen und "
+                    f"die vollständige URL aus der Adresszeile "
+                    f"verwenden.") from e
             target = r.headers.get("location")
             if r.status_code in (301, 302, 303, 307, 308) and target:
                 if "consent.google" in urlsplit(target).netloc:
@@ -96,6 +115,11 @@ def parse_gmaps_url(url: str) -> GmapsRoute:
     path = split.path
 
     if "/maps/dir" not in path and "/dir/" not in path:
+        if "/maps/place" in path:
+            raise RouteInputError(
+                "Der Link zeigt nur einen Ort, keine Route. In Google "
+                "Maps zum Ort auf »Route« gehen, Start und Ziel "
+                "eintragen und dann den Link der Route kopieren.")
         raise RouteInputError(
             "Das ist kein Google-Maps-Routenlink (es fehlt /maps/dir/...). "
             "In Google Maps eine Route berechnen und deren Link kopieren.")
@@ -114,14 +138,19 @@ def parse_gmaps_url(url: str) -> GmapsRoute:
 
     names: list[str] = []
     blob = ""
+    standort_luecke = False  # leeres Segment = »Mein Standort« im Link
     for seg in segments[start:]:
         if seg.startswith("@"):
             continue  # Karten-Viewport, kein Wegpunkt
         if seg.startswith("data="):
             blob = seg
             break
+        if _PARAM_SEGMENT.match(seg):
+            continue  # Parameter-Segment (z. B. am=t), kein Wegpunkt
         if seg:
             names.append(unquote_plus(seg))
+        else:
+            standort_luecke = True
 
     waypoints = [_waypoint_from_name(n) for n in names]
 
@@ -146,6 +175,12 @@ def parse_gmaps_url(url: str) -> GmapsRoute:
         # Weniger Paare als Namen: Blob unvollständig -> Namen später geocodieren
 
     if len(waypoints) < 2:
+        if standort_luecke:
+            raise RouteInputError(
+                "Die Route beginnt oder endet an »Mein Standort« — der "
+                "eigene Standort steht nie im Link. In Google Maps statt "
+                "»Mein Standort« eine konkrete Adresse eintragen und den "
+                "Link neu kopieren.")
         raise RouteInputError(
             "Der Link enthält keine vollständige Route (mindestens Start "
             "und Ziel nötig).")

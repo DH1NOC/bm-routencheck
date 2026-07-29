@@ -8,6 +8,7 @@ import pytest
 
 from bmtools.road import RouteInputError
 from bmtools.road.gmaps_link import (
+    ensure_scheme,
     expand_short_link,
     is_gmaps_url,
     parse_gmaps_url,
@@ -65,6 +66,23 @@ def test_drag_via_mehr_paare_als_namen():
         [(49.0, 11.0), (49.5, 10.0), (50.4, 7.5)]
 
 
+def test_param_segment_am_t_ist_kein_wegpunkt():
+    # Struktur eines am 2026-07-29 expandierten Kurzlinks (Issue #1,
+    # anonymisiert): zwischen @-Viewport und data= schiebt Google
+    # inzwischen Parameter-Segmente wie am=t ein — vorher wurde daraus
+    # ein dritter Wegpunkt »am=t« und die Koordinaten-Zuordnung kippte.
+    url = (
+        "https://www.google.com/maps/dir/Start/Ziel/@49.6,10.6,90091m/am=t/"
+        "data=!3m1!1e3!4m14!4m13!1m5!1m1!1s0x0:0x1!2m2!1d11.0!2d49.4"
+        "!1m5!1m1!1s0x0:0x2!2m2!1d10.9!2d49.8!3e1?entry=tts"
+    )
+    route = parse_gmaps_url(url)
+    assert route.mode == "bike"
+    assert [w.name for w in route.waypoints] == ["Start", "Ziel"]
+    assert [(w.lat, w.lon) for w in route.waypoints] == \
+        [(49.4, 11.0), (49.8, 10.9)]
+
+
 def test_api1_form():
     url = ("https://www.google.com/maps/dir/?api=1&origin=Koblenz"
            "&destination=N%C3%BCrnberg&waypoints=W%C3%BCrzburg%7CFürth"
@@ -76,8 +94,24 @@ def test_api1_form():
     assert not any(w.resolved for w in route.waypoints)  # geocoden nötig
 
 
+def test_mein_standort_als_start_erklaert_sich():
+    # Handy-App-Standard: Route ab »Mein Standort« -> leeres Segment
+    # nach /dir/, im Link steht nur das Ziel
+    url = ("https://www.google.com/maps/dir//Bendorf,+56170/@50.4,7.5,13z/"
+           "data=!4m9!4m8!1m0!1m5!1m1!1s0x0:0x1!2m2!1d7.57!2d50.42!3e0")
+    with pytest.raises(RouteInputError, match="Mein Standort"):
+        parse_gmaps_url(url)
+
+
 def test_kein_routenlink():
     with pytest.raises(RouteInputError, match="kein Google-Maps-Routenlink"):
+        parse_gmaps_url("https://www.google.com/maps/search/Koblenz")
+
+
+def test_ortslink_erklaert_route_berechnen():
+    # Häufiger Testerfehler: Adresse gesucht und geteilt statt einer
+    # berechneten Route -> Meldung nennt den fehlenden Schritt
+    with pytest.raises(RouteInputError, match="nur einen Ort"):
         parse_gmaps_url("https://www.google.com/maps/place/Koblenz")
 
 
@@ -85,6 +119,15 @@ def test_is_gmaps_url():
     assert is_gmaps_url(CAR_URL)
     assert is_gmaps_url("https://maps.app.goo.gl/xaSZdtWAmRcPMDuYA")
     assert not is_gmaps_url("https://www.komoot.com/tour/3051244254")
+
+
+def test_ensure_scheme():
+    # Abgetippte/aus Messengern kopierte Links kommen ohne https:// an
+    assert ensure_scheme("maps.app.goo.gl/x") == "https://maps.app.goo.gl/x"
+    assert ensure_scheme("https://maps.app.goo.gl/x") == \
+        "https://maps.app.goo.gl/x"
+    assert is_gmaps_url("maps.app.goo.gl/xaSZdtWAmRcPMDuYA")
+    assert is_gmaps_url("www.google.com/maps/dir/Koblenz/Bendorf")
 
 
 def _client(handler) -> httpx.Client:
@@ -107,6 +150,16 @@ def test_expand_short_link_consent_wall():
             "location": "https://consent.google.com/m?continue=..."})
 
     with pytest.raises(RouteInputError, match="Adresszeile"):
+        expand_short_link("https://maps.app.goo.gl/x", _client(handler))
+
+
+def test_expand_short_link_netzwerkfehler():
+    # httpx-Fehler dürfen nicht als Traceback/»Unerwarteter Fehler«
+    # enden, sondern als verständliche RouteInputError-Meldung
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("kein Netz")
+
+    with pytest.raises(RouteInputError, match="Netzwerkfehler"):
         expand_short_link("https://maps.app.goo.gl/x", _client(handler))
 
 

@@ -30,6 +30,7 @@ from .geocode import geocode_candidates
 from .gmaps_link import (
     SHORTLINK_HOSTS,
     LinkWaypoint,
+    ensure_scheme,
     expand_short_link,
     parse_gmaps_url,
 )
@@ -108,6 +109,7 @@ def _warn(melder: Melder) -> Callable[[str], None]:
 
 def _route_from_gmaps(link: str, args: argparse.Namespace, melder: Melder,
                       profile: str, interactive: bool) -> tuple[Route, str]:
+    link = ensure_scheme(link)
     if urlsplit(link).netloc.lower() in SHORTLINK_HOSTS:
         link = expand_short_link(link)
     g = parse_gmaps_url(link)
