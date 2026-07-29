@@ -118,6 +118,7 @@ def parse_gmaps_url(url: str) -> GmapsRoute:
 
     names: list[str] = []
     blob = ""
+    standort_luecke = False  # leeres Segment = »Mein Standort« im Link
     for seg in segments[start:]:
         if seg.startswith("@"):
             continue  # Karten-Viewport, kein Wegpunkt
@@ -128,6 +129,8 @@ def parse_gmaps_url(url: str) -> GmapsRoute:
             continue  # Parameter-Segment (z. B. am=t), kein Wegpunkt
         if seg:
             names.append(unquote_plus(seg))
+        else:
+            standort_luecke = True
 
     waypoints = [_waypoint_from_name(n) for n in names]
 
@@ -152,6 +155,12 @@ def parse_gmaps_url(url: str) -> GmapsRoute:
         # Weniger Paare als Namen: Blob unvollständig -> Namen später geocodieren
 
     if len(waypoints) < 2:
+        if standort_luecke:
+            raise RouteInputError(
+                "Die Route beginnt oder endet an »Mein Standort« — der "
+                "eigene Standort steht nie im Link. In Google Maps statt "
+                "»Mein Standort« eine konkrete Adresse eintragen und den "
+                "Link neu kopieren.")
         raise RouteInputError(
             "Der Link enthält keine vollständige Route (mindestens Start "
             "und Ziel nötig).")

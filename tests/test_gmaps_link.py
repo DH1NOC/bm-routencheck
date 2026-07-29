@@ -93,6 +93,15 @@ def test_api1_form():
     assert not any(w.resolved for w in route.waypoints)  # geocoden nötig
 
 
+def test_mein_standort_als_start_erklaert_sich():
+    # Handy-App-Standard: Route ab »Mein Standort« -> leeres Segment
+    # nach /dir/, im Link steht nur das Ziel
+    url = ("https://www.google.com/maps/dir//Bendorf,+56170/@50.4,7.5,13z/"
+           "data=!4m9!4m8!1m0!1m5!1m1!1s0x0:0x1!2m2!1d7.57!2d50.42!3e0")
+    with pytest.raises(RouteInputError, match="Mein Standort"):
+        parse_gmaps_url(url)
+
+
 def test_kein_routenlink():
     with pytest.raises(RouteInputError, match="kein Google-Maps-Routenlink"):
         parse_gmaps_url("https://www.google.com/maps/place/Koblenz")
