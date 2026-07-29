@@ -115,6 +115,11 @@ def parse_gmaps_url(url: str) -> GmapsRoute:
     path = split.path
 
     if "/maps/dir" not in path and "/dir/" not in path:
+        if "/maps/place" in path:
+            raise RouteInputError(
+                "Der Link zeigt nur einen Ort, keine Route. In Google "
+                "Maps zum Ort auf »Route« gehen, Start und Ziel "
+                "eintragen und dann den Link der Route kopieren.")
         raise RouteInputError(
             "Das ist kein Google-Maps-Routenlink (es fehlt /maps/dir/...). "
             "In Google Maps eine Route berechnen und deren Link kopieren.")

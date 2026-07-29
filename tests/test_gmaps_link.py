@@ -105,6 +105,13 @@ def test_mein_standort_als_start_erklaert_sich():
 
 def test_kein_routenlink():
     with pytest.raises(RouteInputError, match="kein Google-Maps-Routenlink"):
+        parse_gmaps_url("https://www.google.com/maps/search/Koblenz")
+
+
+def test_ortslink_erklaert_route_berechnen():
+    # Häufiger Testerfehler: Adresse gesucht und geteilt statt einer
+    # berechneten Route -> Meldung nennt den fehlenden Schritt
+    with pytest.raises(RouteInputError, match="nur einen Ort"):
         parse_gmaps_url("https://www.google.com/maps/place/Koblenz")
 
 
