@@ -79,7 +79,15 @@ def expand_short_link(url: str, http: httpx.Client | None = None) -> str:
     try:
         current = url
         for _ in range(5):
-            r = http.get(current, follow_redirects=False)
+            try:
+                r = http.get(current, follow_redirects=False)
+            except httpx.HTTPError as e:
+                raise RouteInputError(
+                    f"Kurzlink ließ sich nicht auflösen — Netzwerkfehler "
+                    f"beim Abruf von Google ({e}). Internetverbindung "
+                    f"prüfen; alternativ die Route im Browser öffnen und "
+                    f"die vollständige URL aus der Adresszeile "
+                    f"verwenden.") from e
             target = r.headers.get("location")
             if r.status_code in (301, 302, 303, 307, 308) and target:
                 if "consent.google" in urlsplit(target).netloc:

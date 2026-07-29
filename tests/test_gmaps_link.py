@@ -146,6 +146,16 @@ def test_expand_short_link_consent_wall():
         expand_short_link("https://maps.app.goo.gl/x", _client(handler))
 
 
+def test_expand_short_link_netzwerkfehler():
+    # httpx-Fehler dürfen nicht als Traceback/»Unerwarteter Fehler«
+    # enden, sondern als verständliche RouteInputError-Meldung
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("kein Netz")
+
+    with pytest.raises(RouteInputError, match="Netzwerkfehler"):
+        expand_short_link("https://maps.app.goo.gl/x", _client(handler))
+
+
 def test_expand_short_link_ohne_redirect():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, text="kein Redirect")
