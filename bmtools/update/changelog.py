@@ -8,6 +8,7 @@ Update-Angebot tabu ist.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import httpx
@@ -38,6 +39,33 @@ def notes_zwischen(von: str, bis: str, *,
         v_von, v_bis = Version(von), Version(bis)
     except InvalidVersion:
         return []
+
+    def behalten(v: Version) -> bool:
+        return v_von < v <= v_bis and (not v.is_prerelease or v == v_bis)
+
+    return _abrufen(behalten, client)
+
+
+def notes_zu(version: str, *,
+             client: httpx.Client | None = None) -> list[ReleaseNotes]:
+    """Nur die Notes dieser einen Version.
+
+    Für den ersten Lauf nach einem Update aus einer Fassung ohne
+    changelog_stand-Marker: Welche Version vorher lief, weiß da niemand
+    mehr — wenigstens das Neue der jetzt laufenden Version gehört
+    gezeigt (Nutzerentscheidung 2026-07-30). Fehlertoleranz wie bei
+    notes_zwischen: im Zweifel [].
+    """
+    try:
+        v = Version(version)
+    except InvalidVersion:
+        return []
+    return _abrufen(lambda kandidat: kandidat == v, client)
+
+
+def _abrufen(behalten: Callable[[Version], bool],
+             client: httpx.Client | None) -> list[ReleaseNotes]:
+    """Die Releases holen und die behaltenen liefern, neueste zuerst."""
     eigener_client = client is None
     client = client or httpx.Client(timeout=ZEITLIMIT, verify=True,
                                     follow_redirects=True)
@@ -59,9 +87,7 @@ def notes_zwischen(von: str, bis: str, *,
                 v = Version(tag.removeprefix("v"))
             except InvalidVersion:
                 continue
-            if not (v_von < v <= v_bis):
-                continue
-            if v.is_prerelease and v != v_bis:
+            if not behalten(v):
                 continue
             body = eintrag.get("body")
             if not isinstance(body, str) or not body.strip():

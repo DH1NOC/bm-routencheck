@@ -113,8 +113,13 @@ def _signatur_pruefen(neu: Path, ziel: Path) -> None:
             f"({fremd or 'keinem'} statt {eigen}) — Tausch abgebrochen")
 
 
-def _windows_helfer(ziel: Path) -> Path:
+def _windows_helfer(neu: Path) -> Path:
     """Batch-Datei, die nach unserem Ende tauscht und neu startet.
+
+    Sie liegt bei der neuen Exe im Arbeitsordner (System-Temp), nicht
+    neben dem Programm — dort sollen keine Update-Reste auftauchen
+    (Nutzerbefund 2026-07-30). Sie löscht sich am Ende selbst; bleibt
+    sie je liegen, räumt der nächste Start den Arbeitsordner ab.
 
     Die Pfade stehen NICHT im Skript, sondern kommen als
     Umgebungsvariablen mit (BM_UPDATE_*): cmd liest Batch-Dateien in
@@ -129,7 +134,7 @@ def _windows_helfer(ziel: Path) -> Path:
     Konsole den Dienst („Eingabeumleitung wird nicht unterstützt") —
     und der Helfer läuft absichtlich ohne Fenster.
     """
-    skript = ziel.with_name(HELFER_NAME)
+    skript = neu.with_name(HELFER_NAME)
     skript.write_text(
         "@echo off\r\n"
         "rem Von BM-Routencheck erzeugt; loescht sich am Ende selbst.\r\n"
@@ -181,9 +186,9 @@ def _helfer_starten(skript: Path, ziel: Path, neu: Path, alt: Path) -> None:
 def helfer_verwerfen(ziel: Path) -> None:
     """Beim Start: liegengebliebenes Helfer-Skript entsorgen.
 
-    Bleibt nur zurück, wenn der Helfer zwischen Schreiben und
-    Selbstlöschen abgebrochen wurde — im Normalfall gibt es hier nichts
-    zu tun.
+    Nur noch Altlast: Bis 0.4.3 lag das Skript neben dem Programm —
+    das letzte Update von dort macht noch die Vorversion. Seitdem lebt
+    es im Arbeitsordner, den der Start ohnehin abräumt.
     """
     with contextlib.suppress(OSError):
         ziel.with_name(HELFER_NAME).unlink(missing_ok=True)
@@ -213,7 +218,7 @@ def ersetze(ziel: Path, neu: Path) -> bool:
         _signatur_pruefen(neu, ziel)
 
     if sys.platform == "win32":
-        _helfer_starten(_windows_helfer(ziel), ziel, neu, alt)
+        _helfer_starten(_windows_helfer(neu), ziel, neu, alt)
         return False
 
     # Erst das Alte zur Seite, dann das Neue an seinen Platz. Bricht der

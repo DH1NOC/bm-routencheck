@@ -109,8 +109,8 @@ nicht, der Hinweis erscheint einfach kurz danach:
 
 - **Im Programmfenster** erscheint oben eine Leiste „Version 0.4.1 ist
   verfügbar" mit dem Knopf **Jetzt aktualisieren**. Ein Klick lädt und
-  ersetzt das Programm und startet es neu (unter Windows beim nächsten
-  Beenden). Das ✕ blendet den Hinweis für diese Sitzung aus.
+  ersetzt das Programm und startet es neu — auf allen Plattformen ohne
+  weiteres Zutun. Das ✕ blendet den Hinweis für diese Sitzung aus.
 - **Im Terminal** kommt der Hinweis erst *nach* dem Lauf, damit er nichts
   unterbricht — und nur auf einer echten Konsole. In Skripten und Pipes
   bleibt er aus. Aktualisiert wird dort von Hand:

@@ -1228,18 +1228,12 @@ $("#update-jetzt").addEventListener("click", async () => {
     updateLaeuft = false;
     return;
   }
-  if (r.sofort) {
-    $("#update-text").textContent =
-      "Aktualisiert auf " + r.version + " — Neustart …";
-    await window.pywebview.api.neustart_nach_update();
-  } else {
-    // Windows: Der Helfer tauscht, sobald wir beendet sind
-    $("#update-text").textContent =
-      "Aktualisiert auf " + r.version +
-      " — der Tausch erfolgt beim Beenden des Programms.";
-    knopf.hidden = true;
-    $("#update-weg").hidden = false;
-  }
+  /* Auf allen Plattformen gleich: Programm beendet sich selbst, die
+     neue Fassung startet — unter Windows übernimmt das der Helfer
+     nach unserem Prozessende (Bridge/ablauf.neustart). */
+  $("#update-text").textContent =
+    "Aktualisiert auf " + r.version + " — Neustart …";
+  await window.pywebview.api.neustart_nach_update();
 });
 
 /* ---------------------------------------------------- Statusleiste */

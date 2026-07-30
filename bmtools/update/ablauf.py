@@ -6,7 +6,10 @@ den bekannten (fertig, gesamt)-Callback.
 """
 from __future__ import annotations
 
+import sys
+import tempfile
 from collections.abc import Callable
+from pathlib import Path
 
 from bmtools.version import eigene_version, version_anzeige
 
@@ -14,15 +17,47 @@ from . import laden, tausch
 from .pruefen import Angebot, suche_update
 from .ziel import beschreibbar, eigenes_programm, plattform
 
-# Arbeitsordner NEBEN dem Ziel, nicht im System-Temp: os.replace kann
-# keine Dateisystemgrenzen überschreiten (EXDEV) — /tmp ist oft tmpfs,
-# das Programm liegt woanders. Der Ordner verrät zudem sofort, wozu er
-# gehört, falls je Reste liegen bleiben.
+# Name des Arbeitsordners neben dem Ziel (Linux/macOS — und bis 0.4.3
+# alle Plattformen; siehe arbeitsordner()).
 ARBEITSORDNER = ".bm-update"
+TEMP_ARBEITSORDNER = "bm-routencheck-update"
+
+
+def arbeitsordner(ziel: Path) -> Path:
+    """Wo Download und Auspacken stattfinden.
+
+    Linux/macOS: NEBEN dem Ziel, nicht im System-Temp — os.replace kann
+    keine Dateisystemgrenzen überschreiten (EXDEV), und /tmp ist oft
+    tmpfs, während das Programm woanders liegt. Windows: im System-Temp —
+    dort tauscht der cmd-Helfer per »move«, das Dateien notfalls über
+    Laufwerksgrenzen kopiert, und neben der Exe irritierten die
+    Update-Reste (Nutzerbefund 2026-07-30).
+    """
+    if sys.platform == "win32":
+        return Path(tempfile.gettempdir()) / TEMP_ARBEITSORDNER
+    return ziel.parent / ARBEITSORDNER
 
 
 class UpdateFehler(Exception):
     """Sammelfehler für den Ablauf — Text ist nutzertauglich."""
+
+
+# Lag beim Start das Backup der Vorversion da? Dann ist dieser Lauf der
+# erste nach einem Update — beim_start_aufraeumen() hält das hier fest,
+# BEVOR es das Backup wegräumt (die Bridge fragt erst viel später).
+_frisch_aktualisiert = False
+
+
+def frisch_aktualisiert() -> bool:
+    """Ist dieser Lauf der erste nach einem Update?
+
+    Braucht der »Was ist neu«-Dialog für den Fall, dass der
+    changelog_stand-Marker noch fehlt: Der fehlt sowohl bei frischer
+    Installation (nichts zu erzählen) als auch beim ersten Update aus
+    einer Version ohne dieses Feature — nur das weggeräumte Backup
+    unterscheidet die beiden.
+    """
+    return _frisch_aktualisiert
 
 
 def beim_start_aufraeumen() -> None:
@@ -30,14 +65,22 @@ def beim_start_aufraeumen() -> None:
 
     Dass wir laufen, ist der Beweis für den gelungenen Tausch
     (Nutzerfestlegung: alte Fassung behalten bis zum ersten Erfolg).
+    Ob ein Backup da war, merkt sich frisch_aktualisiert().
     Fehler hier sind belanglos und dürfen den Start nie stören.
     """
+    global _frisch_aktualisiert
     try:
         ziel = eigenes_programm()
         if ziel is not None:
-            tausch.alte_fassung_verwerfen(ziel)
-            # Reste eines abgebrochenen Laufs: Arbeitsordner und (nur
-            # Windows) ein Helfer-Skript, das nie zum Selbstlöschen kam
+            _frisch_aktualisiert = tausch.alte_fassung_verwerfen(ziel)
+            # Reste des letzten Laufs: Arbeitsordner (unter Windows hat
+            # der Helfer die neue Exe erst nach unserem Ende dort
+            # herausgeholt) und ein Helfer-Skript, das nie zum
+            # Selbstlöschen kam
+            laden.aufraeumen(arbeitsordner(ziel))
+            # Altlast: Bis 0.4.3 lag der Arbeitsordner auf allen
+            # Plattformen neben dem Programm — das letzte Update von
+            # dort macht noch die Vorversion, also mitputzen.
             laden.aufraeumen(ziel.parent / ARBEITSORDNER)
             tausch.helfer_verwerfen(ziel)
     except Exception:
@@ -60,11 +103,14 @@ def durchfuehren(angebot: Angebot,
                  ) -> bool:
     """Angebot einspielen.
 
-    True  = getauscht, Neustart über neustart() möglich (Linux/macOS)
-    False = Helfer tauscht nach Prozessende (Windows) — nur noch beenden
+    True  = getauscht (Linux/macOS), neustart() startet die neue Fassung
+    False = Helfer tauscht nach Prozessende und startet selbst neu
+            (Windows) — der Aufrufer muss sich nur noch beenden
 
-    Wirft UpdateFehler mit nutzertauglichem Text; das Programm auf der
-    Platte ist danach in jedem Fall noch startbar (tausch.py).
+    Für den Aufrufer ist beides gleich: neustart() aufrufen (unter
+    Windows ein No-op) und sich beenden. Wirft UpdateFehler mit
+    nutzertauglichem Text; das Programm auf der Platte ist danach in
+    jedem Fall noch startbar (tausch.py).
     """
     ziel = eigenes_programm()
     ziel_plattform = plattform()
@@ -77,7 +123,7 @@ def durchfuehren(angebot: Angebot,
             f"Kein Schreibrecht in {ziel.parent} — bitte die neue Version "
             f"von Hand von der Release-Seite laden.")
 
-    arbeit = ziel.parent / ARBEITSORDNER
+    arbeit = arbeitsordner(ziel)
     laden.aufraeumen(arbeit)
     arbeit.mkdir(parents=True, exist_ok=True)
     try:
@@ -97,7 +143,14 @@ def durchfuehren(angebot: Angebot,
 
 def neustart() -> None:
     """Die neue Fassung starten; der Aufrufer beendet danach diesen
-    Prozess (GUI: Fenster zerstören, Terminal: return)."""
+    Prozess (GUI: Fenster zerstören, Terminal: return).
+
+    Unter Windows gibt es nichts zu tun: Dort wartet der Helfer aus
+    tausch.py auf unser Prozessende, tauscht und startet die neue Exe
+    selbst — ein zweiter Start hier ergäbe zwei Instanzen.
+    """
+    if sys.platform == "win32":
+        return
     ziel = eigenes_programm()
     if ziel is not None:
         tausch.neu_starten(ziel)

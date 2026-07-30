@@ -401,7 +401,7 @@ Kanalwahl gehört dem Nutzer, nicht dem Netzweg
 | `tausch.py` | Das Ersetzen je Plattform — die Naht, an der die Tests ansetzen |
 | `ablauf.py` | Verbindet alles zu dem, was GUI und Terminal aufrufen |
 | `terminal.py` | Hintergrundprüfung + `bmtools --update` |
-| `changelog.py` | Release-Notes für den »Was ist neu«-Dialog nach einem Update — reine Anzeige-Daten, bewusst OHNE Signaturprüfung (die GUI rendert sie nur als escapten Text; Marker `changelog_stand` in gui.json, ein Versuch pro Update) |
+| `changelog.py` | Release-Notes für den »Was ist neu«-Dialog nach einem Update — reine Anzeige-Daten, bewusst OHNE Signaturprüfung (die GUI rendert sie nur als escapten Text; Marker `changelog_stand` in gui.json, ein Versuch pro Update). Fehlt der Marker, entscheidet `frisch_aktualisiert()` aus `ablauf.py` (lag beim Start das `.vorher`-Backup da?) zwischen frischer Installation (stumm) und erstem Update aus einer Version ohne Marker (Notes nur der laufenden Version, `notes_zu`) |
 
 **Zwei Schlüsselplätze von Anfang an.** Ein ausgeliefertes Binary
 akzeptiert nur Schlüssel, die es kennt — ohne zweiten Platz wäre bei
@@ -458,9 +458,14 @@ Schlüssel ein.
   hält beide Seiten zusammen. **Nie zum Vergleichen benutzen** —
   `ist_neuer()` und `ist_vorabversion()` arbeiten weiter auf der
   PEP-440-Form.
-- **Der Arbeitsordner liegt neben dem Ziel**, nicht im System-Temp:
-  `os.replace()` kann keine Dateisystemgrenzen überschreiten (`EXDEV`),
-  und `/tmp` ist oft tmpfs.
+- **Der Arbeitsordner liegt auf Linux/macOS neben dem Ziel**, nicht im
+  System-Temp: `os.replace()` kann keine Dateisystemgrenzen
+  überschreiten (`EXDEV`), und `/tmp` ist oft tmpfs. **Unter Windows
+  liegt er im System-Temp** (`%TEMP%\bm-routencheck-update`) — dort
+  tauscht der cmd-Helfer per `move`, das Dateien notfalls über
+  Laufwerksgrenzen kopiert, und neben der Exe irritierten die
+  Update-Reste (Nutzerbefund 2026-07-30). Der Start räumt beide Orte
+  ab, den Nachbar-Ordner als Altlast von Updates aus ≤ 0.4.3.
 - **Die alte Fassung wird nur zur Seite geschoben** (`<name>.vorher`).
   Dass `beim_start_aufraeumen()` in `packaging/entry.py` überhaupt läuft,
   *ist* der Beweis für den gelungenen Start — eine eigene
@@ -499,10 +504,14 @@ Schlüssel ein.
   Deshalb `_saubere_umgebung()` bei jedem Neustart-Weg und auch unter
   Linux das Warten auf das Prozessende. macOS war nie betroffen:
   `open` startet über launchd, ohne unsere Umgebung.
-- **Windows:** Die laufende `.exe` ist gesperrt. Eine Batch-Datei wartet
-  auf unser Prozessende, tauscht, startet neu und löscht sich selbst —
-  daher gibt `ersetze()` dort `False` zurück („Tausch beim Beenden").
-  Das Muster „unsigniertes Programm lädt eine Exe und führt sie aus" kann
+- **Windows:** Die laufende `.exe` ist gesperrt. Eine Batch-Datei (im
+  Arbeitsordner, siehe oben) wartet auf unser Prozessende, tauscht,
+  startet neu und löscht sich selbst — daher gibt `ersetze()` dort
+  `False` zurück. Für den Aufrufer ist das seit 0.4.4 kein Unterschied
+  mehr: `neustart()` ist unter Windows ein No-op (der Helfer startet
+  selbst; ein zweiter Start gäbe zwei Instanzen), die GUI zeigt überall
+  »Neustart …« und schließt ihr Fenster. Das Muster „unsigniertes
+  Programm lädt eine Exe und führt sie aus" kann
   Virenscanner-Heuristiken auslösen.
 - **Plattformnamen sind ein Vertrag** zwischen `release.yml` und
   `ziel.py`; weichen sie ab, findet der Client sein Artefakt nie.
