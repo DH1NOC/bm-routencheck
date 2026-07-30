@@ -202,7 +202,8 @@ def _pipeline(route: Route, args: argparse.Namespace, melder: Melder,
     zone = f"{names[0].removesuffix(' Hbf')}-{names[-1].removesuffix(' Hbf')}"
     return run_pipeline(
         route, melder=melder, out_dir=out_dir, corridor_km=args.corridor,
-        no_terrain=args.no_terrain, open_browser=args.open, zone=zone,
+        no_terrain=args.no_terrain, suchradius_km=args.suchradius,
+        open_browser=args.open, zone=zone,
         route_label="Bahnstrecke", waypoint_icon="train",
         refresh=args.refresh, modus=args.modus,
         bandbreite=args.bandbreite, ctcss_decode=args.ctcss_decode,
@@ -293,6 +294,13 @@ def main(*, gui_start: bool = True) -> int:
                     help="Optionales Limit: maximaler Streckenabstand in km. "
                          "Ohne Angabe zählt allein die rechnerische "
                          "Erreichbarkeit des Relais von der Strecke")
+    ap.add_argument("--suchradius", dest="suchradius", type=float,
+                    default=None, metavar="KM",
+                    help="Suchradius um die Strecke: nur Relais bis zu "
+                         "diesem Abstand gehen in die Erreichbarkeits"
+                         "rechnung ein (Default: 60). Unter 25 km können "
+                         "Relais fehlen, über 135 km steigt nur die "
+                         "Laufzeit")
     ap.add_argument("--luftlinie", "--straight-line", dest="straight_line",
                     action="store_true",
                     help="Keine Verbindungssuche, Luftlinie zwischen Bahnhöfen")

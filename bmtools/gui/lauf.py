@@ -35,6 +35,7 @@ def _namespace(daten: dict[str, Any]) -> argparse.Namespace:
         arrive=bool(daten.get("ankunft")),
         direct=bool(daten.get("direkt")),
         corridor=None, no_terrain=False, open=False, refresh=False,
+        suchradius=None,
         modus=str(daten.get("modus") or "beide"),
         bandbreite="12.5", ctcss_decode=False,
         # Kein Automatik-PDF: Die GUI exportiert auf Knopfdruck über
