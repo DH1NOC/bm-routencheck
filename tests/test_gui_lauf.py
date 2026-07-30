@@ -126,3 +126,20 @@ def test_abbruch_meldet_sofort_auch_bei_haengendem_schritt(monkeypatch):
     # laeuft() ist noch True (Thread steckt im Fake), aber die Bridge
     # lässt wegen abgebrochen() trotzdem eine neue Suche zu
     assert lauf.laeuft()
+
+
+def test_suchradius_aus_einstellungen(monkeypatch):
+    """Nur positive Zahlen aus gui.json zählen; alles andere (fehlend,
+    Text, 0, bool) fällt still auf den Pipeline-Default zurück."""
+    def mit(wert):
+        monkeypatch.setattr("bmtools.gui.einstellungen.laden",
+                            lambda: {"suchradius": wert})
+        return lauf_mod._suchradius()
+
+    assert mit(80) == 80.0
+    assert mit(42.5) == 42.5
+    assert mit(None) is None
+    assert mit("80") is None
+    assert mit(0) is None
+    assert mit(-5) is None
+    assert mit(True) is None

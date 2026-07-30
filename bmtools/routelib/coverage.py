@@ -26,7 +26,15 @@ MOBILE_HEIGHT_M = 2.0     # Handfunkgerät im Zug
 DEFAULT_AGL_M = 15.0      # Annahme, wenn Antennenhöhe unbekannt
 SAMPLE_KM = 0.5           # Abtastschritt entlang der Strecke
 MIN_GAP_KM = 5.0          # kleinere Lücken werden nicht einzeln gelistet
-BBOX_BUFFER_KM = 60.0     # Relais-Vorfilter um die Strecke
+BBOX_BUFFER_KM = 60.0     # Relais-Vorfilter um die Strecke (Default-Suchradius)
+# Hinweisschwellen für den konfigurierbaren Suchradius (Nutzerent-
+# scheidung 2026-07-30: obere Schwelle 135 km). Darüber bringt mehr
+# Radius praktisch nichts: selbst eine 500-m-Antenne hat nur ~98 km
+# Funkhorizont, und die FM-Quelle liefert ohnehin nur ~129 km um die
+# Stützpunkte (fm_api/client.py) — nur die Laufzeit steigt.
+# app.js zeigt dieselben Schwellen inline.
+SUCHRADIUS_HINWEIS_MIN_KM = 25.0
+SUCHRADIUS_HINWEIS_MAX_KM = 135.0
 MARGINAL_OBSTRUCTION_M = 30.0  # Hindernis bis hierhin: "Grenzbereich"
 PREFETCH_STEP_KM = 4.0    # Abtastung der Profillinien für den Kachel-Prefetch
 
@@ -44,6 +52,20 @@ class SamplePoint:
 def horizon_km(agl_m: float) -> float:
     """Radiohorizont in km für gegebene Antennenhöhe (AGL, Meter)."""
     return 4.12 * (math.sqrt(max(agl_m, 3.0)) + math.sqrt(MOBILE_HEIGHT_M))
+
+
+def suchradius_hinweis(km: float) -> str | None:
+    """Warntext für auffällige Suchradien, None im Normalbereich.
+
+    Eine Quelle für CLI und Pipeline-Log; die GUI zeigt inhaltsgleiche
+    Texte inline unterm Eingabefeld (app.js)."""
+    if km < SUCHRADIUS_HINWEIS_MIN_KM:
+        return (f"Suchradius {km:g} km ist klein — womöglich werden "
+                f"zu wenige Relais gefunden.")
+    if km > SUCHRADIUS_HINWEIS_MAX_KM:
+        return (f"Suchradius {km:g} km verlängert die Laufzeit deutlich, "
+                f"ohne nennenswert mehr erreichbare Relais zu finden.")
+    return None
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -86,10 +108,14 @@ class CoverageEstimate:
 
 def estimate_coverage(points: list[Point], repeaters: list[RepeaterLike],
                       terrain: TerrainModel | None = None, *,
+                      suchradius_km: float = BBOX_BUFFER_KM,
                       tile_progress: Callable[[int, int], None] | None = None,
                       sample_progress: Callable[[int, int], None] | None = None,
                       ) -> CoverageEstimate:
-    """tile_progress/sample_progress melden (fertig, gesamt) für den
+    """suchradius_km: Vorfilter — nur Relais bis zu diesem Abstand von
+    der Strecke gehen in die Rechnung ein.
+
+    tile_progress/sample_progress melden (fertig, gesamt) für den
     Höhenkachel-Download bzw. die Klassifikation je Streckenpunkt —
     UI-frei, die CLI hängt daran ihre Fortschrittsbalken. tile_progress
     feuert nur, wenn tatsächlich Kacheln fehlen (und aus Threads,
@@ -105,7 +131,7 @@ def estimate_coverage(points: list[Point], repeaters: list[RepeaterLike],
             samples.append((k, p[0], p[1]))
             next_km = k + SAMPLE_KM
 
-    lat_min, lon_min, lat_max, lon_max = bounding_box(points, BBOX_BUFFER_KM)
+    lat_min, lon_min, lat_max, lon_max = bounding_box(points, suchradius_km)
     reps: list[tuple[float, float, float, float, str, int]] = []
     for d in repeaters:
         if d.lat is None or d.lng is None:

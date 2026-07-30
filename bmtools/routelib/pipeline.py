@@ -22,7 +22,7 @@ from bmtools.fm_api import DL3ELClient, FmRepeater, band_label
 from .codeplug.anytone import write_anytone
 from .codeplug.chirp import write_chirp
 from .corridor import find_in_corridor
-from .coverage import estimate_coverage
+from .coverage import BBOX_BUFFER_KM, estimate_coverage, suchradius_hinweis
 from .mapview import karten_daten, write_map
 from .melden import Melder, TerminalMelder
 from .model import RepeaterLike, Route
@@ -75,6 +75,7 @@ def run_pipeline(route: Route, *, console: Console | None = None,
                  melder: Melder | None = None,
                  out_dir: Path,
                  corridor_km: float | None, no_terrain: bool,
+                 suchradius_km: float | None = None,
                  open_browser: bool, zone: str,
                  route_label: str = "Strecke",
                  waypoint_icon: str = "flag",
@@ -85,8 +86,17 @@ def run_pipeline(route: Route, *, console: Console | None = None,
                  pdf: bool = False,
                  interactive: bool = False) -> int:
     """melder=None: TerminalMelder auf der übergebenen Konsole (bzw.
-    stdout) — das bisherige Verhalten. Die GUI übergibt ihren eigenen."""
+    stdout) — das bisherige Verhalten. Die GUI übergibt ihren eigenen.
+
+    suchradius_km: Vorfilter-Radius um die Strecke für die
+    Erreichbarkeitsrechnung; None oder <=0 heißt Default (60 km)."""
     m: Melder = melder if melder is not None else TerminalMelder(console)
+    if suchradius_km is None or suchradius_km <= 0:
+        suchradius_km = BBOX_BUFFER_KM
+    # Auffälliger Radius: einmal deutlich sagen, womit gerechnet wird —
+    # gerade bei Beta-Testern muss das Programm selbst reden.
+    if (hinweis := suchradius_hinweis(suchradius_km)) is not None:
+        m.text(f"[yellow]{hinweis}[/yellow]")
     out_dir.mkdir(parents=True, exist_ok=True)
     # Ab hier absolut: Der gemeldete Pfad ist das, was der Nutzer sucht
     # (»Ergebnisse in out/xyz/« half niemandem, der nicht weiß, was sein
@@ -163,6 +173,7 @@ def run_pipeline(route: Route, *, console: Console | None = None,
 
         try:
             coverage = estimate_coverage(route.points, repeaters, terrain,
+                                         suchradius_km=suchradius_km,
                                          tile_progress=tile_progress,
                                          sample_progress=sample_progress)
         except TerrainError as e:
@@ -174,6 +185,7 @@ def run_pipeline(route: Route, *, console: Console | None = None,
                          beschreibung="Erreichbarkeit berechnen "
                                       "(Horizontmodell)")
             coverage = estimate_coverage(route.points, repeaters, None,
+                                         suchradius_km=suchradius_km,
                                          sample_progress=sample_progress)
 
     # Konsistenz-Zusage: Jedes Relais, das irgendwo (Karte, Abschnitts-

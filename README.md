@@ -185,6 +185,13 @@ Nach dem Lauf zeigt das Fenster:
 - die Knöpfe **PDF** (`bericht.pdf`), **CSV**, **Bericht** (öffnet Bericht
   und Karte im Browser) und **Ordner** (Ausgabeordner im Dateimanager).
 
+Im Zahnrad-Menü unten rechts sitzen neben Erscheinungsbild, Updates und
+Cache auch die **Relais-Suche**: Der *Suchradius* bestimmt, bis zu
+welchem Abstand von der Strecke Relais in die Erreichbarkeitsrechnung
+eingehen (leer = 60 km). Bei auffälligen Werten erscheint direkt unterm
+Feld ein Hinweis — unter 25 km werden womöglich zu wenige Relais
+gefunden, über 135 km verlängert sich nur die Laufzeit.
+
 `--terminal` erzwingt das Terminal, `--gui` das Fenster (hinter dem
 Toolnamen, z. B. `bmtools bahn --gui`); ohne Desktop (SSH, Server)
 startet automatisch das Terminal. Auch `bm-bahn`/`bm-auto`/`bm-rad`
@@ -375,6 +382,7 @@ bm-auto --von "Winkelhaider Str. 4a, Feucht" --nach "Bendorf" --oeffnen
 | `--bandbreite {12.5,25}` | Bandbreite analoger FM-Kanäle im Codeplug in kHz (Default: `12.5`; das Kanalraster steht nicht in den DL3EL-Daten, daher keine Automatik) |
 | `--ctcss-decode` | CTCSS auch als Empfangston setzen (Squelch öffnet nur beim Relais-Ton). Default: Empfang offen. Der Sendeton (Pilotton) wird unabhängig davon **immer** gesetzt, wenn die Quelle ihn nennt — viele FM-Relais öffnen nur damit |
 | `--korridor KM` | Optionales Limit: maximaler Abstand zur Strecke in km. Ohne Angabe zählt allein die rechnerische Erreichbarkeit — auch weit entfernte, aber sichtbare Relais werden aufgenommen |
+| `--suchradius KM` | Suchradius um die Strecke: nur Relais bis zu diesem Abstand gehen in die Erreichbarkeitsrechnung ein (Default: 60). Unter 25 km werden womöglich zu wenige Relais gefunden, über 135 km steigt nur die Laufzeit. Im Programmfenster steht derselbe Wert im Menü unter *Relais-Suche* |
 | `--ohne-gelaende` | Abdeckungsschätzung ohne Geländemodell; spart den Höhenkachel-Download, ist aber ungenauer |
 | `--aktualisieren` | Relais-Daten frisch laden statt aus dem Cache (BM-Geräteliste und FM-Liste halten sonst 1 Tag, Talkgroup-Profile 12 h) |
 | `--pdf` | Zusätzlich `bericht.pdf` erzeugen (Deckblatt mit Übersichtskarte, Relais-Tabelle mit Talkgroups) |

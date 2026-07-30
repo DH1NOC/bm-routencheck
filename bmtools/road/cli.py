@@ -220,6 +220,13 @@ def main(profile: str, *, gui_start: bool = True) -> int:
                     help="Optionales Limit: maximaler Streckenabstand in km. "
                          "Ohne Angabe zählt allein die rechnerische "
                          "Erreichbarkeit des Relais von der Strecke")
+    ap.add_argument("--suchradius", dest="suchradius", type=float,
+                    default=None, metavar="KM",
+                    help="Suchradius um die Strecke: nur Relais bis zu "
+                         "diesem Abstand gehen in die Erreichbarkeits"
+                         "rechnung ein (Default: 60). Unter 25 km können "
+                         "Relais fehlen, über 135 km steigt nur die "
+                         "Laufzeit")
     ap.add_argument("--ohne-gelaende", "--no-terrain", dest="no_terrain",
                     action="store_true",
                     help="Abdeckungsschätzung ohne Geländemodell "
@@ -291,6 +298,7 @@ def main(profile: str, *, gui_start: bool = True) -> int:
         return run_pipeline(
             route, melder=melder, out_dir=out_dir,
             corridor_km=args.corridor, no_terrain=args.no_terrain,
+            suchradius_km=args.suchradius,
             open_browser=args.open, zone=zone,
             route_label=route_label, waypoint_icon=icon,
             refresh=args.refresh, modus=args.modus,
