@@ -143,3 +143,45 @@ def system_oeffnen_still(ziel: Path) -> OeffnenFehler | None:
     except OeffnenFehler as e:
         return e
     return None
+
+
+def link_oeffnen_still(url: str) -> str | None:
+    """http(s)-Link im Standardbrowser öffnen; Fehlertext statt Wurf.
+
+    Gleiche native Wege wie system_oeffnen — webbrowser.open() scheitert
+    im Windows-Binary (Kopfkommentar). Andere Schemata werden hier an
+    der Grenze abgelehnt, nicht erst beim Aufrufer: Durchgereicht wird
+    auch unbeglaubigter Text (Release-Notes im »Was ist neu«-Dialog),
+    und file:/ oder gar Programm-URIs gehören nie in die Systemzuordnung.
+    """
+    from urllib.parse import urlsplit
+    try:
+        schema = urlsplit(url).scheme.lower()
+    except ValueError:
+        return "Link nicht lesbar"
+    if schema not in ("http", "https"):
+        return f"Nur http(s)-Links werden geöffnet (nicht {schema or 'ohne Schema'})"
+    if sys.platform == "win32":
+        try:
+            os.startfile(url)  # bewusst die Systemzuordnung (s. system_oeffnen)
+        except OSError as e:
+            return f"startfile: {e.strerror or e}"
+        return None
+    kommandos = ((["open"],) if sys.platform == "darwin"
+                 else (["xdg-open"], ["gio", "open"]))
+    versuche: list[str] = []
+    for kommando in kommandos:
+        if shutil.which(kommando[0]) is None:
+            continue
+        try:
+            fertig = subprocess.run([*kommando, url], check=False,
+                                    env=kind_umgebung(),
+                                    stderr=subprocess.PIPE, timeout=20)
+        except (OSError, subprocess.SubprocessError) as e:
+            versuche.append(f"{kommando[0]}: {e.__class__.__name__}")
+            continue
+        if fertig.returncode == 0:
+            return None
+        versuche.append(f"{kommando[0]}: Code {fertig.returncode}")
+    return ("Browser ließ sich nicht öffnen "
+            f"({'; '.join(versuche) or 'kein Öffner gefunden'})")

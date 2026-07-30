@@ -1050,6 +1050,7 @@ select {
   background: var(--feld);
   font-size: .92em;
 }
+#changelog-inhalt a { color: var(--primaer); }
 .dialog-knoepfe .start {
   padding: .5rem 1.1rem;
   border: none;

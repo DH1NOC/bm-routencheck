@@ -425,3 +425,15 @@ def test_changelog_ohne_bekannte_version_stumm(monkeypatch, tmp_path):
     assert b.changelog_nach_update() is None
     assert aufrufe == []
     assert "changelog_stand" not in einstellungen.laden()
+
+
+def test_oeffne_link_reicht_an_den_helfer_durch(monkeypatch):
+    aufrufe = []
+    monkeypatch.setattr("bmtools.routelib.oeffnen.link_oeffnen_still",
+                        lambda url: aufrufe.append(url))
+    assert Bridge().oeffne_link("https://example.org") == {"ok": True}
+    assert aufrufe == ["https://example.org"]
+    monkeypatch.setattr("bmtools.routelib.oeffnen.link_oeffnen_still",
+                        lambda url: "kaputt")
+    assert Bridge().oeffne_link("https://example.org") == {
+        "ok": False, "fehler": "kaputt"}

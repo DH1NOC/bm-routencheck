@@ -234,6 +234,16 @@ class Bridge:
         if self._fenster is not None:
             threading.Timer(0.5, self._fenster.destroy).start()
 
+    def oeffne_link(self, url: str) -> dict[str, Any]:
+        """Externen Link im Standardbrowser öffnen — nie in der WebView
+        (aufgerufen vom »Was ist neu«-Dialog). Die Schema-Prüfung
+        (nur http/https) sitzt im Öffnen-Helfer selbst."""
+        from bmtools.routelib.oeffnen import link_oeffnen_still
+        fehler = link_oeffnen_still(str(url))
+        if fehler is None:
+            return {"ok": True}
+        return {"ok": False, "fehler": fehler}
+
     def setze_einstellung(self, name: str, wert: Any) -> None:
         """Einstellung persistieren (U5: Splitter; U6: Theme) — statt
         localStorage, das WKWebView für file:// nicht zuverlässig über

@@ -1062,24 +1062,47 @@ $("#update-weg").addEventListener("click", () => {
 
 /* ----------------------------- »Was ist neu« nach einem Update */
 /* Die Notes kommen unbeglaubigt von der GitHub-API — gerendert wird
-   ausschließlich über Text-Knoten (nie innerHTML mit Fremdtext).
-   Mini-Markdown reicht für unsere Release-Notes: Absätze, Listen
-   (samt hängender Einrückung), **fett**, `code`; Markdown-Links
-   werden zu "Text (URL)" entschärft. */
+   ausschließlich über DOM-Knoten mit textContent (nie innerHTML mit
+   Fremdtext). Mini-Markdown reicht für unsere Release-Notes: Absätze,
+   Listen (samt hängender Einrückung), **fett**, *kursiv*, `code`.
+   Links (Markdown wie nackte URLs) werden anklickbar und öffnen über
+   die Bridge den Standard-Browser — nur http(s), alles andere bleibt
+   entschärfter Text. */
+
+function linkKnoten(text, url) {
+  if (!/^https?:\/\//i.test(url)) {
+    return document.createTextNode(text + " (" + url + ")");
+  }
+  const a = document.createElement("a");
+  a.href = url;            // Anzeige/Hover — der Klick geht zur Bridge
+  a.dataset.link = url;
+  a.title = url;
+  a.textContent = text;
+  return a;
+}
 
 function inlineMarkdown(ziel, text) {
-  text = text.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, "$1 ($2)");
+  const muster = /\[[^\]]+\]\(([^)\s]+)\)|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|`[^`]+`|https?:\/\/[^\s)]+/g;
   let rest = 0;
-  for (const treffer of
-       text.matchAll(/\*\*[^*]+\*\*|\*[^*\s][^*]*\*|`[^`]+`/g)) {
+  for (const treffer of text.matchAll(muster)) {
     ziel.append(text.slice(rest, treffer.index));
     const t = treffer[0];
-    const art = t.startsWith("**") ? ["strong", 2]
-      : t.startsWith("*") ? ["em", 1] : ["code", 1];
-    const knoten = document.createElement(art[0]);
-    knoten.textContent = t.slice(art[1], -art[1]);
-    ziel.append(knoten);
     rest = treffer.index + t.length;
+    if (t.startsWith("[")) {
+      ziel.append(linkKnoten(t.slice(1, t.indexOf("]")), treffer[1]));
+    } else if (t.startsWith("**") || t.startsWith("`")
+               || t.startsWith("*")) {
+      const art = t.startsWith("**") ? ["strong", 2]
+        : t.startsWith("*") ? ["em", 1] : ["code", 1];
+      const knoten = document.createElement(art[0]);
+      knoten.textContent = t.slice(art[1], -art[1]);
+      ziel.append(knoten);
+    } else {
+      // Nackte URL; Satzzeichen am Ende gehören zum Text, nicht zum Link
+      const nackt = t.replace(/[.,;:!?]+$/, "");
+      rest -= t.length - nackt.length;
+      ziel.append(linkKnoten(nackt, nackt));
+    }
   }
   ziel.append(text.slice(rest));
 }
@@ -1144,6 +1167,15 @@ async function changelogPruefen() {
 
 $("#changelog-schliessen").addEventListener("click", () => {
   $("#changelog-hintergrund").hidden = true;
+});
+
+/* Linkklicks gehen an die Bridge (Standard-Browser) — eine normale
+   Navigation ersetzte sonst das Programm in der WebView. */
+$("#changelog-inhalt").addEventListener("click", (ev) => {
+  const a = ev.target.closest("a[data-link]");
+  if (!a) return;
+  ev.preventDefault();
+  if (window.pywebview) window.pywebview.api.oeffne_link(a.dataset.link);
 });
 
 document.addEventListener("keydown", (ev) => {
