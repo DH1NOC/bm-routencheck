@@ -142,6 +142,40 @@ class Bridge:
                 "vorabversion": angebot.vorabversion,
                 "datei": angebot.artefakt.datei}
 
+    def changelog_nach_update(self) -> list[dict[str, str]] | None:
+        """Notes für den »Was ist neu«-Dialog — einmalig nach einem Update.
+
+        Der Marker `changelog_stand` in gui.json hält die zuletzt
+        gestartete Version und wird VOR der Netzabfrage fortgeschrieben:
+        ein Versuch pro Update (Nutzerentscheidung 2026-07-30) —
+        scheitert die Abfrage (offline), verfällt der Dialog, statt bei
+        jedem Start erneut anzuklopfen. Fehlt der Marker (frische
+        Installation oder erste Version mit diesem Feature), wird er
+        nur gesetzt.
+        """
+        from bmtools.version import eigene_version, version_bekannt
+
+        from . import einstellungen
+        if not version_bekannt():
+            return None
+        aktuell = eigene_version()
+        stand = einstellungen.laden().get("changelog_stand")
+        if stand == aktuell:
+            return None
+        einstellungen.setzen("changelog_stand", aktuell)
+        if not isinstance(stand, str):
+            return None
+        from bmtools.update.changelog import notes_zwischen
+        from bmtools.update.pruefen import ist_neuer
+        if not ist_neuer(aktuell, stand):
+            return None  # Downgrade/Seitwärts — nichts zu erzählen
+        try:
+            notes = notes_zwischen(stand, aktuell)
+        except Exception:
+            return None
+        return ([{"version": n.version, "notes": n.notes} for n in notes]
+                or None)
+
     def fuehre_update_aus(self) -> dict[str, Any]:
         """Update einspielen. Blockiert bewusst — das Frontend zeigt
         so lange den Fortschritt in der Leiste."""
