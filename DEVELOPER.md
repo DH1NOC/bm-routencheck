@@ -401,6 +401,7 @@ Kanalwahl gehört dem Nutzer, nicht dem Netzweg
 | `tausch.py` | Das Ersetzen je Plattform — die Naht, an der die Tests ansetzen |
 | `ablauf.py` | Verbindet alles zu dem, was GUI und Terminal aufrufen |
 | `terminal.py` | Hintergrundprüfung + `bmtools --update` |
+| `changelog.py` | Release-Notes für den »Was ist neu«-Dialog nach einem Update — reine Anzeige-Daten, bewusst OHNE Signaturprüfung (die GUI rendert sie nur als escapten Text; Marker `changelog_stand` in gui.json, ein Versuch pro Update) |
 
 **Zwei Schlüsselplätze von Anfang an.** Ein ausgeliefertes Binary
 akzeptiert nur Schlüssel, die es kennt — ohne zweiten Platz wäre bei

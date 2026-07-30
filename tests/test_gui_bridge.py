@@ -347,3 +347,93 @@ def test_export_pdf_schreibt_und_oeffnet(monkeypatch, tmp_path):
     assert r == {"pfad": str(tmp_path / "bericht.pdf")}
     assert geschrieben == [(daten, tmp_path / "bericht.pdf")]
     assert geoeffnet == [tmp_path / "bericht.pdf"]
+
+
+# ---------------------------------------------------------------------------
+# changelog_nach_update
+# ---------------------------------------------------------------------------
+
+def _changelog_umgebung(monkeypatch, tmp_path, *, version="0.4.3",
+                        bekannt=True, notes=()):
+    """Bridge mit isolierter gui.json, fester Version und gefakter
+    Notes-Abfrage; zählt die Netz-Aufrufe mit."""
+    aufrufe: list[tuple[str, str]] = []
+    monkeypatch.setattr("bmtools.gui.einstellungen.user_config_dir",
+                        lambda name: str(tmp_path))
+    monkeypatch.setattr("bmtools.version.eigene_version", lambda: version)
+    monkeypatch.setattr("bmtools.version.version_bekannt", lambda: bekannt)
+
+    from bmtools.update.changelog import ReleaseNotes
+
+    def fake_notes(von, bis, **kwargs):
+        aufrufe.append((von, bis))
+        return [ReleaseNotes(v, t) for v, t in notes]
+
+    monkeypatch.setattr("bmtools.update.changelog.notes_zwischen",
+                        fake_notes)
+    return Bridge(), aufrufe
+
+
+def test_changelog_erster_start_setzt_nur_den_marker(monkeypatch, tmp_path):
+    from bmtools.gui import einstellungen
+    b, aufrufe = _changelog_umgebung(monkeypatch, tmp_path)
+    assert b.changelog_nach_update() is None
+    assert einstellungen.laden()["changelog_stand"] == "0.4.3"
+    assert aufrufe == []  # frische Installation: keine Netzabfrage
+
+
+def test_changelog_nach_update_liefert_notes(monkeypatch, tmp_path):
+    from bmtools.gui import einstellungen
+    b, aufrufe = _changelog_umgebung(
+        monkeypatch, tmp_path,
+        notes=[("0.4.3", "Neues"), ("0.4.2", "Älteres")])
+    einstellungen.setzen("changelog_stand", "0.4.1")
+    assert b.changelog_nach_update() == [
+        {"version": "0.4.3", "notes": "Neues"},
+        {"version": "0.4.2", "notes": "Älteres"}]
+    assert aufrufe == [("0.4.1", "0.4.3")]
+    # Marker fortgeschrieben: der nächste Start fragt nicht mehr
+    assert einstellungen.laden()["changelog_stand"] == "0.4.3"
+    assert b.changelog_nach_update() is None
+    assert aufrufe == [("0.4.1", "0.4.3")]
+
+
+def test_changelog_verfaellt_wenn_abfrage_leer_bleibt(monkeypatch, tmp_path):
+    # Ein Versuch pro Update (Nutzerentscheidung 2026-07-30): auch bei
+    # leerer Antwort (offline) ist der Marker danach fortgeschrieben
+    from bmtools.gui import einstellungen
+    b, aufrufe = _changelog_umgebung(monkeypatch, tmp_path)
+    einstellungen.setzen("changelog_stand", "0.4.1")
+    assert b.changelog_nach_update() is None
+    assert len(aufrufe) == 1
+    assert einstellungen.laden()["changelog_stand"] == "0.4.3"
+
+
+def test_changelog_downgrade_zeigt_nichts(monkeypatch, tmp_path):
+    from bmtools.gui import einstellungen
+    b, aufrufe = _changelog_umgebung(monkeypatch, tmp_path,
+                                     notes=[("0.4.3", "x")])
+    einstellungen.setzen("changelog_stand", "0.5.0")
+    assert b.changelog_nach_update() is None
+    assert aufrufe == []
+    assert einstellungen.laden()["changelog_stand"] == "0.4.3"
+
+
+def test_changelog_ohne_bekannte_version_stumm(monkeypatch, tmp_path):
+    from bmtools.gui import einstellungen
+    b, aufrufe = _changelog_umgebung(monkeypatch, tmp_path, bekannt=False)
+    assert b.changelog_nach_update() is None
+    assert aufrufe == []
+    assert "changelog_stand" not in einstellungen.laden()
+
+
+def test_oeffne_link_reicht_an_den_helfer_durch(monkeypatch):
+    aufrufe = []
+    monkeypatch.setattr("bmtools.routelib.oeffnen.link_oeffnen_still",
+                        lambda url: aufrufe.append(url))
+    assert Bridge().oeffne_link("https://example.org") == {"ok": True}
+    assert aufrufe == ["https://example.org"]
+    monkeypatch.setattr("bmtools.routelib.oeffnen.link_oeffnen_still",
+                        lambda url: "kaputt")
+    assert Bridge().oeffne_link("https://example.org") == {
+        "ok": False, "fehler": "kaputt"}

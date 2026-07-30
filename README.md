@@ -121,6 +121,12 @@ bmtools --update --mit-vorabversionen     # Betas einbeziehen
 bmtools --version                         # installierte Version anzeigen
 ```
 
+Nach einem Update zeigt das Programmfenster beim ersten Start der neuen
+Version einmalig **„Neu in Version …“** — die Release-Notes von GitHub,
+bei übersprungenen Versionen alle seit der zuletzt gestarteten. Der
+Dialog braucht in diesem Moment Internet; ist keines da, entfällt er
+einfach (die Notes stehen jederzeit auf der Releases-Seite).
+
 Im Menü des Programmfensters (☰ → *Updates*) steht die installierte
 Version, und beide Punkte lassen sich umschalten:
 

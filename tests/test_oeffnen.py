@@ -198,3 +198,47 @@ def test_unverpackt_bleibt_die_umgebung_unangetastet(monkeypatch, tmp_path,
     oeffnen.system_oeffnen(tmp_path)
 
     assert lauf.umgebungen[0]["LD_LIBRARY_PATH"] == "/opt/eigenes"
+
+
+# ---------------------------------------------------------------------------
+# link_oeffnen_still: Schema-Grenze für unbeglaubigte Links
+# ---------------------------------------------------------------------------
+
+def test_link_nur_http_und_https(monkeypatch):
+    """Andere Schemata werden abgelehnt, BEVOR irgendein Öffner läuft —
+    durchgereicht wird auch Fremdtext (Release-Notes)."""
+    def nie(*args, **kwargs):
+        raise AssertionError("Öffner darf für böse Schemata nie laufen")
+    monkeypatch.setattr(subprocess, "run", nie)
+    monkeypatch.setattr(os, "startfile", nie, raising=False)
+
+    assert oeffnen.link_oeffnen_still("file:///etc/passwd") is not None
+    assert oeffnen.link_oeffnen_still("javascript:alert(1)") is not None
+    assert oeffnen.link_oeffnen_still("relativ/pfad") is not None
+
+
+def test_link_oeffnet_im_standardbrowser(monkeypatch):
+    aufrufe = []
+
+    def fake_run(kommando, **kwargs):
+        aufrufe.append(kommando)
+        class Fertig:
+            returncode = 0
+        return Fertig()
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assert oeffnen.link_oeffnen_still("https://example.org/x") is None
+    assert aufrufe == [["open", "https://example.org/x"]]
+
+
+def test_link_fehler_wird_gemeldet(monkeypatch):
+    def fake_run(kommando, **kwargs):
+        class Fertig:
+            returncode = 1
+        return Fertig()
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    fehler = oeffnen.link_oeffnen_still("https://example.org/x")
+    assert fehler is not None and "open: Code 1" in fehler

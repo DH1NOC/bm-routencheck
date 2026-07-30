@@ -456,6 +456,22 @@
   </div>
 </div>
 
+<!-- »Was ist neu«-Dialog: einmalig beim ersten Start nach einem
+     Update, mit den Release-Notes von GitHub (Bridge:
+     changelog_nach_update). Die Notes sind unbeglaubigter API-Text —
+     app.js rendert sie als Text-Knoten, nie als HTML. -->
+<div id="changelog-hintergrund" hidden>
+  <div id="changelog-dialog" role="dialog" aria-modal="true"
+       aria-labelledby="changelog-titel">
+    <h2 id="changelog-titel"></h2>
+    <div id="changelog-inhalt"></div>
+    <div class="dialog-knoepfe">
+      <button type="button" class="start" id="changelog-schliessen">
+        Alles klar</button>
+    </div>
+  </div>
+</div>
+
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="app.js"></script>
 </body>
