@@ -6,7 +6,10 @@ den bekannten (fertig, gesamt)-Callback.
 """
 from __future__ import annotations
 
+import sys
+import tempfile
 from collections.abc import Callable
+from pathlib import Path
 
 from bmtools.version import eigene_version, version_anzeige
 
@@ -14,11 +17,25 @@ from . import laden, tausch
 from .pruefen import Angebot, suche_update
 from .ziel import beschreibbar, eigenes_programm, plattform
 
-# Arbeitsordner NEBEN dem Ziel, nicht im System-Temp: os.replace kann
-# keine Dateisystemgrenzen überschreiten (EXDEV) — /tmp ist oft tmpfs,
-# das Programm liegt woanders. Der Ordner verrät zudem sofort, wozu er
-# gehört, falls je Reste liegen bleiben.
+# Name des Arbeitsordners neben dem Ziel (Linux/macOS — und bis 0.4.3
+# alle Plattformen; siehe arbeitsordner()).
 ARBEITSORDNER = ".bm-update"
+TEMP_ARBEITSORDNER = "bm-routencheck-update"
+
+
+def arbeitsordner(ziel: Path) -> Path:
+    """Wo Download und Auspacken stattfinden.
+
+    Linux/macOS: NEBEN dem Ziel, nicht im System-Temp — os.replace kann
+    keine Dateisystemgrenzen überschreiten (EXDEV), und /tmp ist oft
+    tmpfs, während das Programm woanders liegt. Windows: im System-Temp —
+    dort tauscht der cmd-Helfer per »move«, das Dateien notfalls über
+    Laufwerksgrenzen kopiert, und neben der Exe irritierten die
+    Update-Reste (Nutzerbefund 2026-07-30).
+    """
+    if sys.platform == "win32":
+        return Path(tempfile.gettempdir()) / TEMP_ARBEITSORDNER
+    return ziel.parent / ARBEITSORDNER
 
 
 class UpdateFehler(Exception):
@@ -36,8 +53,14 @@ def beim_start_aufraeumen() -> None:
         ziel = eigenes_programm()
         if ziel is not None:
             tausch.alte_fassung_verwerfen(ziel)
-            # Reste eines abgebrochenen Laufs: Arbeitsordner und (nur
-            # Windows) ein Helfer-Skript, das nie zum Selbstlöschen kam
+            # Reste des letzten Laufs: Arbeitsordner (unter Windows hat
+            # der Helfer die neue Exe erst nach unserem Ende dort
+            # herausgeholt) und ein Helfer-Skript, das nie zum
+            # Selbstlöschen kam
+            laden.aufraeumen(arbeitsordner(ziel))
+            # Altlast: Bis 0.4.3 lag der Arbeitsordner auf allen
+            # Plattformen neben dem Programm — das letzte Update von
+            # dort macht noch die Vorversion, also mitputzen.
             laden.aufraeumen(ziel.parent / ARBEITSORDNER)
             tausch.helfer_verwerfen(ziel)
     except Exception:
@@ -77,7 +100,7 @@ def durchfuehren(angebot: Angebot,
             f"Kein Schreibrecht in {ziel.parent} — bitte die neue Version "
             f"von Hand von der Release-Seite laden.")
 
-    arbeit = ziel.parent / ARBEITSORDNER
+    arbeit = arbeitsordner(ziel)
     laden.aufraeumen(arbeit)
     arbeit.mkdir(parents=True, exist_ok=True)
     try:

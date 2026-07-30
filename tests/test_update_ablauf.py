@@ -89,8 +89,10 @@ def test_fehlschlag_raeumt_auf_und_meldet_verstaendlich(installation,
 
 
 def test_arbeitsordner_liegt_neben_dem_ziel(installation, monkeypatch):
-    """os.replace kann keine Dateisystemgrenzen überschreiten — der
-    Arbeitsordner darf deshalb nicht im System-Temp liegen."""
+    """Linux/macOS: os.replace kann keine Dateisystemgrenzen
+    überschreiten — der Arbeitsordner darf deshalb nicht im System-Temp
+    liegen."""
+    monkeypatch.setattr("bmtools.update.ablauf.sys.platform", "linux")
     gesehen = {}
 
     def hole(ang, nach, fortschritt=None, client=None):
@@ -106,10 +108,46 @@ def test_arbeitsordner_liegt_neben_dem_ziel(installation, monkeypatch):
     assert gesehen["ordner"].parent == installation.parent
 
 
+def test_windows_arbeitsordner_liegt_im_temp(installation, monkeypatch,
+                                             tmp_path):
+    """Windows: Dort tauscht der cmd-Helfer per »move« (kopiert notfalls
+    über Laufwerksgrenzen) — der Arbeitsordner gehört ins System-Temp,
+    nicht als sichtbarer Rest neben die Exe (Nutzerbefund 2026-07-30)."""
+    monkeypatch.setattr("bmtools.update.ablauf.sys.platform", "win32")
+    temp = tmp_path / "temp"
+    temp.mkdir()
+    monkeypatch.setattr("bmtools.update.ablauf.tempfile.gettempdir",
+                        lambda: str(temp))
+    assert ablauf.arbeitsordner(installation) == \
+        temp / ablauf.TEMP_ARBEITSORDNER
+
+
 def test_start_aufraeumen_verwirft_das_backup(installation):
     t.backup_pfad(installation).write_bytes(b"vorversion")
     ablauf.beim_start_aufraeumen()
     assert not t.backup_pfad(installation).exists()
+
+
+def test_start_aufraeumen_putzt_temp_arbeitsordner_und_altlast(
+        installation, monkeypatch, tmp_path):
+    """Windows nach dem Tausch: Im Temp liegt noch der Arbeitsordner
+    (Archiv + Helfer-Skript), und ein Update VON 0.4.3 hinterlässt den
+    alten Nachbar-Ordner — beides muss der Start wegräumen."""
+    monkeypatch.setattr("bmtools.update.ablauf.sys.platform", "win32")
+    temp = tmp_path / "temp"
+    temp.mkdir()
+    monkeypatch.setattr("bmtools.update.ablauf.tempfile.gettempdir",
+                        lambda: str(temp))
+    arbeit = temp / ablauf.TEMP_ARBEITSORDNER
+    arbeit.mkdir()
+    (arbeit / "bm-update.cmd").write_text("@echo off")
+    altlast = installation.parent / ablauf.ARBEITSORDNER
+    altlast.mkdir()
+    (altlast / "rest.zip").write_bytes(b"rest")
+
+    ablauf.beim_start_aufraeumen()
+    assert not arbeit.exists()
+    assert not altlast.exists()
 
 
 def test_start_aufraeumen_entsorgt_den_helfer(installation):

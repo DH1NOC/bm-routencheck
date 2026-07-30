@@ -268,7 +268,11 @@ def windows(tmp_path, monkeypatch):
     ordner.mkdir()
     ziel = ordner / "BM-Routencheck.exe"
     ziel.write_bytes(b"alt")
-    neu = ordner / "neu.exe"
+    # Die neue Exe kommt aus dem Arbeitsordner (System-Temp), nicht aus
+    # dem Programmordner — wie in ablauf.durchfuehren()
+    arbeit = tmp_path / "arbeit"
+    arbeit.mkdir()
+    neu = arbeit / "neu.exe"
     neu.write_bytes(INHALT)
     return ziel, neu, laeufe
 
@@ -280,11 +284,21 @@ def test_windows_legt_einen_helfer_an(windows):
     ziel, neu, _ = windows
     assert t.ersetze(ziel, neu) is False     # noch nichts getauscht
     assert ziel.read_bytes() == b"alt"
-    helfer = ziel.with_name(t.HELFER_NAME).read_text(encoding="ascii")
+    helfer = neu.with_name(t.HELFER_NAME).read_text(encoding="ascii")
     assert "%BM_UPDATE_PID%" in helfer       # wartet auf uns
     assert "%BM_UPDATE_ZIEL%" in helfer and "%BM_UPDATE_NEU%" in helfer
     assert "Jürgen" not in helfer            # kein Pfad im Skript
     assert "del " in helfer                  # räumt sich selbst weg
+
+
+def test_windows_helfer_liegt_im_arbeitsordner(windows):
+    """Neben dem Programm sollen keine Update-Reste auftauchen — das
+    Skript gehört zur neuen Exe in den Arbeitsordner (Nutzerbefund
+    2026-07-30)."""
+    ziel, neu, _ = windows
+    t.ersetze(ziel, neu)
+    assert not ziel.with_name(t.HELFER_NAME).exists()
+    assert neu.with_name(t.HELFER_NAME).exists()
 
 
 def test_windows_startet_den_helfer(windows):
@@ -297,7 +311,7 @@ def test_windows_startet_den_helfer(windows):
     assert laeufe, "Helfer wurde nie gestartet"
     argv, umgebung = laeufe[0]
     assert argv[:2] == ["cmd", "/c"]
-    assert argv[2] == str(ziel.with_name(t.HELFER_NAME))
+    assert argv[2] == str(neu.with_name(t.HELFER_NAME))
     assert umgebung["BM_UPDATE_PID"] == str(os.getpid())
     assert umgebung["BM_UPDATE_ZIEL"] == str(ziel)
     assert umgebung["BM_UPDATE_NEU"] == str(neu)
