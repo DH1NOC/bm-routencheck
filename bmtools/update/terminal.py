@@ -99,6 +99,8 @@ def update_ausfuehren(console: Console, *,
     if sofort:
         console.print("Beim nächsten Start läuft die neue Fassung.")
     else:
-        # Windows: Der Helfer wartet auf unser Prozessende.
-        console.print("Der Tausch erfolgt, sobald dieses Programm endet.")
+        # Windows: Der Helfer wartet auf unser Prozessende, tauscht und
+        # startet die neue Fassung selbst.
+        console.print("Der Tausch erfolgt, sobald dieses Programm endet; "
+                      "die neue Fassung startet dann von selbst.")
     return 0

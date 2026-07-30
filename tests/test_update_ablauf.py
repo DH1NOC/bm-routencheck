@@ -169,6 +169,19 @@ def test_start_aufraeumen_stoert_nie(monkeypatch):
     ablauf.beim_start_aufraeumen()      # darf nicht werfen
 
 
+def test_windows_neustart_ueberlaesst_dem_helfer_den_start(installation,
+                                                           monkeypatch):
+    """Unter Windows startet der Helfer die neue Exe selbst, sobald wir
+    beendet sind — neustart() muss dort ein No-op sein, sonst gäbe es
+    zwei Instanzen (und /bin/sh gibt es dort ohnehin nicht)."""
+    monkeypatch.setattr("bmtools.update.ablauf.sys.platform", "win32")
+    monkeypatch.setattr(
+        t, "neu_starten",
+        lambda ziel: pytest.fail("neu_starten hat unter Windows nichts "
+                                 "zu suchen"))
+    ablauf.neustart()
+
+
 def test_hinweiszeilen_nennen_beide_versionen():
     zeilen = ablauf.hinweis_zeilen(angebot("0.4.1"))
     assert "0.4.1" in zeilen[0]

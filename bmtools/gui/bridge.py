@@ -210,12 +210,14 @@ class Bridge:
                                   "geladen": geladen, "gesamt": gesamt})
 
         try:
-            sofort = durchfuehren(angebot, fortschritt)
+            # Ob sofort getauscht wurde (Linux/macOS) oder der Helfer
+            # nach Prozessende übernimmt (Windows), ist dem Frontend
+            # egal: In beiden Fällen folgt neustart_nach_update().
+            durchfuehren(angebot, fortschritt)
         except UpdateFehler as e:
             return {"ok": False, "fehler": str(e)}
         from bmtools.version import version_anzeige
-        return {"ok": True, "version": version_anzeige(angebot.version),
-                "sofort": sofort}
+        return {"ok": True, "version": version_anzeige(angebot.version)}
 
     def neustart_nach_update(self) -> None:
         """Neue Fassung starten und das Fenster schließen.

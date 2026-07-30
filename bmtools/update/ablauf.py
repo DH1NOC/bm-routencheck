@@ -83,11 +83,14 @@ def durchfuehren(angebot: Angebot,
                  ) -> bool:
     """Angebot einspielen.
 
-    True  = getauscht, Neustart über neustart() möglich (Linux/macOS)
-    False = Helfer tauscht nach Prozessende (Windows) — nur noch beenden
+    True  = getauscht (Linux/macOS), neustart() startet die neue Fassung
+    False = Helfer tauscht nach Prozessende und startet selbst neu
+            (Windows) — der Aufrufer muss sich nur noch beenden
 
-    Wirft UpdateFehler mit nutzertauglichem Text; das Programm auf der
-    Platte ist danach in jedem Fall noch startbar (tausch.py).
+    Für den Aufrufer ist beides gleich: neustart() aufrufen (unter
+    Windows ein No-op) und sich beenden. Wirft UpdateFehler mit
+    nutzertauglichem Text; das Programm auf der Platte ist danach in
+    jedem Fall noch startbar (tausch.py).
     """
     ziel = eigenes_programm()
     ziel_plattform = plattform()
@@ -120,7 +123,14 @@ def durchfuehren(angebot: Angebot,
 
 def neustart() -> None:
     """Die neue Fassung starten; der Aufrufer beendet danach diesen
-    Prozess (GUI: Fenster zerstören, Terminal: return)."""
+    Prozess (GUI: Fenster zerstören, Terminal: return).
+
+    Unter Windows gibt es nichts zu tun: Dort wartet der Helfer aus
+    tausch.py auf unser Prozessende, tauscht und startet die neue Exe
+    selbst — ein zweiter Start hier ergäbe zwei Instanzen.
+    """
+    if sys.platform == "win32":
+        return
     ziel = eigenes_programm()
     if ziel is not None:
         tausch.neu_starten(ziel)
