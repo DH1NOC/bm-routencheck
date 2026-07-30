@@ -42,17 +42,37 @@ class UpdateFehler(Exception):
     """Sammelfehler für den Ablauf — Text ist nutzertauglich."""
 
 
+# Lag beim Start das Backup der Vorversion da? Dann ist dieser Lauf der
+# erste nach einem Update — beim_start_aufraeumen() hält das hier fest,
+# BEVOR es das Backup wegräumt (die Bridge fragt erst viel später).
+_frisch_aktualisiert = False
+
+
+def frisch_aktualisiert() -> bool:
+    """Ist dieser Lauf der erste nach einem Update?
+
+    Braucht der »Was ist neu«-Dialog für den Fall, dass der
+    changelog_stand-Marker noch fehlt: Der fehlt sowohl bei frischer
+    Installation (nichts zu erzählen) als auch beim ersten Update aus
+    einer Version ohne dieses Feature — nur das weggeräumte Backup
+    unterscheidet die beiden.
+    """
+    return _frisch_aktualisiert
+
+
 def beim_start_aufraeumen() -> None:
     """Beim Programmstart: Backup der Vorversion verwerfen.
 
     Dass wir laufen, ist der Beweis für den gelungenen Tausch
     (Nutzerfestlegung: alte Fassung behalten bis zum ersten Erfolg).
+    Ob ein Backup da war, merkt sich frisch_aktualisiert().
     Fehler hier sind belanglos und dürfen den Start nie stören.
     """
+    global _frisch_aktualisiert
     try:
         ziel = eigenes_programm()
         if ziel is not None:
-            tausch.alte_fassung_verwerfen(ziel)
+            _frisch_aktualisiert = tausch.alte_fassung_verwerfen(ziel)
             # Reste des letzten Laufs: Arbeitsordner (unter Windows hat
             # der Helfer die neue Exe erst nach unserem Ende dort
             # herausgeholt) und ein Helfer-Skript, das nie zum

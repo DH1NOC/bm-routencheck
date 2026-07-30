@@ -52,6 +52,21 @@ def test_lange_notes_werden_gekappt():
     assert len(n.notes) == c.NOTES_MAX
 
 
+def test_notes_zu_liefert_genau_die_eigene_version():
+    """Erster Lauf nach einem Update ohne Marker: Die Vorversion ist
+    unbekannt, gezeigt wird genau das Neue der laufenden Version —
+    nicht die ganze Historie."""
+    with api_client([eintrag("v0.4.2", "alt"), eintrag("v0.4.3", "neu"),
+                     eintrag("v0.5.0b1", "beta")]) as cl:
+        notes = c.notes_zu("0.4.3", client=cl)
+    assert [(n.version, n.notes) for n in notes] == [("0.4.3", "neu")]
+
+
+def test_notes_zu_mit_unlesbarer_version_bleibt_leer():
+    with api_client([eintrag("v0.4.3", "neu")]) as cl:
+        assert c.notes_zu("quatsch", client=cl) == []
+
+
 def test_offline_ergibt_leere_liste():
     def kaputt(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("kein Netz")

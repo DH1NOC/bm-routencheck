@@ -126,6 +126,14 @@ def test_start_aufraeumen_verwirft_das_backup(installation):
     t.backup_pfad(installation).write_bytes(b"vorversion")
     ablauf.beim_start_aufraeumen()
     assert not t.backup_pfad(installation).exists()
+    # Das weggeräumte Backup ist der einzige Beleg für ein frisches
+    # Update — der »Was ist neu«-Dialog fragt ihn später ab
+    assert ablauf.frisch_aktualisiert() is True
+
+
+def test_ohne_backup_gilt_der_start_nicht_als_update(installation):
+    ablauf.beim_start_aufraeumen()
+    assert ablauf.frisch_aktualisiert() is False
 
 
 def test_start_aufraeumen_putzt_temp_arbeitsordner_und_altlast(

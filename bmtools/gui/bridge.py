@@ -149,9 +149,12 @@ class Bridge:
         gestartete Version und wird VOR der Netzabfrage fortgeschrieben:
         ein Versuch pro Update (Nutzerentscheidung 2026-07-30) —
         scheitert die Abfrage (offline), verfällt der Dialog, statt bei
-        jedem Start erneut anzuklopfen. Fehlt der Marker (frische
-        Installation oder erste Version mit diesem Feature), wird er
-        nur gesetzt.
+        jedem Start erneut anzuklopfen. Fehlt der Marker, entscheidet
+        das beim Start weggeräumte Backup: frische Installation (kein
+        Backup, nichts zu erzählen) oder erstes Update aus einer
+        Version ohne dieses Feature — dann wenigstens die Notes der
+        jetzt laufenden Version (Windows-Befund 2026-07-30: der Dialog
+        blieb beim allerersten Update stumm).
         """
         from bmtools.version import eigene_version, version_bekannt
 
@@ -163,14 +166,19 @@ class Bridge:
         if stand == aktuell:
             return None
         einstellungen.setzen("changelog_stand", aktuell)
-        if not isinstance(stand, str):
-            return None
-        from bmtools.update.changelog import notes_zwischen
-        from bmtools.update.pruefen import ist_neuer
-        if not ist_neuer(aktuell, stand):
-            return None  # Downgrade/Seitwärts — nichts zu erzählen
+        from bmtools.update import changelog
         try:
-            notes = notes_zwischen(stand, aktuell)
+            if not isinstance(stand, str):
+                from bmtools.update.ablauf import frisch_aktualisiert
+                if not frisch_aktualisiert():
+                    return None
+                # Vorversion unbekannt — nur das Neue der laufenden
+                notes = changelog.notes_zu(aktuell)
+            else:
+                from bmtools.update.pruefen import ist_neuer
+                if not ist_neuer(aktuell, stand):
+                    return None  # Downgrade/Seitwärts — nichts zu erzählen
+                notes = changelog.notes_zwischen(stand, aktuell)
         except Exception:
             return None
         return ([{"version": n.version, "notes": n.notes} for n in notes]

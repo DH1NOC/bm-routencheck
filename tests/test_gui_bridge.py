@@ -354,14 +354,17 @@ def test_export_pdf_schreibt_und_oeffnet(monkeypatch, tmp_path):
 # ---------------------------------------------------------------------------
 
 def _changelog_umgebung(monkeypatch, tmp_path, *, version="0.4.3",
-                        bekannt=True, notes=()):
+                        bekannt=True, notes=(), frisch=False):
     """Bridge mit isolierter gui.json, fester Version und gefakter
-    Notes-Abfrage; zählt die Netz-Aufrufe mit."""
+    Notes-Abfrage; zählt die Netz-Aufrufe mit. `frisch` stellt den
+    Start-Merker: Lag beim Start das Backup der Vorversion da?"""
     aufrufe: list[tuple[str, str]] = []
     monkeypatch.setattr("bmtools.gui.einstellungen.user_config_dir",
                         lambda name: str(tmp_path))
     monkeypatch.setattr("bmtools.version.eigene_version", lambda: version)
     monkeypatch.setattr("bmtools.version.version_bekannt", lambda: bekannt)
+    monkeypatch.setattr("bmtools.update.ablauf.frisch_aktualisiert",
+                        lambda: frisch)
 
     from bmtools.update.changelog import ReleaseNotes
 
@@ -369,8 +372,13 @@ def _changelog_umgebung(monkeypatch, tmp_path, *, version="0.4.3",
         aufrufe.append((von, bis))
         return [ReleaseNotes(v, t) for v, t in notes]
 
+    def fake_notes_zu(gesucht, **kwargs):
+        aufrufe.append(("zu", gesucht))
+        return [ReleaseNotes(v, t) for v, t in notes]
+
     monkeypatch.setattr("bmtools.update.changelog.notes_zwischen",
                         fake_notes)
+    monkeypatch.setattr("bmtools.update.changelog.notes_zu", fake_notes_zu)
     return Bridge(), aufrufe
 
 
@@ -380,6 +388,24 @@ def test_changelog_erster_start_setzt_nur_den_marker(monkeypatch, tmp_path):
     assert b.changelog_nach_update() is None
     assert einstellungen.laden()["changelog_stand"] == "0.4.3"
     assert aufrufe == []  # frische Installation: keine Netzabfrage
+
+
+def test_changelog_beim_ersten_update_ohne_marker(monkeypatch, tmp_path):
+    """Update aus einer Version, die den Marker noch nicht kannte
+    (≤0.4.3): Das beim Start weggeräumte Backup belegt das Update —
+    gezeigt werden die Notes der jetzt laufenden Version, die
+    Vorversion kennt niemand mehr (Windows-Befund 2026-07-30: der
+    Dialog blieb beim allerersten Update stumm)."""
+    from bmtools.gui import einstellungen
+    b, aufrufe = _changelog_umgebung(monkeypatch, tmp_path, frisch=True,
+                                     notes=[("0.4.3", "Neues")])
+    assert b.changelog_nach_update() == [
+        {"version": "0.4.3", "notes": "Neues"}]
+    assert aufrufe == [("zu", "0.4.3")]
+    # Marker fortgeschrieben: der nächste Start bleibt still
+    assert einstellungen.laden()["changelog_stand"] == "0.4.3"
+    assert b.changelog_nach_update() is None
+    assert aufrufe == [("zu", "0.4.3")]
 
 
 def test_changelog_nach_update_liefert_notes(monkeypatch, tmp_path):
