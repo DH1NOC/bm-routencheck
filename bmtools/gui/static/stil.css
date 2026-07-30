@@ -621,6 +621,11 @@ select {
   position: relative;
   flex: 0 0 55%;
   min-height: 0;
+  /* Eigener Stacking-Kontext: Die Leaflet-Panes (z-index 200-800)
+     konkurrierten sonst direkt mit Menü (9) und Dialog (10) und
+     überlagerten das Einstellungsmenü (Sichtprüfungs-Befund
+     2026-07-30, Suchradius-Feature) */
+  isolation: isolate;
 }
 
 /* DataGrid (U5) */
