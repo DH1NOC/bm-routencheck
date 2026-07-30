@@ -863,7 +863,8 @@ function waehleRelais(index, quelle) {
    dauerhaft wirkungslos machen. */
 document.addEventListener("keydown", (ev) => {
   if (ev.key !== "Escape" || feldRelais === null) return;
-  if (!$("#dialog-hintergrund").hidden || !$("#menue").hidden) return;
+  if (!$("#dialog-hintergrund").hidden || !$("#menue").hidden
+      || !$("#changelog-hintergrund").hidden) return;
   if (popupOffen && karte) {
     karte.closePopup();
     return;
@@ -1057,6 +1058,98 @@ async function updatePruefen() {
 
 $("#update-weg").addEventListener("click", () => {
   $("#update-leiste").hidden = true;
+});
+
+/* ----------------------------- »Was ist neu« nach einem Update */
+/* Die Notes kommen unbeglaubigt von der GitHub-API — gerendert wird
+   ausschließlich über Text-Knoten (nie innerHTML mit Fremdtext).
+   Mini-Markdown reicht für unsere Release-Notes: Absätze, Listen
+   (samt hängender Einrückung), **fett**, `code`; Markdown-Links
+   werden zu "Text (URL)" entschärft. */
+
+function inlineMarkdown(ziel, text) {
+  text = text.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, "$1 ($2)");
+  let rest = 0;
+  for (const treffer of
+       text.matchAll(/\*\*[^*]+\*\*|\*[^*\s][^*]*\*|`[^`]+`/g)) {
+    ziel.append(text.slice(rest, treffer.index));
+    const t = treffer[0];
+    const art = t.startsWith("**") ? ["strong", 2]
+      : t.startsWith("*") ? ["em", 1] : ["code", 1];
+    const knoten = document.createElement(art[0]);
+    knoten.textContent = t.slice(art[1], -art[1]);
+    ziel.append(knoten);
+    rest = treffer.index + t.length;
+  }
+  ziel.append(text.slice(rest));
+}
+
+function notesRendern(ziel, markdown) {
+  let liste = null;
+  let letzterBlock = null;  // laufender Absatz bzw. Listenpunkt
+  for (const zeile of markdown.split(/\r?\n/)) {
+    const t = zeile.trim();
+    if (!t) { liste = null; letzterBlock = null; continue; }
+    const punkt = t.match(/^[-*]\s+(.*)$/);
+    if (punkt) {
+      if (!liste) { liste = document.createElement("ul"); ziel.append(liste); }
+      letzterBlock = document.createElement("li");
+      inlineMarkdown(letzterBlock, punkt[1]);
+      liste.append(letzterBlock);
+      continue;
+    }
+    // Folgezeile ohne Leerzeile dazwischen: gehört zum laufenden
+    // Absatz; zu einem Listenpunkt nur bei hängender Einrückung
+    // (unmarkiert endet die Liste wie in Markdown üblich)
+    const fortsetzung = letzterBlock !== null && !/^#/.test(t)
+      && (letzterBlock.tagName === "P" || /^\s/.test(zeile));
+    if (fortsetzung) {
+      letzterBlock.append(" ");
+      inlineMarkdown(letzterBlock, t);
+      continue;
+    }
+    liste = null;
+    letzterBlock = document.createElement("p");
+    inlineMarkdown(letzterBlock, t.replace(/^#+\s*/, ""));
+    ziel.append(letzterBlock);
+  }
+}
+
+function zeigeChangelog(eintraege) {
+  const inhalt = $("#changelog-inhalt");
+  inhalt.replaceChildren();
+  $("#changelog-titel").textContent = eintraege.length === 1
+    ? "Neu in Version " + eintraege[0].version
+    : "Neu seit deiner letzten Version";
+  for (const e of eintraege) {
+    if (eintraege.length > 1) {
+      const kopf = document.createElement("h3");
+      kopf.textContent = "Version " + e.version;
+      inhalt.append(kopf);
+    }
+    notesRendern(inhalt, e.notes || "");
+  }
+  $("#changelog-hintergrund").hidden = false;
+  $("#changelog-schliessen").focus();
+}
+
+async function changelogPruefen() {
+  try {
+    const eintraege = await window.pywebview.api.changelog_nach_update();
+    if (eintraege && eintraege.length) zeigeChangelog(eintraege);
+  } catch (e) {
+    /* Offline oder Erststart — kein Dialog, kein Lärm. */
+  }
+}
+
+$("#changelog-schliessen").addEventListener("click", () => {
+  $("#changelog-hintergrund").hidden = true;
+});
+
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && !$("#changelog-hintergrund").hidden) {
+    $("#changelog-hintergrund").hidden = true;
+  }
 });
 
 /* Fortschritt + ETA des Update-Downloads (Bridge-Ereignis je vollem
@@ -1294,6 +1387,8 @@ window.addEventListener("pywebviewready", async () => {
   // Bewusst NICHT abgewartet: Die Prüfung braucht Netz, der Aufbau des
   // Fensters soll darauf nie warten (DEVELOPER.md „Selbst-Updater").
   updatePruefen();
+  // Ebenfalls ohne Warten: der »Was ist neu«-Dialog nach einem Update
+  changelogPruefen();
 });
 
 /* Fallback für Ansicht im Browser (Entwicklung ohne Bridge) */

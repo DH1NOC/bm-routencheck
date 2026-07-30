@@ -964,7 +964,7 @@ select {
 }
 
 /* ============================================ Material-Dialog (U3) */
-#dialog-hintergrund {
+#dialog-hintergrund, #changelog-hintergrund {
   position: fixed;
   inset: 0;
   z-index: 10;
@@ -973,7 +973,7 @@ select {
   justify-content: center;
   background: rgba(15, 25, 35, .5);
 }
-#dialog {
+#dialog, #changelog-dialog {
   display: flex;
   flex-direction: column;
   width: min(90vw, 34rem);
@@ -1025,6 +1025,30 @@ select {
   justify-content: flex-end;
   gap: .6rem;
   margin-top: 1rem;
+}
+
+/* »Was ist neu« nach einem Update: gleiche Optik wie der Frage-Dialog,
+   der Inhalt scrollt zwischen festem Titel und Knopfzeile */
+#changelog-titel { margin: 0 0 .9rem; font-size: 1rem; font-weight: 650; }
+#changelog-inhalt {
+  min-height: 0;
+  overflow-y: auto;
+  font-size: .88rem;
+  line-height: 1.5;
+}
+#changelog-inhalt h3 {
+  margin: 1.1rem 0 .35rem;
+  font-size: .95rem;
+}
+#changelog-inhalt h3:first-child { margin-top: 0; }
+#changelog-inhalt p { margin: .45rem 0; overflow-wrap: anywhere; }
+#changelog-inhalt ul { margin: .45rem 0; padding-left: 1.25rem; }
+#changelog-inhalt li { margin: .25rem 0; overflow-wrap: anywhere; }
+#changelog-inhalt code {
+  padding: 0 .3em;
+  border-radius: 4px;
+  background: var(--feld);
+  font-size: .92em;
 }
 .dialog-knoepfe .start {
   padding: .5rem 1.1rem;
