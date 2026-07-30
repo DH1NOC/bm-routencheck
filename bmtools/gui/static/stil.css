@@ -925,6 +925,33 @@ select {
   font-size: .78rem;
   color: var(--text-2);
 }
+.menue-feld {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .55rem;
+  padding: .2rem .6rem .3rem;
+  font-size: .85rem;
+  color: var(--text);
+}
+.menue-feld input {
+  font: inherit;
+  width: 4.8rem;
+  padding: .3rem .45rem;
+  border: 1px solid var(--linie);
+  border-radius: 8px;
+  background: var(--feld);
+  color: var(--text);
+  text-align: right;
+}
+.menue-warnung {
+  margin: 0 .6rem .35rem;
+  font-size: .78rem;
+  color: var(--amber);
+  /* Der Hinweistext ist lang — ohne Deckel zöge er das ganze Menü
+     in die Breite (Sichtprüfungs-Befund 2026-07-30) */
+  max-width: 16.5rem;
+}
 .menue-linie {
   border: none;
   border-top: 1px solid var(--linie);

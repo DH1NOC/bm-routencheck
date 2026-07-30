@@ -927,12 +927,46 @@ $$("[data-theme-wahl]").forEach((b) =>
 async function oeffneMenue() {
   $("#menue").hidden = false;
   $("#menue-ordner").disabled = !ergebnisDa;
+  zeigeSuchradius();
   const info = await window.pywebview.api.cache_info();
   $("#menue-cache-info").textContent = info.leer
     ? "Cache ist leer"
     : "Cache: " + info.gesamt + " (" + info.dateien + " Dateien)";
   zeigeUpdateHaken();
 }
+
+/* Suchradius (Relais-Vorfilter der Erreichbarkeitsrechnung). Leeres
+   Feld = Default 60 km; die Hinweis-Schwellen und -Texte spiegeln
+   coverage.py (suchradius_hinweis) — nur Hinweis, keine Sperre. */
+const SUCHRADIUS_DEFAULT_KM = 60;
+
+function zeigeSuchradius() {
+  const km = einstellungen.suchradius;
+  $("#menue-suchradius").value = typeof km === "number" ? km : "";
+  zeigeSuchradiusHinweis(typeof km === "number" ? km : SUCHRADIUS_DEFAULT_KM);
+}
+
+function zeigeSuchradiusHinweis(km) {
+  let text = "";
+  if (km < 25) {
+    text = "Unter 25 km werden womöglich zu wenige Relais gefunden.";
+  } else if (km > 135) {
+    text = "Über 135 km verlängert sich die Laufzeit deutlich, ohne "
+      + "nennenswert mehr erreichbare Relais zu finden.";
+  }
+  $("#menue-suchradius-hinweis").textContent = text;
+  $("#menue-suchradius-hinweis").hidden = !text;
+}
+
+$("#menue-suchradius").addEventListener("input", () => {
+  const km = parseFloat($("#menue-suchradius").value);
+  const wert = Number.isFinite(km) && km > 0 ? km : null;
+  einstellungen.suchradius = wert;
+  if (window.pywebview) {
+    window.pywebview.api.setze_einstellung("suchradius", wert);
+  }
+  zeigeSuchradiusHinweis(wert === null ? SUCHRADIUS_DEFAULT_KM : wert);
+});
 
 /* Zwei Haken im Menü; »aktiv« zeichnet den Haken sichtbar (wie bei der
    Theme-Wahl). Vorgabe: prüfen JA, Vorabversionen NEIN

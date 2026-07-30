@@ -407,6 +407,18 @@
     Dunkel
   </button>
   <hr class="menue-linie">
+  <p class="menue-titel">Relais-Suche</p>
+  <!-- Suchradius: Vorfilter um die Strecke für die Erreichbarkeits-
+       rechnung. Leer = Default 60 km; auffällige Werte bekommen einen
+       Inline-Hinweis (Schwellen 25/135 km wie coverage.py), der Lauf
+       startet aber trotzdem. -->
+  <div class="menue-feld">
+    <label for="menue-suchradius">Suchradius (km)</label>
+    <input type="number" id="menue-suchradius" min="1" step="5"
+           placeholder="60" inputmode="decimal">
+  </div>
+  <p class="menue-warnung" id="menue-suchradius-hinweis" hidden></p>
+  <hr class="menue-linie">
   <p class="menue-titel">Updates</p>
   <!-- Die installierte Version gehört sichtbar: Beta-Tester sollen sie
        melden können, ohne dafür ins Terminal zu wechseln. -->

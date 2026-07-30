@@ -23,19 +23,31 @@ from bmtools.road import RouteInputError
 from .melder import Ereignis, GuiMelder
 
 
+def _suchradius() -> float | None:
+    """Suchradius aus dem Einstellungsmenü (gui.json); None heißt
+    Default (60 km) — auch bei krummen Werten in der Datei."""
+    from . import einstellungen
+    wert = einstellungen.laden().get("suchradius")
+    if not isinstance(wert, (int, float)) or isinstance(wert, bool):
+        return None
+    km = float(wert)
+    return km if km > 0 else None
+
+
 def _namespace(daten: dict[str, Any]) -> argparse.Namespace:
     """Formulardaten → argparse-Namespace mit den CLI-Defaults.
 
     Nicht im Formular abgebildete Flags (Korridor, Gelände, Refresh,
     Bandbreite, CTCSS-Decode, Ausgabeordner) tragen die Defaults der
-    Tools; open=False, weil das Fenster die Ergebnisse selbst zeigt."""
+    Tools; der Suchradius kommt aus dem Einstellungsmenü; open=False,
+    weil das Fenster die Ergebnisse selbst zeigt."""
     return argparse.Namespace(
         modes=str(daten.get("zuggattung") or "alle"),
         time=None,
         arrive=bool(daten.get("ankunft")),
         direct=bool(daten.get("direkt")),
         corridor=None, no_terrain=False, open=False, refresh=False,
-        suchradius=None,
+        suchradius=_suchradius(),
         modus=str(daten.get("modus") or "beide"),
         bandbreite="12.5", ctcss_decode=False,
         # Kein Automatik-PDF: Die GUI exportiert auf Knopfdruck über
@@ -191,7 +203,8 @@ class Lauf:
         out_dir = ausgabe_basis(args) / slug(zone)
         return run_pipeline(
             route, melder=m, out_dir=out_dir, corridor_km=args.corridor,
-            no_terrain=args.no_terrain, open_browser=False, zone=zone,
+            no_terrain=args.no_terrain, suchradius_km=args.suchradius,
+            open_browser=False, zone=zone,
             route_label=route_label, waypoint_icon=icon,
             modus=args.modus, bandbreite=args.bandbreite,
             ctcss_decode=args.ctcss_decode, interactive=False)
