@@ -9,6 +9,7 @@ from bmtools.routelib.coverage import (
     SHADOW,
     estimate_coverage,
     horizon_km,
+    suchradius_hinweis,
 )
 from tests.conftest import make_device
 
@@ -79,6 +80,35 @@ def test_relais_ausserhalb_des_puffers_ignoriert():
     cov = estimate_coverage(_route(10.0), [weit_weg], terrain=None)
     assert cov.reachable_ids == set()
     assert cov.covered_km == 0.0
+
+
+def test_suchradius_erweitert_den_vorfilter():
+    # Dasselbe Relais (~111 km nördlich, Horizont ~136 km) zählt mit,
+    # sobald der Suchradius groß genug gewählt ist
+    weit_weg = make_device(lat=51.0, lng=8.0, agl=1000.0)
+    cov = estimate_coverage(_route(10.0), [weit_weg], terrain=None,
+                            suchradius_km=120.0)
+    assert cov.reachable_ids == {weit_weg.id}
+
+
+def test_suchradius_verkleinert_den_vorfilter():
+    # Relais ~11 km neben der Strecke: mit Default drin, mit 5 km draußen
+    nah = make_device(lat=50.1, lng=8.0, agl=30.0)
+    assert estimate_coverage(_route(10.0), [nah],
+                             terrain=None).reachable_ids == {nah.id}
+    cov = estimate_coverage(_route(10.0), [nah], terrain=None,
+                            suchradius_km=5.0)
+    assert cov.reachable_ids == set()
+
+
+def test_suchradius_hinweis_schwellen():
+    zu_klein = suchradius_hinweis(24.9)
+    assert zu_klein is not None and "klein" in zu_klein
+    assert suchradius_hinweis(25.0) is None
+    assert suchradius_hinweis(60.0) is None
+    assert suchradius_hinweis(135.0) is None
+    zu_gross = suchradius_hinweis(135.1)
+    assert zu_gross is not None and "Laufzeit" in zu_gross
 
 
 def test_leere_strecke_ohne_division_durch_null():
